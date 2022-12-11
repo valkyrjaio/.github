@@ -13,20 +13,13 @@
     <a href="https://styleci.io/repos/304247237"><img src="https://styleci.io/repos/304247237/shield?branch=master&style=flat" alt="StyleCI"></a>
     <!-- <a href="https://coveralls.io/github/valkyrjaio/valkyrja?branch=master"><img src="https://coveralls.io/repos/github/valkyrjaio/valkyrja/badge.svg?branch=master" alt="Coverage Status" /></a> -->
     <a href="https://codecov.io/gh/valkyrjaio/valkyrja"><img src="https://codecov.io/gh/valkyrjaio/valkyrja/branch/master/graph/badge.svg" alt="Codecov" /></a>
+    <a href="https://codeclimate.com/github/valkyrjaio/application/maintainability"><img src="https://api.codeclimate.com/v1/badges/064a68073fd300f90f7e/maintainability" /></a>
 </p>
 
 About Valkyrja
 ------------
 
-[Valkyrja][Valkyrja] is a PHP framework for web and console applications
-
-- Annotations
-- Container
-- Console
-- Events
-- ORM
-- Routing
-- SPEED!
+[Valkyrja][Valkyrja] is a PHP framework for web and console applications.
 
 License
 ---------------
