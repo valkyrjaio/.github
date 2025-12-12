@@ -29,42 +29,7 @@
 About Valkyrja
 ------------
 
-> **Note:** This repository contains the core code of the Valkyrja framework.
-> If you want to build an application using Valkyrja, visit the [Valkyrja App repository][github app repo].
-
 [Valkyrja][Valkyrja] is a PHP framework for web and console applications.
-
-Installation
-------------
-
-* [Install Valkyrja][install] with Composer (see [requirements details][requirements]).
-* Valkyrja follows the [semantic versioning][semantic versioning] strictly.
-
-Documentation
--------------
-
-* Read the [Getting Started guide][getting started] if you are new to Valkyrja.
-* Try the [Valkyrja Demo application][github demo app repo] to learn Valkyrja in practice.
-* Master Valkyrja with the [Basics][basics], the [Modules][modules]
-  and the [Advanced][advanced] docs.
-
-Community
----------
-
-* Follow us on [GitHub][github main].
-* Read our [Code of Conduct][code of conduct]
-
-Contributing
-------------
-
-Valkyrja is an Open Source, community-driven project.
-Join us by [contributing code][contribute code] or reading our [contributing documentation][contributing].
-
-Security Issues
----------------
-
-If you discover a security vulnerability within Valkyrja, please follow our
-[disclosure procedure][security vulnerabilities].
 
 License
 ---------------
