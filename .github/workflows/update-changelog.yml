@@ -21,6 +21,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
       - name: Checkout code
         uses: actions/checkout@v6
         with:
@@ -30,7 +37,7 @@ jobs:
           # Checkout target branch of this release. Ensures that the CHANGELOG
           # is not out of date.
           ref: ${{ inputs.branch }}
-          # token: ${{ secrets.VALKYRJA_GHA_BOT }}
+          token: ${{ steps.generate-token.outputs.token }}
 
       - name: Check if branch and release match
         if: ${{ inputs.branch != 'main' && inputs.branch != 'master' }}
