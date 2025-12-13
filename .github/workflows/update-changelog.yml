@@ -30,6 +30,7 @@ jobs:
           # Checkout target branch of this release. Ensures that the CHANGELOG
           # is not out of date.
           ref: ${{ inputs.branch }}
+          token: ${{ secrets.VALKYRJA_GHA_BOT }}
 
       - name: Check if branch and release match
         if: ${{ inputs.branch != 'main' && inputs.branch != 'master' }}
