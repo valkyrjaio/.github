@@ -4,7 +4,7 @@
 
 # Valkyrja
 
-[Valkyrja][Valkyrja url] is a PHP framework for web and console applications.
+[Valkyrja][Valkyrja url] is a framework for web and console applications.
 
 About Valkyrja
 ------------
