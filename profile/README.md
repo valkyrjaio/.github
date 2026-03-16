@@ -1,5 +1,5 @@
 <p align="center"><a href="https://valkyrja.io" target="_blank">
-    <img src="https://s3.us-east-1.amazonaws.com/valkyrja.io/Banner---Orange-bg.png" width="400">
+    <img src="https://s3.us-east-1.amazonaws.com/valkyrja.io/Banner---Orange-bg.png" width="450">
 </a></p>
 
 # Valkyrja
