@@ -1,4 +1,8 @@
-# Valkyrja GitHub Project
+<p align="center"><a href="https://valkyrja.io" target="_blank">
+    <img src="https://raw.githubusercontent.com/valkyrjaio/art/refs/heads/master/long-banner/orange/default.png" width="100%">
+</a></p>
+
+# Valkyrja GitHub
 
 This is the [special `.github` repository][github-special-repo] for the
 [Valkyrja][valkyrja] organization. Files placed here apply as defaults across
