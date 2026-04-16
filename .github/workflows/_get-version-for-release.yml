@@ -70,7 +70,7 @@ jobs:
             FILTER_PATTERN="^v${BRANCH_MAJOR}\.[0-9]+\.[0-9]+$"
           fi
 
-          LATEST_TAG=$(gh release list --limit 100 --json tagName --jq '.[].tagName' 2>/dev/null \
+          LATEST_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '.[].tagName' 2>/dev/null \
             | grep -E "$FILTER_PATTERN" \
             | sort -V \
             | tail -1 \
