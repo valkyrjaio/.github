@@ -1,0 +1,6 @@
+/.idea
+/.phpunit.cache
+/vendor
+.DS_Store
+dbname*
+Thumbs.db
