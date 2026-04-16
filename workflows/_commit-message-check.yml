@@ -1,0 +1,53 @@
+name: Commit Message Check
+
+on:
+  workflow_call:
+
+jobs:
+  commit-message-check:
+    name: Check Commit Message
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Check Commit Type
+        uses: gsactions/commit-message-checker@v2
+        with:
+          pattern: '\[[^\]]+\] .+$'
+          error: 'Your first line has to contain a commit type like "[Documentation]".'
+          excludeDescription: 'true'
+
+      - name: Check Line Length
+        uses: gsactions/commit-message-checker@v2
+        with:
+          pattern: '(.*){74}'
+          error: 'The maximum line length of 74 characters is exceeded.'
+          excludeDescription: 'true'
+          excludeTitle: 'true'
+          checkAllCommitMessages: 'true'
+          accessToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check Period at end
+        uses: gsactions/commit-message-checker@v2
+        with:
+          pattern: '(.*).'
+          error: 'Your first line has to end in a period.'
+          excludeDescription: 'true'
+          excludeTitle: 'true'
+          checkAllCommitMessages: 'true'
+          accessToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Report failure in PR comment
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr comment "$PR_URL" --body "Commit message does not adhere to requirements. Please fix this."
