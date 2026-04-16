@@ -40,7 +40,7 @@ jobs:
       - name: Compute new version
         id: compute-version
         env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           BUMP: ${{ inputs.bump }}
           BRANCH: ${{ github.ref_name }}
           LATEST_MAJOR_VERSION: ${{ vars.LATEST_MAJOR_VERSION }}
@@ -78,11 +78,15 @@ jobs:
 
           if [ -z "$LATEST_TAG" ]; then
             if [ "$BUMP" = "major" ]; then
-              # First ever release
+              # First ever release — major will increment from 0
               LATEST_MAJOR=0
             else
-              echo "No existing releases found. Cannot determine base version for a ${BUMP} bump."
-              exit 1
+              # No releases yet — seed from current year (e.g. 2026 → 26.0.0)
+              YEAR=$(date +%Y)
+              LATEST_MAJOR="${YEAR:2}"
+              LATEST_MINOR=0
+              LATEST_PATCH=0
+              echo "No existing releases found. Seeding base version from current year: v${LATEST_MAJOR}.0.0"
             fi
           else
             LATEST="${LATEST_TAG#v}"
@@ -128,7 +132,7 @@ jobs:
 
       - name: Check if version tag already exists
         env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           VERSION: v${{ steps.compute-version.outputs.version }}
         run: |
           if gh release view "$VERSION" --json tagName >/dev/null 2>&1; then
