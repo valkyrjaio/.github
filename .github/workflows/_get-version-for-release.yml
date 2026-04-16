@@ -108,6 +108,73 @@ jobs:
             echo "Version does not exist! Proceeding."
           fi
 
+      - name: Get latest release version
+        id: latest-release
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          MAJOR_VERSION: ${{ steps.major-version.outputs.version }}
+        run: |
+          LATEST_TAG=$(gh release list --limit 100 --json tagName --jq '.[].tagName' 2>/dev/null \
+            | grep -E "^v${MAJOR_VERSION}\.[0-9]+\.[0-9]+$" \
+            | sort -V \
+            | tail -1 \
+            || echo "")
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No previous releases found for v${MAJOR_VERSION}.x. Skipping increment check."
+            echo "version=" >> "$GITHUB_OUTPUT"
+          else
+            echo "Latest v${MAJOR_VERSION}.x release: $LATEST_TAG"
+            echo "version=${LATEST_TAG#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check version is valid increment
+        env:
+          LATEST_VERSION: ${{ steps.latest-release.outputs.version }}
+          NEW_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if [ -z "$LATEST_VERSION" ]; then
+            echo "No previous releases found. Skipping increment check."
+            exit 0
+          fi
+
+          LATEST_MAJOR=$(echo "$LATEST_VERSION" | cut -d. -f1)
+          LATEST_MINOR=$(echo "$LATEST_VERSION" | cut -d. -f2)
+          LATEST_PATCH=$(echo "$LATEST_VERSION" | cut -d. -f3)
+
+          NEW_MAJOR=$(echo "$NEW_VERSION" | cut -d. -f1)
+          NEW_MINOR=$(echo "$NEW_VERSION" | cut -d. -f2)
+          NEW_PATCH=$(echo "$NEW_VERSION" | cut -d. -f3)
+
+          echo "Latest release: v$LATEST_VERSION"
+          echo "New release:    v$NEW_VERSION"
+
+          # Major bump: (latest_major+1).0.0
+          if [ "$NEW_MAJOR" -eq "$((LATEST_MAJOR + 1))" ] && [ "$NEW_MINOR" -eq "0" ] && [ "$NEW_PATCH" -eq "0" ]; then
+            echo "Valid major version bump."
+            exit 0
+          fi
+
+          # Minor bump: latest_major.(latest_minor+1).0
+          if [ "$NEW_MAJOR" -eq "$LATEST_MAJOR" ] && [ "$NEW_MINOR" -eq "$((LATEST_MINOR + 1))" ] && [ "$NEW_PATCH" -eq "0" ]; then
+            echo "Valid minor version bump."
+            exit 0
+          fi
+
+          # Patch bump: latest_major.latest_minor.(latest_patch+1)
+          if [ "$NEW_MAJOR" -eq "$LATEST_MAJOR" ] && [ "$NEW_MINOR" -eq "$LATEST_MINOR" ] && [ "$NEW_PATCH" -eq "$((LATEST_PATCH + 1))" ]; then
+            echo "Valid patch version bump."
+            exit 0
+          fi
+
+          echo "Invalid version. Expected one of:"
+          echo "  Major bump: v$((LATEST_MAJOR + 1)).0.0"
+          echo "  Minor bump: v${LATEST_MAJOR}.$((LATEST_MINOR + 1)).0"
+          echo "  Patch bump: v${LATEST_MAJOR}.${LATEST_MINOR}.$((LATEST_PATCH + 1))"
+          echo "Got: v$NEW_VERSION"
+
+          exit 1
+
       - name: Check if branch and version match
         if: ${{ github.ref_name != 'main' && github.ref_name != 'master' }}
         id: guard
