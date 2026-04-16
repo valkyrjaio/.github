@@ -86,6 +86,9 @@ jobs:
           compare-url-target-revision: ${{ github.ref_name }}
           parse-github-usernames: true
 
+      - name: Pull latest changes before committing
+        run: git pull --rebase origin ${{ github.ref_name }}
+
       - name: Commit updated CHANGELOG
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
