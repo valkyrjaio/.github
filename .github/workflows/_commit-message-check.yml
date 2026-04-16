@@ -22,6 +22,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Generate a token
+        id: generate-token
+        if: github.event.pull_request.number && inputs.post-pr-comment
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
       - name: Check Commit Type
         uses: gsactions/commit-message-checker@v2
         with:
@@ -57,7 +65,7 @@ jobs:
       - name: Report failure in PR comment
         if: failure() && github.event.pull_request.number && inputs.post-pr-comment
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
@@ -72,7 +80,7 @@ jobs:
       - name: Remove failure comment on success
         if: success() && github.event.pull_request.number && inputs.post-pr-comment
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
