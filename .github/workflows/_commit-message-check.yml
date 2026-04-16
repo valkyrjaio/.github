@@ -25,19 +25,24 @@ jobs:
           excludeDescription: 'true'
 
       - name: Check Line Length
-        uses: gsactions/commit-message-checker@v2
-        with:
-          pattern: '(.*){74}'
-          error: 'The maximum line length of 74 characters is exceeded.'
-          excludeDescription: 'true'
-          excludeTitle: 'true'
-          checkAllCommitMessages: 'true'
-          accessToken: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMITS=$(gh api \
+            "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/commits" \
+            --jq '.[].commit.message')
+
+          while IFS= read -r line; do
+            if [ ${#line} -gt 74 ]; then
+              echo "Line exceeds 74 characters: $line"
+              exit 1
+            fi
+          done <<< "$COMMITS"
 
       - name: Check Period at end
         uses: gsactions/commit-message-checker@v2
         with:
-          pattern: '(.*).'
+          pattern: '.*\.$'
           error: 'Your first line has to end in a period.'
           excludeDescription: 'true'
           excludeTitle: 'true'
