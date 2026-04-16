@@ -61,8 +61,12 @@ jobs:
           git config --global user.email "${{ vars.USER_EMAIL }}"
           git config --global user.name "${{ vars.USER_NAME }}"
 
-      - name: Cherry Pick ${{ inputs.hash }} to ${{ inputs.destination }}
+      - name: Backup ${{ inputs.destination }}
         run: |
           git checkout ${{ inputs.destination }}
+          git push --force-with-lease origin ${{ inputs.destination }}:${{ inputs.destination }}-backup
+
+      - name: Cherry Pick ${{ inputs.hash }} to ${{ inputs.destination }}
+        run: |
           git cherry-pick ${{ inputs.hash }}
           git push origin ${{ inputs.destination }}
