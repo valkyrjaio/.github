@@ -1,0 +1,62 @@
+name: Rebase to Master
+
+on:
+  workflow_call:
+    inputs:
+      source-branch:
+        description: 'Branch to rebase master onto. Defaults to the latest major version branch (LATEST_MAJOR_VERSION.x).'
+        type: string
+        required: false
+        default: ''
+
+jobs:
+  rebase:
+    name: "Rebase master onto ${{ inputs.source-branch || 'latest major version branch' }}"
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Set up Git user
+        run: |
+          git config --global user.email "${{ vars.USER_EMAIL }}"
+          git config --global user.name "${{ vars.USER_NAME }}"
+
+      - name: Resolve source branch
+        id: source-branch
+        env:
+          SOURCE_BRANCH: ${{ inputs.source-branch }}
+          LATEST_MAJOR_VERSION: ${{ vars.LATEST_MAJOR_VERSION }}
+        run: |
+          if [ -n "$SOURCE_BRANCH" ]; then
+            echo "branch=$SOURCE_BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "branch=${LATEST_MAJOR_VERSION}.x" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Rebase master onto ${{ steps.source-branch.outputs.branch }}
+        env:
+          SOURCE_BRANCH: ${{ steps.source-branch.outputs.branch }}
+        run: |
+          git fetch origin "$SOURCE_BRANCH"
+          git checkout master
+          git rebase "origin/$SOURCE_BRANCH"
+
+      - name: Push master
+        run: |
+          git push --force-with-lease origin master
