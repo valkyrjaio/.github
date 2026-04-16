@@ -2,6 +2,11 @@ name: Commit Message Check
 
 on:
   workflow_call:
+    inputs:
+      post-pr-comment:
+        description: 'Whether to post a PR comment on failure (and delete it on success)'
+        type: boolean
+        default: true
 
 jobs:
   commit-message-check:
@@ -50,9 +55,30 @@ jobs:
           accessToken: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Report failure in PR comment
-        if: failure() && github.event.pull_request.number
+        if: failure() && github.event.pull_request.number && inputs.post-pr-comment
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} --body "Commit message does not adhere to requirements. Please fix this."
+          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | contains("<!-- workflow-id: commit-message-check -->")) | .id' \
+            | head -1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+          fi
+          gh pr comment "$PR_NUMBER" --body "Commit message does not adhere to requirements. Please fix this. <!-- workflow-id: commit-message-check -->"
+
+      - name: Remove failure comment on success
+        if: success() && github.event.pull_request.number && inputs.post-pr-comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | contains("<!-- workflow-id: commit-message-check -->")) | .id' \
+            | head -1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+          fi
