@@ -4,10 +4,10 @@ Anybody who uses Valkyrja can be a contributing member of the community that
 develops and releases it; the task of releasing Valkyrja, documentation and
 associated websites is a never-ending one. With every release or release
 candidate comes a wave of work, which takes a lot of organization and
-co-ordination.
+coordination.
 
 You don't need any special access to download, build, debug and begin submitting
-PHP code, tests or documentation.
+code, tests or documentation.
 
 Thank you for your interest in helping us develop, maintain, and release the
 Valkyrja framework!
@@ -24,9 +24,12 @@ these few things before submitting a PR:
 2. Please ensure a PR doesn't already exist that covers your change.
 
 3. PRs with no tests will be ignored, or a comment will be left asking you to
-   add test.
+   add tests.
 
 4. PRs must pass all CI checks. Please run all the CI checks locally.
+
+    #### PHP
+
     1. PHPArkitect: `composer phparkitect`
     2. PHP Code Sniffer: `composer phpcodesniffer`
     3. PHP CS Fixer: `composer phpcsfixer`
@@ -52,7 +55,7 @@ these few things before submitting a PR:
         5. Use `[ModuleName]` for any module changes
            (for example: Container, Http, Cli, etc.)
        6. Use `[Composer]` for composer related changes
-       7. Use `[Depcrecation]` for any deprecations
+       7. Use `[Deprecation]` for any deprecations
        8. Use `[Functions]` for helper function changes
        9. Use `[VERSION.x]` for version specific changes (`[25.x]` for example)
        10. `[Release]` is reserved for releases
@@ -61,100 +64,10 @@ these few things before submitting a PR:
 
 ### Branches for Code Changes
 
-| Branch |                                                                                                                     |
-|--------|---------------------------------------------------------------------------------------------------------------------|
-| master | Active development branch for v26, which is open for backwards incompatible changes and major internal API changes. |
-| 25.x   | Is used to release the 25.x series. This is a current stable version and is open for bugfixes only.                 |
-
-## Directory Structure
-
-This will provide an overview of the basic structure of the Valkyrja framework.
-Each directory will have a readme file for further information about that
-specific directory. The documentation for each module is also within the module
-itself.
-
-For modules the main overall structure applies within a module as well.
-For example, if a module has files that relate to another module the structure
-would follow the module it is replicating. Cli commands for a module would
-follow the same structure as the main Cli module `ModuleName\Cli\Command` for
-their commands.
-
-The overall directory structure is set by rules within PHPArkitect.
-
-```bash
-<valkyrja>/
-  └─ .github/               # GitHub specific configurations
-    └─ ci                   # CI specific configurations
-      ├─ churn              # Churn PHP analysis
-      ├─ phparkitect        # PHPArkitect code rules
-      ├─ phpcodesniffer     # PHP Code Sniffer standards
-      ├─ phpcsfixer         # PHP CS Fixer code style rules
-      ├─ phpmetrics         # PHPMetrics analysis
-      ├─ phpstan            # PHPStan static analysis
-      ├─ phpunit            # PHPUnit tests
-      ├─ psalm              # Psalm static analysis
-      ├─ rector             # Rector PHP code upgrade tool
-      ├─ scrutinizer        # Scrutinizer code analysis config
-      └─ suggested          # Configs for suggested composer packages
-    ├─ ISSUE_TEMPLATE       # GitHub template files for new issue creation
-    ├─ workflows            # GitHub action workflow config files
-    └─ ...
-  ├─ bin/                   # Composer exported bin files
-  ├─ functions/             # Composer exported helper functions
-  ├─ pre-commit-hooks/      # Shell scripts to run with pre-commit for git
-  └─ src/
-    └─ Valkyrja/            # Valkyrja\ namespace directory
-      ├─ Api/               # Api module
-      ├─ Application/       # Application module
-      ├─ Attribute/         # Attribute module
-      ├─ Auth/              # Auth module
-      ├─ Broadcast/         # Broadcast module
-      ├─ Cache/             # Cache module
-      └─ Cli/               # Cli module
-        ├─ Command/         # Main Cli commands
-        ├─ Exception/       # Shared Exception files for the Cli module
-        ├─ Interaction/     # Cli interaction module
-        ├─ Middleware/      # Cli middlware module
-        ├─ Routing/         # Cli routing module
-        ├─ Server/          # Cli server module
-        └─ ...
-      ├─ Container/         # Container module
-      ├─ Crypt/             # Crypt module
-      ├─ Dispatcher/        # Dispatcher module
-      ├─ Event/             # Event module
-      ├─ Exception/         # Exception module
-      ├─ Filesystem/        # Filesystem module
-      └─ Http/              # Http module
-        ├─ Client/          # Client (PSR-18 compliant) module
-        ├─ Exception/       # Shared Exception files for the Http module
-        ├─ Message/         # Http message (PSR-7 compliant-ish) module
-        ├─ Middleware/      # Http middleware module
-        ├─ Routing/         # Http routing module
-        ├─ Server/          # Http server module
-        ├─ Struct/          # Http struct module
-        └─ ...
-      ├─ Jwt/               # Jwt module
-      ├─ Log/               # Log module
-      ├─ Mail/              # Mail module
-      ├─ Notification/      # Notification module
-      ├─ Orm/               # Orm module
-      ├─ Reflection/        # Reflection module
-      ├─ Session/           # Session module
-      ├─ Sms/               # Sms module
-      ├─ Support/           # Support module
-      ├─ Type/              # Type module
-      ├─ Validation/        # Validation module
-      ├─ View/              # View module
-      └─ ...
-  └─ tests/                 # Valkyrja\Tests namespace
-    ├─ Classes/             # Mock/Stub classes for assisting in tests (follows directory structure of /src/Valkyrja modules)
-    ├─ end-to-end/          # phpt test files
-    ├─ Functional/          # Functional tests
-    ├─ storage/             # Directory used for unit tests
-    ├─ Trait/               # Traits for tests
-    └─ Unit/                # PHPUnit tests (follows directory structure of /src/Valkyrja modules)
-  └─ ...
-```
+| Branch    |                                                                                                         |
+|-----------|---------------------------------------------------------------------------------------------------------|
+| master    | Active development branch, open for backwards incompatible changes and major internal API changes.      |
+| `??.x`    | Version maintenance branches. Open for bugfixes only.                                                   |
 
 ## Getting Help
 
