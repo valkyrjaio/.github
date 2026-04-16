@@ -2,16 +2,10 @@ name: Rebase to Master
 
 on:
   workflow_call:
-    inputs:
-      source-branch:
-        description: 'Branch to rebase master onto. Defaults to the latest major version branch (LATEST_MAJOR_VERSION.x).'
-        type: string
-        required: false
-        default: ''
 
 jobs:
   rebase:
-    name: "Rebase master onto ${{ inputs.source-branch || 'latest major version branch' }}"
+    name: "Rebase master onto ${{ github.ref_name }}"
 
     runs-on: ubuntu-latest
 
@@ -37,21 +31,9 @@ jobs:
           git config --global user.email "${{ vars.USER_EMAIL }}"
           git config --global user.name "${{ vars.USER_NAME }}"
 
-      - name: Resolve source branch
-        id: source-branch
-        env:
-          SOURCE_BRANCH: ${{ inputs.source-branch }}
-          LATEST_MAJOR_VERSION: ${{ vars.LATEST_MAJOR_VERSION }}
-        run: |
-          if [ -n "$SOURCE_BRANCH" ]; then
-            echo "branch=$SOURCE_BRANCH" >> "$GITHUB_OUTPUT"
-          else
-            echo "branch=${LATEST_MAJOR_VERSION}.x" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Validate source branch is latest major version
         env:
-          SOURCE_BRANCH: ${{ steps.source-branch.outputs.branch }}
+          SOURCE_BRANCH: ${{ github.ref_name }}
           LATEST_MAJOR_VERSION: ${{ vars.LATEST_MAJOR_VERSION }}
         run: |
           SOURCE_MAJOR="${SOURCE_BRANCH%%.*}"
@@ -73,12 +55,10 @@ jobs:
           git checkout master
           git push --force-with-lease origin master:master-backup
 
-      - name: Rebase master onto ${{ steps.source-branch.outputs.branch }}
-        env:
-          SOURCE_BRANCH: ${{ steps.source-branch.outputs.branch }}
+      - name: Rebase master onto ${{ github.ref_name }}
         run: |
-          git fetch origin "$SOURCE_BRANCH"
-          git rebase "origin/$SOURCE_BRANCH"
+          git fetch origin "${{ github.ref_name }}"
+          git rebase "origin/${{ github.ref_name }}"
 
       - name: Push master
         run: |
