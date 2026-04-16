@@ -87,7 +87,10 @@ jobs:
           parse-github-usernames: true
 
       - name: Pull latest changes before committing
-        run: git pull --rebase origin ${{ github.ref_name }}
+        run: |
+          git stash
+          git pull --rebase origin ${{ github.ref_name }}
+          git stash pop
 
       - name: Commit updated CHANGELOG
         uses: stefanzweifel/git-auto-commit-action@v7
