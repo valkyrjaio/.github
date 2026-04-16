@@ -3,21 +3,13 @@ name: Get Version For Release
 on:
   workflow_call:
     inputs:
-      version:
-        description: 'Version to release (e.g. v26.1.0)'
+      bump:
+        description: 'Version component to bump (major, minor, or patch)'
         type: string
         required: true
-      supported-versions:
-        description: >
-          Pipe-separated list of supported major versions (e.g. 26 or 26|27).
-          Defaults to the SUPPORTED_VERSIONS organization variable, falling back to 26.
-          Format is (MINIMUM_MAJOR_VERSION_SUPPORTED|CURRENT_MAJOR_VERSION_SUPPORTED)
-        type: string
-        required: false
-        default: ${{ vars.SUPPORTED_VERSIONS || '26' }}
     outputs:
       version:
-        description: 'The version without v prefix (e.g. 26.1.0)'
+        description: 'The computed version without v prefix (e.g. 26.1.0)'
         value: ${{ jobs.get-version-for-release.outputs.version }}
       major-version:
         description: 'The major version number (e.g. 26)'
@@ -28,42 +20,123 @@ on:
 
 jobs:
   get-version-for-release:
-    name: Validate Release Version
+    name: Compute Release Version
 
     runs-on: ubuntu-latest
 
     outputs:
-      version: ${{ steps.version.outputs.version }}
-      major-version: ${{ steps.major-version.outputs.version }}
+      version: ${{ steps.compute-version.outputs.version }}
+      major-version: ${{ steps.compute-version.outputs.major-version }}
       build-date: ${{ steps.build-date.outputs.date }}
 
     steps:
-      - name: Validate Format
-        env:
-          VERSION: ${{ inputs.version }}
-          SUPPORTED_VERSIONS: ${{ inputs.supported-versions }}
-        run: |
-          if [[ $VERSION =~ ^v($SUPPORTED_VERSIONS).([0-9]+).([0-9]+)$ ]]; then
-            echo "Valid version"
-          else
-            echo "Invalid version passed"
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
+      - name: Compute new version
+        id: compute-version
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          BUMP: ${{ inputs.bump }}
+          BRANCH: ${{ github.ref_name }}
+          LATEST_MAJOR_VERSION: ${{ vars.LATEST_MAJOR_VERSION }}
+        run: |
+          # Validate branch and bump combination
+          if [ "$BRANCH" = "master" ]; then
+            IS_MASTER=true
+          elif [[ "$BRANCH" =~ ^([0-9]+)\.x$ ]]; then
+            IS_MASTER=false
+            BRANCH_MAJOR="${BASH_REMATCH[1]}"
+
+            if [ "$BUMP" = "major" ]; then
+              echo "Major version bumps must be released from master, not from a feature branch."
+              exit 1
+            fi
+          else
+            echo "Releases must be triggered from master or a major version branch (e.g. 26.x)."
             exit 1
           fi
 
-      - name: Remove "v" prefix
-        id: version
-        env:
-          VERSION: ${{ inputs.version }}
-        run: |
-          echo "version=${VERSION#v}" >> "$GITHUB_OUTPUT"
+          # Determine which releases to look at
+          if [ "$IS_MASTER" = "true" ]; then
+            # On master: compare against the globally highest release
+            FILTER_PATTERN="^v[0-9]+\.[0-9]+\.[0-9]+$"
+          else
+            # On a feature branch: only look at this major's releases
+            FILTER_PATTERN="^v${BRANCH_MAJOR}\.[0-9]+\.[0-9]+$"
+          fi
 
-      - name: Get major version number
-        id: major-version
+          LATEST_TAG=$(gh release list --limit 100 --json tagName --jq '.[].tagName' 2>/dev/null \
+            | grep -E "$FILTER_PATTERN" \
+            | sort -V \
+            | tail -1 \
+            || echo "")
+
+          if [ -z "$LATEST_TAG" ]; then
+            if [ "$BUMP" = "major" ]; then
+              # First ever release
+              LATEST_MAJOR=0
+            else
+              echo "No existing releases found. Cannot determine base version for a ${BUMP} bump."
+              exit 1
+            fi
+          else
+            LATEST="${LATEST_TAG#v}"
+            LATEST_MAJOR=$(echo "$LATEST" | cut -d. -f1)
+            LATEST_MINOR=$(echo "$LATEST" | cut -d. -f2)
+            LATEST_PATCH=$(echo "$LATEST" | cut -d. -f3)
+            echo "Latest release: $LATEST_TAG"
+          fi
+
+          # Calculate new version
+          case "$BUMP" in
+            major)
+              NEW_MAJOR=$((LATEST_MAJOR + 1))
+              NEW_MINOR=0
+              NEW_PATCH=0
+
+              if [ "$NEW_MAJOR" -gt "$LATEST_MAJOR_VERSION" ]; then
+                echo "Cannot release v${NEW_MAJOR}.0.0: the ${NEW_MAJOR}.x branch does not exist yet."
+                echo "Run create-version-branch first to create the ${NEW_MAJOR}.x branch."
+                exit 1
+              fi
+              ;;
+            minor)
+              NEW_MAJOR="$LATEST_MAJOR"
+              NEW_MINOR=$((LATEST_MINOR + 1))
+              NEW_PATCH=0
+              ;;
+            patch)
+              NEW_MAJOR="$LATEST_MAJOR"
+              NEW_MINOR="$LATEST_MINOR"
+              NEW_PATCH=$((LATEST_PATCH + 1))
+              ;;
+            *)
+              echo "Invalid bump type: $BUMP. Must be major, minor, or patch."
+              exit 1
+              ;;
+          esac
+
+          NEW_VERSION="${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}"
+          echo "Computed version: v$NEW_VERSION"
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "major-version=$NEW_MAJOR" >> "$GITHUB_OUTPUT"
+
+      - name: Check if version tag already exists
         env:
-          NUMERIC_VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          VERSION: v${{ steps.compute-version.outputs.version }}
         run: |
-          echo "version=${NUMERIC_VERSION%%.*}" >> "$GITHUB_OUTPUT"
+          if gh release view "$VERSION" --json tagName >/dev/null 2>&1; then
+            echo "Version $VERSION already exists! Aborting."
+            exit 1
+          fi
+
+          echo "Version $VERSION does not exist. Proceeding."
 
       - name: Get date for build
         id: build-date
@@ -73,125 +146,3 @@ jobs:
 
           # Make date available to other steps
           echo "date=$(echo $FORMATED_DATE)" >> $GITHUB_OUTPUT;
-
-      - name: Generate a token
-        id: generate-token
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
-          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
-
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          token: ${{ steps.generate-token.outputs.token }}
-
-      - name: Get all tags for repository
-        id: get_tags
-        uses: octokit/request-action@v2.x
-        env:
-          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
-        with:
-          route: GET /repos/${{ github.repository }}/git/matching-refs/tags
-
-      - name: Check if version already exists
-        id: version-guard
-        env:
-          VERSION: v${{ steps.version.outputs.version }}
-          TAGS: ${{ steps.get_tags.outputs.data }}
-        run: |
-          if [[ $TAGS == *"refs/tags/$VERSION"* ]]; then
-            echo "Version exists! Aborting."
-
-            exit 1
-          else
-            echo "Version does not exist! Proceeding."
-          fi
-
-      - name: Get latest release version
-        id: latest-release
-        env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
-          MAJOR_VERSION: ${{ steps.major-version.outputs.version }}
-        run: |
-          LATEST_TAG=$(gh release list --limit 100 --json tagName --jq '.[].tagName' 2>/dev/null \
-            | grep -E "^v${MAJOR_VERSION}\.[0-9]+\.[0-9]+$" \
-            | sort -V \
-            | tail -1 \
-            || echo "")
-
-          if [ -z "$LATEST_TAG" ]; then
-            echo "No previous releases found for v${MAJOR_VERSION}.x. Skipping increment check."
-            echo "version=" >> "$GITHUB_OUTPUT"
-          else
-            echo "Latest v${MAJOR_VERSION}.x release: $LATEST_TAG"
-            echo "version=${LATEST_TAG#v}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Check version is valid increment
-        env:
-          LATEST_VERSION: ${{ steps.latest-release.outputs.version }}
-          NEW_VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          if [ -z "$LATEST_VERSION" ]; then
-            echo "No previous releases found. Skipping increment check."
-            exit 0
-          fi
-
-          LATEST_MAJOR=$(echo "$LATEST_VERSION" | cut -d. -f1)
-          LATEST_MINOR=$(echo "$LATEST_VERSION" | cut -d. -f2)
-          LATEST_PATCH=$(echo "$LATEST_VERSION" | cut -d. -f3)
-
-          NEW_MAJOR=$(echo "$NEW_VERSION" | cut -d. -f1)
-          NEW_MINOR=$(echo "$NEW_VERSION" | cut -d. -f2)
-          NEW_PATCH=$(echo "$NEW_VERSION" | cut -d. -f3)
-
-          echo "Latest release: v$LATEST_VERSION"
-          echo "New release:    v$NEW_VERSION"
-
-          # Major bump: (latest_major+1).0.0
-          if [ "$NEW_MAJOR" -eq "$((LATEST_MAJOR + 1))" ] && [ "$NEW_MINOR" -eq "0" ] && [ "$NEW_PATCH" -eq "0" ]; then
-            echo "Valid major version bump."
-            exit 0
-          fi
-
-          # Minor bump: latest_major.(latest_minor+1).0
-          if [ "$NEW_MAJOR" -eq "$LATEST_MAJOR" ] && [ "$NEW_MINOR" -eq "$((LATEST_MINOR + 1))" ] && [ "$NEW_PATCH" -eq "0" ]; then
-            echo "Valid minor version bump."
-            exit 0
-          fi
-
-          # Patch bump: latest_major.latest_minor.(latest_patch+1)
-          if [ "$NEW_MAJOR" -eq "$LATEST_MAJOR" ] && [ "$NEW_MINOR" -eq "$LATEST_MINOR" ] && [ "$NEW_PATCH" -eq "$((LATEST_PATCH + 1))" ]; then
-            echo "Valid patch version bump."
-            exit 0
-          fi
-
-          echo "Invalid version. Expected one of:"
-          echo "  Major bump: v$((LATEST_MAJOR + 1)).0.0"
-          echo "  Minor bump: v${LATEST_MAJOR}.$((LATEST_MINOR + 1)).0"
-          echo "  Patch bump: v${LATEST_MAJOR}.${LATEST_MINOR}.$((LATEST_PATCH + 1))"
-          echo "Got: v$NEW_VERSION"
-
-          exit 1
-
-      - name: Check if branch and version match
-        if: ${{ github.ref_name != 'main' && github.ref_name != 'master' }}
-        id: guard
-        env:
-          BRANCH: ${{ github.ref_name }}
-          NUMERIC_VERSION: ${{ steps.version.outputs.version }}
-          MAJOR_VERSION: ${{ steps.major-version.outputs.version }}
-        run: |
-          BRANCH_MAJOR_VERSION="${BRANCH%%.*}"
-
-          echo "Release major version: $MAJOR_VERSION"
-          echo "Branch major version: $BRANCH_MAJOR_VERSION"
-
-          if [ "$MAJOR_VERSION" != "$BRANCH_MAJOR_VERSION" ]; then
-            echo "Mismatched versions! Aborting."
-
-            exit 1
-          else
-            echo "Versions match! Proceeding."
-          fi
