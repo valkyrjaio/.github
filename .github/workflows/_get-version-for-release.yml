@@ -1,0 +1,130 @@
+name: Get Version For Release
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version to release (e.g. v26.1.0)'
+        type: string
+        required: true
+      supported-versions:
+        description: >
+          Pipe-separated list of supported major versions (e.g. 26 or 26|27).
+          Defaults to the SUPPORTED_VERSIONS organization variable, falling back to 26.
+          Format is (MINIMUM_MAJOR_VERSION_SUPPORTED|CURRENT_MAJOR_VERSION_SUPPORTED)
+        type: string
+        required: false
+        default: ${{ vars.SUPPORTED_VERSIONS || '26' }}
+    outputs:
+      version:
+        description: 'The version without v prefix (e.g. 26.1.0)'
+        value: ${{ jobs.get-version-for-release.outputs.version }}
+      major-version:
+        description: 'The major version number (e.g. 26)'
+        value: ${{ jobs.get-version-for-release.outputs.major-version }}
+      build-date:
+        description: 'The build date in MST (e.g. April 16 2026 12:00:00 MST)'
+        value: ${{ jobs.get-version-for-release.outputs.build-date }}
+
+jobs:
+  get-version-for-release:
+    name: Validate Release Version
+
+    runs-on: ubuntu-latest
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      major-version: ${{ steps.major-version.outputs.version }}
+      build-date: ${{ steps.build-date.outputs.date }}
+
+    steps:
+      - name: Validate Format
+        env:
+          VERSION: ${{ inputs.version }}
+          SUPPORTED_VERSIONS: ${{ inputs.supported-versions }}
+        run: |
+          if [[ $VERSION =~ ^v($SUPPORTED_VERSIONS).([0-9]+).([0-9]+)$ ]]; then
+            echo "Valid version"
+          else
+            echo "Invalid version passed"
+
+            exit 1
+          fi
+
+      - name: Remove "v" prefix
+        id: version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          echo "version=${VERSION#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Get major version number
+        id: major-version
+        env:
+          NUMERIC_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "version=${NUMERIC_VERSION%%.*}" >> "$GITHUB_OUTPUT"
+
+      - name: Get date for build
+        id: build-date
+        run: |
+          # Convert timestamp to MST date in human-readable format
+          FORMATED_DATE=$(TZ='America/Phoenix' date '+%B %-d %Y %T MST')
+
+          # Make date available to other steps
+          echo "date=$(echo $FORMATED_DATE)" >> $GITHUB_OUTPUT;
+
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Get all tags for repository
+        id: get_tags
+        uses: octokit/request-action@v2.x
+        env:
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+        with:
+          route: GET /repos/${{ github.repository }}/git/matching-refs/tags
+
+      - name: Check if version already exists
+        id: version-guard
+        env:
+          VERSION: v${{ steps.version.outputs.version }}
+          TAGS: ${{ steps.get_tags.outputs.data }}
+        run: |
+          if [[ $TAGS == *"refs/tags/$VERSION"* ]]; then
+            echo "Version exists! Aborting."
+
+            exit 1
+          else
+            echo "Version does not exist! Proceeding."
+          fi
+
+      - name: Check if branch and version match
+        if: ${{ github.ref_name != 'main' && github.ref_name != 'master' }}
+        id: guard
+        env:
+          BRANCH: ${{ github.ref_name }}
+          NUMERIC_VERSION: ${{ steps.version.outputs.version }}
+          MAJOR_VERSION: ${{ steps.major-version.outputs.version }}
+        run: |
+          BRANCH_MAJOR_VERSION="${BRANCH%%.*}"
+
+          echo "Release major version: $MAJOR_VERSION"
+          echo "Branch major version: $BRANCH_MAJOR_VERSION"
+
+          if [ "$MAJOR_VERSION" != "$BRANCH_MAJOR_VERSION" ]; then
+            echo "Mismatched versions! Aborting."
+
+            exit 1
+          else
+            echo "Versions match! Proceeding."
+          fi

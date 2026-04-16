@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'The version to release without v prefix (e.g. 26.1.0)'
+        type: string
+        required: true
+
+jobs:
+  release:
+    name: Release v${{ inputs.version }}
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Generate release notes
+        id: generated-notes
+        uses: RedCrafter07/release-notes-action@main
+        with:
+          tag-name: v${{ inputs.version }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref_name }}
+
+      - name: Cleanup release notes
+        id: cleaned-notes
+        env:
+          RELEASE_NOTES: ${{ steps.generated-notes.outputs.release-notes }}
+        run: |
+          START_FROM=$(echo -n "$RELEASE_NOTES" | awk "/What's Changed/{ print NR; exit }" -)
+          DROP_FROM_CONTRIBUTORS=$(echo -n "$RELEASE_NOTES" | awk "/New Contributors/{ print NR; exit }" -)
+          DROP_FROM_FULL_CHANGELOG=$(echo -n "$RELEASE_NOTES" | awk "/Full Changelog/{ print NR; exit }" -)
+
+          # Drop everything starting from "Full Changelog"
+          if [ ! -z "$DROP_FROM_FULL_CHANGELOG" ]; then
+              RELEASE_NOTES=$(echo -n "$RELEASE_NOTES" | sed "${DROP_FROM_FULL_CHANGELOG},$ d")
+          fi
+
+          # Drop everything starting from "New Contributors"
+          if [ ! -z "$DROP_FROM_CONTRIBUTORS" ]; then
+              RELEASE_NOTES=$(echo -n "$RELEASE_NOTES" | sed "${DROP_FROM_CONTRIBUTORS},$ d")
+          fi
+
+          # Drop the line "What's Changed"
+          if [ ! -z "$START_FROM" ]; then
+              RELEASE_NOTES=$(echo -n "$RELEASE_NOTES" | sed "${START_FROM}d")
+          fi
+
+          {
+            echo 'notes<<EOF'
+            echo "$RELEASE_NOTES"
+            echo EOF
+          } >> "$GITHUB_OUTPUT";
+
+      - name: Get date for release
+        id: release_date
+        run: |
+          # Convert timestamp to MST date in Y-m-d format
+          FORMATED_DATE=$(TZ='America/Phoenix' date +%Y-%m-%d)
+
+          # Make date available to other steps
+          echo "date=$(echo $FORMATED_DATE)" >> $GITHUB_OUTPUT;
+
+      - name: Update Changelog
+        uses: stefanzweifel/changelog-updater-action@v1
+        with:
+          release-date: ${{ steps.release_date.outputs.date }}
+          release-notes: ${{ steps.cleaned-notes.outputs.notes }}
+          latest-version: v${{ inputs.version }}
+          compare-url-target-revision: ${{ github.ref_name }}
+          parse-github-usernames: true
+
+      - name: Commit updated CHANGELOG
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          branch: ${{ github.ref_name }}
+          commit_message: "[Release] Update CHANGELOG for v${{ inputs.version }} release"
+          file_pattern: CHANGELOG.md
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ inputs.version }}
+          name: v${{ inputs.version }}
+          body: ${{ steps.generated-notes.outputs.release-notes }}
+          target_commitish: ${{ github.ref_name }}
+          make_latest: "${{ github.ref_name == github.event.repository.default_branch }}"
