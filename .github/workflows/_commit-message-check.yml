@@ -50,9 +50,9 @@ jobs:
           accessToken: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Report failure in PR comment
-        if: failure() && github.event_name == 'pull_request'
+        if: failure() && github.event.pull_request.number
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          gh pr comment "$PR_URL" --body "Commit message does not adhere to requirements. Please fix this."
+          gh pr comment ${{ github.event.pull_request.number }} --body "Commit message does not adhere to requirements. Please fix this."
