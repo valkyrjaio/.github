@@ -65,7 +65,7 @@ jobs:
       - name: Report failure in PR comment
         if: failure() && github.event.pull_request.number && inputs.post-pr-comment
         env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
@@ -80,7 +80,7 @@ jobs:
       - name: Remove failure comment on success
         if: success() && github.event.pull_request.number && inputs.post-pr-comment
         env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
