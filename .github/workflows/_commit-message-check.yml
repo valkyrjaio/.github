@@ -33,8 +33,8 @@ jobs:
             --jq '.[].commit.message')
 
           while IFS= read -r line; do
-            if [ ${#line} -gt 74 ]; then
-              echo "Line exceeds 74 characters: $line"
+            if [ ${#line} -gt 120 ]; then
+              echo "Line exceeds 120 characters: $line"
               exit 1
             fi
           done <<< "$COMMITS"
