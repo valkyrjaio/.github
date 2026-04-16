@@ -1,0 +1,70 @@
+name: Get Version
+
+on:
+  workflow_call:
+    outputs:
+      version:
+        description: 'The new major version number'
+        value: ${{ jobs.get-version.outputs.version }}
+      branch:
+        description: 'The new branch name (e.g. 27.x)'
+        value: ${{ jobs.get-version.outputs.branch }}
+
+jobs:
+  get-version:
+    name: Get Version
+
+    runs-on: ubuntu-latest
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      branch: ${{ steps.branch.outputs.branch }}
+
+    steps:
+      - name: Ensure running from master
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          if [ "$BRANCH" != "master" ]; then
+            echo "New major release version branches must be created from master."
+            exit 1
+          fi
+          echo "Using master. Proceed."
+
+      - name: Determine new version
+        id: version
+        env:
+          LATEST_MAJOR_VERSION: ${{ vars.LATEST_MAJOR_VERSION }}
+        run: |
+          if [ -z "$LATEST_MAJOR_VERSION" ]; then
+            YEAR=$(date +%Y)
+            LATEST_MAJOR_VERSION="${YEAR:2}"
+            echo "LATEST_MAJOR_VERSION not set, falling back to current year short: $LATEST_MAJOR_VERSION"
+          fi
+          NEW_VERSION=$((LATEST_MAJOR_VERSION + 1))
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Format branch name
+        id: branch
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "branch=${VERSION}.x" >> "$GITHUB_OUTPUT"
+
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Check if branch already exists
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          BRANCH: ${{ steps.branch.outputs.branch }}
+        run: |
+          if gh api "repos/${{ github.repository }}/branches/${BRANCH}" --silent 2>/dev/null; then
+            echo "Major version branch '$BRANCH' already exists! Aborting."
+            exit 1
+          fi
+          echo "Branch '$BRANCH' does not exist. Proceeding."

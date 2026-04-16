@@ -1,0 +1,52 @@
+name: Check Outdated PHP Dependencies
+
+on:
+  workflow_call:
+    inputs:
+      php-version:
+        description: 'PHP version to use'
+        type: string
+        default: '8.4'
+      dependencies:
+        description: >
+          JSON array of dependencies to check.
+          Each item must have a "name" (display name) and "command" (composer script to run).
+          Example: [{"name":"PHPUnit","command":"phpunit-outdated-check-major-release"}]
+        type: string
+        required: true
+
+jobs:
+  check-outdated-php-dependencies:
+    strategy:
+      fail-fast: false
+      matrix:
+        dependency: ${{ fromJson(inputs.dependencies) }}
+
+    name: "Check ${{ matrix.dependency.name }} For Outdated Direct Dependencies"
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ inputs.php-version }}
+          extensions: mbstring, intl
+
+      - name: Check ${{ matrix.dependency.name }} for outdated direct dependencies
+        env:
+          COMPOSER_COMMAND: ${{ matrix.dependency.command }}
+        run: |
+          output=$(eval "composer ${COMPOSER_COMMAND}" 2>&1)
+          if [[ "$output" == *"All your direct dependencies are up to date"* ]]; then
+            echo "$output"
+            echo "Proceeding..."
+            exit 0
+          fi
+
+          echo "Composer dependencies must be updated before releasing."
+          echo "$output"
+          exit 1

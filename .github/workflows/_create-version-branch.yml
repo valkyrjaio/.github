@@ -1,0 +1,75 @@
+name: Create Version Branch
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'The new major version number (e.g. 27)'
+        type: string
+        required: true
+      branch:
+        description: 'The new branch name (e.g. 27.x)'
+        type: string
+        required: true
+
+jobs:
+  create-version-branch:
+    name: "Creating branch ${{ inputs.branch }} (v${{ inputs.version }}) from ${{ github.ref_name }}"
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Create branch ${{ inputs.branch }} from ${{ github.ref_name }}
+        env:
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          git checkout -b "$BRANCH"
+          git push origin "$BRANCH"
+
+      - name: Update README.md
+        env:
+          BRANCH: ${{ inputs.branch }}
+          SOURCE_BRANCH: ${{ github.ref_name }}
+        run: |
+          sed -i "s/$SOURCE_BRANCH/$BRANCH/g" README.md
+
+      - name: Update CHANGELOG.md
+        env:
+          BRANCH: ${{ inputs.branch }}
+          VERSION: ${{ inputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo -e "# Release Notes for $BRANCH\n## [Unreleased](https://github.com/$REPO/compare/$VERSION.0.0...$BRANCH)" > CHANGELOG.md
+
+      - name: Update VERSION.md
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          echo "v${VERSION}.0.0" > VERSION.md
+
+      - name: Commit version branch updates
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "[${{ inputs.branch }}] Update references for v${{ inputs.version }}"
+
+      - name: Update LATEST_MAJOR_VERSION variable
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh variable set LATEST_MAJOR_VERSION --body "$VERSION"
