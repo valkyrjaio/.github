@@ -68,12 +68,16 @@ jobs:
 
           echo "Source branch is the latest major version branch. Proceeding."
 
+      - name: Backup master
+        run: |
+          git checkout master
+          git push --force-with-lease origin master:master-backup
+
       - name: Rebase master onto ${{ steps.source-branch.outputs.branch }}
         env:
           SOURCE_BRANCH: ${{ steps.source-branch.outputs.branch }}
         run: |
           git fetch origin "$SOURCE_BRANCH"
-          git checkout master
           git rebase "origin/$SOURCE_BRANCH"
 
       - name: Push master
