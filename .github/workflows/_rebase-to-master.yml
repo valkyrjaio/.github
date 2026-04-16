@@ -49,6 +49,25 @@ jobs:
             echo "branch=${LATEST_MAJOR_VERSION}.x" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Validate source branch is latest major version
+        env:
+          SOURCE_BRANCH: ${{ steps.source-branch.outputs.branch }}
+          LATEST_MAJOR_VERSION: ${{ vars.LATEST_MAJOR_VERSION }}
+        run: |
+          SOURCE_MAJOR="${SOURCE_BRANCH%%.*}"
+
+          echo "Source branch major version: $SOURCE_MAJOR"
+          echo "Latest major version: $LATEST_MAJOR_VERSION"
+
+          if [ "$SOURCE_MAJOR" != "$LATEST_MAJOR_VERSION" ]; then
+            echo "Only the latest major version branch (${LATEST_MAJOR_VERSION}.x) may be rebased into master."
+            echo "To backport between version branches use the rebase-version-branch workflow."
+
+            exit 1
+          fi
+
+          echo "Source branch is the latest major version branch. Proceeding."
+
       - name: Rebase master onto ${{ steps.source-branch.outputs.branch }}
         env:
           SOURCE_BRANCH: ${{ steps.source-branch.outputs.branch }}
