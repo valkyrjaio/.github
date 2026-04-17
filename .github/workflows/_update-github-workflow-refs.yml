@@ -1,0 +1,113 @@
+name: Reusable Update .github Workflow References
+
+on:
+  workflow_call:
+
+jobs:
+  update-refs:
+    name: Update .github Workflow References
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Update workflow refs across all repositories
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          ORG: ${{ github.repository_owner }}
+          REVIEWER: ${{ vars.VALKYRJA_REVIEWER }}
+        run: |
+          BRANCH="deps/update-github-workflow-refs"
+
+          LATEST_TAG=$(gh api "repos/$ORG/.github/releases/latest" --jq '.tag_name')
+          LATEST_SHA=$(gh api "repos/$ORG/.github/commits/$LATEST_TAG" --jq '.sha')
+          echo "Latest .github release: $LATEST_TAG ($LATEST_SHA)"
+
+          REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
+            --jq '.[] | select(.isArchived == false and .name != ".github") | .name')
+
+          while IFS= read -r REPO_NAME; do
+            echo "Checking $ORG/$REPO_NAME..."
+
+            WORKFLOW_FILES=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows" \
+              --jq '.[].path' 2>/dev/null || true)
+
+            [ -z "$WORKFLOW_FILES" ] && continue
+
+            BRANCH_EXISTS=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/$BRANCH" \
+              --jq '.object.sha' 2>/dev/null || true)
+
+            FILES_UPDATED=0
+
+            while IFS= read -r FILE_PATH; do
+              FILE_DATA=$(gh api "repos/$ORG/$REPO_NAME/contents/$FILE_PATH" 2>/dev/null || true)
+              [ -z "$FILE_DATA" ] && continue
+
+              FILE_SHA=$(echo "$FILE_DATA" | jq -r '.sha')
+              CONTENT=$(echo "$FILE_DATA" | jq -r '.content' | base64 -d)
+
+              if ! echo "$CONTENT" | grep -q "valkyrjaio/\.github/\.github/workflows/"; then
+                continue
+              fi
+
+              NEW_CONTENT=$(echo "$CONTENT" | sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[^[:space:]]*|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g")
+
+              if [ "$CONTENT" = "$NEW_CONTENT" ]; then
+                echo "  $FILE_PATH: already up to date"
+                continue
+              fi
+
+              echo "  $FILE_PATH: updating to $LATEST_TAG"
+
+              if [ -z "$BRANCH_EXISTS" ]; then
+                MASTER_SHA=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/master" --jq '.object.sha')
+                gh api --method POST "repos/$ORG/$REPO_NAME/git/refs" \
+                  --field "ref=refs/heads/$BRANCH" \
+                  --field "sha=$MASTER_SHA" > /dev/null
+                BRANCH_EXISTS="$MASTER_SHA"
+              fi
+
+              NEW_CONTENT_B64=$(printf '%s' "$NEW_CONTENT" | base64 | tr -d '\n')
+
+              jq -n \
+                --arg message "[GitHub] Update .github workflow refs to $LATEST_TAG." \
+                --arg content "$NEW_CONTENT_B64" \
+                --arg sha "$FILE_SHA" \
+                --arg branch "$BRANCH" \
+                '{message: $message, content: $content, sha: $sha, branch: $branch}' \
+                | gh api --method PUT "repos/$ORG/$REPO_NAME/contents/$FILE_PATH" --input - > /dev/null
+
+              FILES_UPDATED=$((FILES_UPDATED + 1))
+            done <<< "$WORKFLOW_FILES"
+
+            if [ "$FILES_UPDATED" -gt 0 ]; then
+              EXISTING_PR=$(gh pr list --repo "$ORG/$REPO_NAME" \
+                --state open \
+                --json headRefName \
+                --jq "[.[] | select(.headRefName == \"$BRANCH\")] | first | .headRefName // \"\"")
+
+              if [ -z "$EXISTING_PR" ]; then
+                REVIEWER_FLAGS=""
+                if [ -n "$REVIEWER" ]; then
+                  REVIEWER_FLAGS="--assignee $REVIEWER --reviewer $REVIEWER"
+                fi
+
+                BODY="# Description\n\nUpdate reusable workflow references from \`valkyrjaio/.github\` to release \`$LATEST_TAG\`.\n\n## Types of changes\n\n- [X] Improvement _(non-breaking change which improves code)_\n- [ ] Bug fix _(non-breaking change which fixes an issue)_\n- [ ] New feature _(non-breaking change which adds functionality)_\n- [ ] Deprecation _(breaking change which removes functionality)_\n- [ ] Breaking change _(fix or feature that would cause existing functionality\n  to change)_\n- [ ] Documentation improvement"
+
+                gh pr create \
+                  --repo "$ORG/$REPO_NAME" \
+                  --title "[GitHub] Update .github workflow refs to $LATEST_TAG." \
+                  --body "$(printf '%b' "$BODY")" \
+                  --base "master" \
+                  --head "$BRANCH" \
+                  $REVIEWER_FLAGS
+              fi
+            fi
+          done <<< "$REPOS"

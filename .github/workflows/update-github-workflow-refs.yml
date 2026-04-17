@@ -1,0 +1,15 @@
+name: Update .github Workflow References
+
+on:
+  release:
+    types: [published]
+  schedule:
+    - cron: '0 10 * * 1'
+  workflow_dispatch:
+
+run-name: Update .github workflow refs to latest release across all repos
+
+jobs:
+  update-refs:
+    uses: valkyrjaio/.github/.github/workflows/_update-github-workflow-refs.yml@master
+    secrets: inherit
