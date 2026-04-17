@@ -75,12 +75,10 @@ jobs:
             || echo "")
 
           if [ -z "$LATEST_TAG" ]; then
-            YEAR=$(date +%Y)
-            YEAR_SHORT="${YEAR:2}"
-            LATEST_MAJOR="$BRANCH_MAJOR"
-            LATEST_MINOR=0
-            LATEST_PATCH=0
-            echo "No existing releases found for v${BRANCH_MAJOR}.x. Seeding from branch: v${BRANCH_MAJOR}.0.0"
+            echo "No existing releases found for v${BRANCH_MAJOR}.x. Forcing major bump to v${BRANCH_MAJOR}.0.0"
+            echo "version=${BRANCH_MAJOR}.0.0" >> "$GITHUB_OUTPUT"
+            echo "major-version=${BRANCH_MAJOR}" >> "$GITHUB_OUTPUT"
+            exit 0
           else
             LATEST="${LATEST_TAG#v}"
             LATEST_MAJOR=$(echo "$LATEST" | cut -d. -f1)
