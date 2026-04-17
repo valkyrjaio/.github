@@ -90,39 +90,49 @@ jobs:
                 echo "  [$BASE_BRANCH] $FILE_PATH: updating to $LATEST_TAG"
 
                 if [ -z "$BRANCH_EXISTS" ]; then
+                  echo "  [$BASE_BRANCH] Creating branch $UPDATE_BRANCH..."
+
                   BASE_SHA=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/$BASE_BRANCH" \
                     --jq '.object.sha' 2>/dev/null || true)
                   if [ -z "$BASE_SHA" ]; then
-                    echo "  [$BASE_BRANCH] Could not get SHA, skipping"
+                    echo "  [$BASE_BRANCH] Could not get base branch SHA, skipping"
                     break
                   fi
                   if ! gh api --method POST "repos/$ORG/$REPO_NAME/git/refs" \
                     --field "ref=refs/heads/$UPDATE_BRANCH" \
                     --field "sha=$BASE_SHA" > /dev/null 2>/dev/null; then
-                    echo "  [$BASE_BRANCH] Branch protected, skipping"
+                    echo "  [$BASE_BRANCH] Branch creation blocked by protection, skipping"
                     break
                   fi
+                  echo "  [$BASE_BRANCH] Branch $UPDATE_BRANCH created."
                   BRANCH_EXISTS="$BASE_SHA"
                 fi
 
+                echo "  [$BASE_BRANCH] Committing $FILE_PATH to $UPDATE_BRANCH..."
+
                 NEW_CONTENT_B64=$(printf '%s' "$NEW_CONTENT" | base64 | tr -d '\n')
 
-                if ! jq -n \
+                PUT_BODY=$(jq -cn \
                   --arg message "[GitHub] Update .github workflow refs to $LATEST_TAG." \
                   --arg content "$NEW_CONTENT_B64" \
                   --arg sha "$FILE_SHA" \
                   --arg branch "$UPDATE_BRANCH" \
-                  '{message: $message, content: $content, sha: $sha, branch: $branch}' \
-                  | gh api --method PUT "repos/$ORG/$REPO_NAME/contents/$FILE_PATH" \
-                    --input - > /dev/null 2>/dev/null; then
-                  echo "  [$BASE_BRANCH] $FILE_PATH protected, skipping"
+                  '{message: $message, content: $content, sha: $sha, branch: $branch}')
+
+                if ! echo "$PUT_BODY" | gh api --method PUT "repos/$ORG/$REPO_NAME/contents/$FILE_PATH" \
+                  --input - > /dev/null 2>/dev/null; then
+                  echo "  [$BASE_BRANCH] $FILE_PATH commit blocked by protection, skipping"
                   continue
                 fi
+
+                echo "  [$BASE_BRANCH] $FILE_PATH committed."
 
                 FILES_UPDATED=$((FILES_UPDATED + 1))
               done <<< "$WORKFLOW_FILES"
 
               if [ "$FILES_UPDATED" -gt 0 ]; then
+                echo "  [$BASE_BRANCH] $FILES_UPDATED file(s) updated — checking for existing PR..."
+
                 EXISTING_PR=$(gh pr list --repo "$ORG/$REPO_NAME" \
                   --state open \
                   --json headRefName \
@@ -135,17 +145,34 @@ jobs:
                     REVIEWER_FLAGS="--assignee $REVIEWER --reviewer $REVIEWER"
                   fi
 
-                  BODY="# Description\n\nUpdate reusable workflow references from \`valkyrjaio/.github\` to release \`$LATEST_TAG\`.\n\n## Types of changes\n\n- [X] Improvement _(non-breaking change which improves code)_\n- [ ] Bug fix _(non-breaking change which fixes an issue)_\n- [ ] New feature _(non-breaking change which adds functionality)_\n- [ ] Deprecation _(breaking change which removes functionality)_\n- [ ] Breaking change _(fix or feature that would cause existing functionality\n  to change)_\n- [ ] Documentation improvement"
+                  BODY="# Description
+
+Update reusable workflow references from \`valkyrjaio/.github\` to release \`$LATEST_TAG\`.
+
+## Types of changes
+
+- [X] Improvement _(non-breaking change which improves code)_
+- [ ] Bug fix _(non-breaking change which fixes an issue)_
+- [ ] New feature _(non-breaking change which adds functionality)_
+- [ ] Deprecation _(breaking change which removes functionality)_
+- [ ] Breaking change _(fix or feature that would cause existing functionality to change)_
+- [ ] Documentation improvement"
+
+                  echo "  [$BASE_BRANCH] Creating PR from $UPDATE_BRANCH → $BASE_BRANCH..."
 
                   if ! gh pr create \
                     --repo "$ORG/$REPO_NAME" \
                     --title "[GitHub] Update .github workflow refs to $LATEST_TAG." \
-                    --body "$(printf '%b' "$BODY")" \
+                    --body "$BODY" \
                     --base "$BASE_BRANCH" \
                     --head "$UPDATE_BRANCH" \
-                    $REVIEWER_FLAGS 2>&1; then
+                    $REVIEWER_FLAGS 2>/dev/null; then
                     echo "  [$BASE_BRANCH] PR creation blocked by protection, skipping"
+                  else
+                    echo "  [$BASE_BRANCH] PR created."
                   fi
+                else
+                  echo "  [$BASE_BRANCH] PR already exists, skipping."
                 fi
               fi
             done <<< "$BASE_BRANCHES"
