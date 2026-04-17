@@ -77,17 +77,19 @@ jobs:
             || echo "")
 
           if [ -z "$LATEST_TAG" ]; then
+            YEAR=$(date +%Y)
+            YEAR_SHORT="${YEAR:2}"
+
             if [ "$BUMP" = "major" ]; then
-              # First ever release — major will increment from 0
-              LATEST_MAJOR=0
+              # Seed one below current year so incrementing yields current year (e.g. 2026 → 26.0.0)
+              LATEST_MAJOR=$((YEAR_SHORT - 1))
             else
-              # No releases yet — seed from current year (e.g. 2026 → 26.0.0)
-              YEAR=$(date +%Y)
-              LATEST_MAJOR="${YEAR:2}"
+              LATEST_MAJOR="$YEAR_SHORT"
               LATEST_MINOR=0
               LATEST_PATCH=0
-              echo "No existing releases found. Seeding base version from current year: v${LATEST_MAJOR}.0.0"
             fi
+
+            echo "No existing releases found. Seeding base version from current year: ${YEAR_SHORT}"
           else
             LATEST="${LATEST_TAG#v}"
             LATEST_MAJOR=$(echo "$LATEST" | cut -d. -f1)
@@ -129,6 +131,50 @@ jobs:
           echo "Computed version: v$NEW_VERSION"
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "major-version=$NEW_MAJOR" >> "$GITHUB_OUTPUT"
+
+      - name: Validate computed version
+        env:
+          VERSION: ${{ steps.compute-version.outputs.version }}
+          BUMP: ${{ inputs.bump }}
+        run: |
+          # Verify semver format
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Computed version '$VERSION' is not valid semver. Aborting."
+            exit 1
+          fi
+
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          PATCH=$(echo "$VERSION" | cut -d. -f3)
+
+          # Verify major is within one year of current year
+          YEAR=$(date +%Y)
+          YEAR_SHORT="${YEAR:2}"
+          MIN_MAJOR=$((YEAR_SHORT - 1))
+          MAX_MAJOR=$((YEAR_SHORT + 1))
+
+          if [ "$MAJOR" -lt "$MIN_MAJOR" ] || [ "$MAJOR" -gt "$MAX_MAJOR" ]; then
+            echo "Computed major version $MAJOR is outside the expected range ($MIN_MAJOR–$MAX_MAJOR). Aborting."
+            exit 1
+          fi
+
+          # Verify the correct component is non-zero for the bump type
+          case "$BUMP" in
+            major)
+              if [ "$MINOR" -ne 0 ] || [ "$PATCH" -ne 0 ]; then
+                echo "Major bump should produce X.0.0 but got $VERSION. Aborting."
+                exit 1
+              fi
+              ;;
+            minor)
+              if [ "$PATCH" -ne 0 ]; then
+                echo "Minor bump should produce X.Y.0 but got $VERSION. Aborting."
+                exit 1
+              fi
+              ;;
+          esac
+
+          echo "Version v$VERSION passed all sanity checks."
 
       - name: Check if version tag already exists
         env:
