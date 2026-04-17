@@ -32,6 +32,11 @@ Writing your description:
 If relevant, explain which choices you have made and why.
 If this fixes an open issue, link it here in the description.
 
+Writing your changes list:
+- One bullet per file or logical change.
+- Bold the file path or component, then describe what changed and why.
+- Example: **`_release.yml`** — added release-type detection step
+
 Put an `x` in all the boxes that apply in the types of changes section.
 
 By submitting a PR you grant the project the right to include and distribute
@@ -53,3 +58,7 @@ Delete this entire comment block before submitting.
 - [ ] Deprecation _(breaking change which removes functionality)_
 - [ ] Breaking change _(fix or feature that would cause existing functionality to change)_
 - [ ] Documentation improvement
+
+## Changes
+
+<!-- Replace this line with a bulleted list of changes. -->
