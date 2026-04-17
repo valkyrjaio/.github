@@ -145,18 +145,16 @@ jobs:
                     REVIEWER_FLAGS="--assignee $REVIEWER --reviewer $REVIEWER"
                   fi
 
-                  BODY="# Description
-
-Update reusable workflow references from \`valkyrjaio/.github\` to release \`$LATEST_TAG\`.
-
-## Types of changes
-
-- [X] Improvement _(non-breaking change which improves code)_
-- [ ] Bug fix _(non-breaking change which fixes an issue)_
-- [ ] New feature _(non-breaking change which adds functionality)_
-- [ ] Deprecation _(breaking change which removes functionality)_
-- [ ] Breaking change _(fix or feature that would cause existing functionality to change)_
-- [ ] Documentation improvement"
+                  BODY=""
+                  BODY+="# Description"$'\n'$'\n'
+                  BODY+="Update reusable workflow references from \`valkyrjaio/.github\` to release \`$LATEST_TAG\`."$'\n'$'\n'
+                  BODY+="## Types of changes"$'\n'$'\n'
+                  BODY+="- [X] Improvement _(non-breaking change which improves code)_"$'\n'
+                  BODY+="- [ ] Bug fix _(non-breaking change which fixes an issue)_"$'\n'
+                  BODY+="- [ ] New feature _(non-breaking change which adds functionality)_"$'\n'
+                  BODY+="- [ ] Deprecation _(breaking change which removes functionality)_"$'\n'
+                  BODY+="- [ ] Breaking change _(fix or feature that would cause existing functionality to change)_"$'\n'
+                  BODY+="- [ ] Documentation improvement"
 
                   echo "  [$BASE_BRANCH] Creating PR from $UPDATE_BRANCH → $BASE_BRANCH..."
 
