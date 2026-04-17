@@ -53,6 +53,7 @@ jobs:
           done <<< "$COMMITS"
 
       - name: Check Period at end
+        if: github.actor != 'dependabot[bot]'
         uses: gsactions/commit-message-checker@v2
         with:
           pattern: '.*\.$'
