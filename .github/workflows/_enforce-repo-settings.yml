@@ -85,6 +85,7 @@ jobs:
               --field squash_merge_commit_message="PR_BODY" \
               --field has_wiki=false \
               --field has_projects=false \
+              --field release_immutability=true \
               > /dev/null
             echo "  Settings applied"
 
