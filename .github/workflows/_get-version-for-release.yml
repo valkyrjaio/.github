@@ -121,6 +121,7 @@ jobs:
         env:
           VERSION: ${{ steps.compute-version.outputs.version }}
           BUMP: ${{ inputs.bump }}
+          SUPPORTED_VERSIONS: ${{ vars.SUPPORTED_VERSIONS }}
         run: |
           # Verify semver format
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -132,15 +133,14 @@ jobs:
           MINOR=$(echo "$VERSION" | cut -d. -f2)
           PATCH=$(echo "$VERSION" | cut -d. -f3)
 
-          # Verify major is within one year of current year
-          YEAR=$(date +%Y)
-          YEAR_SHORT="${YEAR:2}"
-          MIN_MAJOR=$((YEAR_SHORT - 1))
-          MAX_MAJOR=$((YEAR_SHORT + 1))
-
-          if [ "$MAJOR" -lt "$MIN_MAJOR" ] || [ "$MAJOR" -gt "$MAX_MAJOR" ]; then
-            echo "Computed major version $MAJOR is outside the expected range ($MIN_MAJOR–$MAX_MAJOR). Aborting."
+          # Verify major version is supported
+          if [ -z "$SUPPORTED_VERSIONS" ]; then
+            echo "SUPPORTED_VERSIONS not set; skipping version support check."
+          elif ! [[ "$MAJOR" =~ $SUPPORTED_VERSIONS ]]; then
+            echo "Computed major version $MAJOR is not in the supported versions ($SUPPORTED_VERSIONS). Aborting."
             exit 1
+          else
+            echo "Major version $MAJOR matches supported versions ($SUPPORTED_VERSIONS)."
           fi
 
           # Verify the correct component is non-zero for the bump type

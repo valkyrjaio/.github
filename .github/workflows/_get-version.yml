@@ -59,19 +59,19 @@ jobs:
           app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
           private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
-      - name: Validate new version does not exceed current year
+      - name: Validate new version is supported
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          SUPPORTED_VERSIONS: ${{ vars.SUPPORTED_VERSIONS }}
         run: |
-          YEAR=$(date +%Y)
-          YEAR_SHORT="${YEAR:2}"
-
-          if [ "$VERSION" -gt "$YEAR_SHORT" ]; then
-            echo "Cannot create ${{ steps.branch.outputs.branch }}: version $VERSION exceeds the current year ($YEAR_SHORT). Aborting."
+          if [ -z "$SUPPORTED_VERSIONS" ]; then
+            echo "SUPPORTED_VERSIONS not set; skipping version support check."
+          elif ! [[ "$VERSION" =~ $SUPPORTED_VERSIONS ]]; then
+            echo "Cannot create ${{ steps.branch.outputs.branch }}: version $VERSION is not in the supported versions ($SUPPORTED_VERSIONS). Aborting."
             exit 1
+          else
+            echo "Version $VERSION matches supported versions ($SUPPORTED_VERSIONS). Proceeding."
           fi
-
-          echo "Version $VERSION is within the current year ($YEAR_SHORT). Proceeding."
 
       - name: Check if branch already exists
         env:
