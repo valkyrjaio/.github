@@ -38,6 +38,12 @@ jobs:
         run: |
           SOURCE_MAJOR="${SOURCE_BRANCH%%.*}"
 
+          if [ -z "$LATEST_MAJOR_VERSION" ]; then
+            YEAR=$(date +%Y)
+            LATEST_MAJOR_VERSION="${YEAR:2}"
+            echo "LATEST_MAJOR_VERSION not set, falling back to current year: $LATEST_MAJOR_VERSION"
+          fi
+
           echo "Source branch major version: $SOURCE_MAJOR"
           echo "Latest major version: $LATEST_MAJOR_VERSION"
 
