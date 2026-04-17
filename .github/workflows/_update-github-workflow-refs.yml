@@ -72,6 +72,7 @@ jobs:
                 --jq 'if type == "object" then .object.sha else "" end' 2>/dev/null || true)
 
               FILES_UPDATED=0
+              FILES_LIST=""
 
               while IFS= read -r FILE_PATH; do
                 FILE_DATA=$(gh api "repos/$ORG/$REPO_NAME/contents/$FILE_PATH?ref=$BASE_BRANCH" \
@@ -132,6 +133,7 @@ jobs:
 
                 echo "  [$BASE_BRANCH] $FILE_PATH committed."
 
+                FILES_LIST+="$FILE_PATH"$'\n'
                 FILES_UPDATED=$((FILES_UPDATED + 1))
               done <<< "$WORKFLOW_FILES"
 
@@ -159,7 +161,14 @@ jobs:
                   BODY+="- [ ] New feature _(non-breaking change which adds functionality)_"$'\n'
                   BODY+="- [ ] Deprecation _(breaking change which removes functionality)_"$'\n'
                   BODY+="- [ ] Breaking change _(fix or feature that would cause existing functionality to change)_"$'\n'
-                  BODY+="- [ ] Documentation improvement"
+                  BODY+="- [ ] Documentation improvement"$'\n'$'\n'
+                  BODY+="## Changes"$'\n'$'\n'
+                  BODY+="| File | Updated To |"$'\n'
+                  BODY+="|------|------------|"$'\n'
+                  while IFS= read -r file; do
+                    [ -z "$file" ] && continue
+                    BODY+="| \`$file\` | \`$LATEST_TAG\` |"$'\n'
+                  done <<< "$FILES_LIST"
 
                   echo "  [$BASE_BRANCH] Creating PR from $UPDATE_BRANCH → $BASE_BRANCH..."
 
