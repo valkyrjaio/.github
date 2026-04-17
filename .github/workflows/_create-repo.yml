@@ -32,7 +32,7 @@ jobs:
         with:
           token: ${{ steps.generate-token.outputs.token }}
 
-      - name: Create repository
+      - name: Create and configure repository
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           ORG: ${{ github.repository_owner }}
@@ -43,12 +43,6 @@ jobs:
             --public \
             --description "$DESCRIPTION"
 
-      - name: Configure repository settings
-        env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
-          ORG: ${{ github.repository_owner }}
-          REPO_NAME: ${{ inputs.name }}
-        run: |
           gh api --method PATCH "repos/$ORG/$REPO_NAME" \
             --field allow_squash_merge=true \
             --field allow_merge_commit=false \
@@ -68,7 +62,7 @@ jobs:
           shopt -s nullglob
 
           for ruleset_file in rulesets/*.json; do
-            echo "Applying ruleset: $ruleset_file"
+            echo "Applying ruleset: $(basename "$ruleset_file")"
             jq '{name, target, enforcement, conditions, rules, bypass_actors}' "$ruleset_file" \
               | gh api --method POST "repos/$ORG/$REPO_NAME/rulesets" --input -
           done
@@ -77,7 +71,7 @@ jobs:
           if echo "$COMBINED" | grep -qi "php"; then
             echo "PHP repo detected, applying PHP-specific rulesets..."
             for ruleset_file in rulesets/php/*.json; do
-              echo "Applying PHP ruleset: $ruleset_file"
+              echo "Applying PHP ruleset: $(basename "$ruleset_file")"
               jq '{name, target, enforcement, conditions, rules, bypass_actors}' "$ruleset_file" \
                 | gh api --method POST "repos/$ORG/$REPO_NAME/rulesets" --input -
             done
