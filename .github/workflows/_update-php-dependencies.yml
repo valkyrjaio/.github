@@ -1,0 +1,184 @@
+name: Update PHP Dependencies
+
+on:
+  workflow_call:
+    inputs:
+      php-version:
+        description: 'PHP version to use'
+        type: string
+        default: '8.4'
+      dependencies:
+        description: >
+          JSON array of dependencies to update.
+          Each item must have a "name" (display name), "command" (composer script to run),
+          and "directory" (path to the composer.json to sync, e.g. ".github/ci/psalm").
+          Example: [{"name":"Psalm","command":"psalm-composer-update","directory":".github/ci/psalm"}]
+        type: string
+        required: true
+
+jobs:
+  update-php-dependencies:
+    name: Update PHP Dependencies
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Get bot user ID
+        id: get-bot-user-id
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
+        run: |
+          BOT_USER_ID=$(gh api "/users/$APP_SLUG[bot]" --jq '.id')
+          echo "user-id=$BOT_USER_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ inputs.php-version }}
+          extensions: mbstring, intl
+
+      - name: Update dependencies and sync composer.json constraints
+        env:
+          DEPENDENCIES: ${{ inputs.dependencies }}
+        run: |
+          LENGTH=$(echo "$DEPENDENCIES" | jq 'length')
+          for i in $(seq 0 $((LENGTH - 1))); do
+            NAME=$(echo "$DEPENDENCIES" | jq -r ".[$i].name")
+            CMD=$(echo "$DEPENDENCIES" | jq -r ".[$i].command")
+            DIR=$(echo "$DEPENDENCIES" | jq -r ".[$i].directory // \".\"")
+
+            echo "Updating $NAME..."
+            composer $CMD
+
+            echo "Syncing $NAME composer.json version constraints..."
+            INSTALLED=$(cd "$DIR" && composer show --direct --format=json 2>/dev/null \
+              | jq -r '.installed[] | "\(.name) \(.version)"')
+
+            while IFS= read -r line; do
+              [ -z "$line" ] && continue
+              PKG=$(echo "$line" | awk '{print $1}')
+              VER=$(echo "$line" | awk '{print $2}' | sed 's/^v//')
+
+              [[ "$VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]] || continue
+
+              COMPOSER_FILE="$DIR/composer.json"
+
+              # require / require-dev: "^OLD" → "^NEW"
+              for SECTION in require require-dev; do
+                OLD=$(jq -r --arg p "$PKG" --arg s "$SECTION" '.[$s][$p] // ""' "$COMPOSER_FILE")
+                [ -z "$OLD" ] && continue
+                NEW="^$VER"
+                [ "$OLD" = "$NEW" ] && continue
+                OLD_ESC=$(printf '%s' "$OLD" | sed 's/[[\.*^$(){}+?|]/\\&/g')
+                sed -i "s/\"$OLD_ESC\"/\"$NEW\"/g" "$COMPOSER_FILE"
+                echo "  [$SECTION] $PKG: $OLD -> $NEW"
+              done
+
+              # conflict: "<OLD" → "<NEW"
+              OLD_CONFLICT=$(jq -r --arg p "$PKG" '.conflict[$p] // ""' "$COMPOSER_FILE")
+              if [ -n "$OLD_CONFLICT" ]; then
+                NEW_CONFLICT="<$VER"
+                if [ "$OLD_CONFLICT" != "$NEW_CONFLICT" ]; then
+                  OLD_ESC=$(printf '%s' "$OLD_CONFLICT" | sed 's/[[\.*^$(){}+?|]/\\&/g')
+                  sed -i "s/\"$OLD_ESC\"/\"$NEW_CONFLICT\"/g" "$COMPOSER_FILE"
+                  echo "  [conflict] $PKG: $OLD_CONFLICT -> $NEW_CONFLICT"
+                fi
+              fi
+
+              # suggest: update version number(s) embedded in description string
+              HAS_SUGGEST=$(jq -r --arg p "$PKG" 'if .suggest and (.suggest | has($p)) then "true" else "false" end' "$COMPOSER_FILE")
+              if [ "$HAS_SUGGEST" = "true" ]; then
+                PKG_ESC=$(printf '%s' "$PKG" | sed 's/[.+*?^${}()|[\]]/\\&/g')
+                sed -i -E "\|$PKG_ESC| s/[0-9]+\.[0-9]+\.[0-9]+[0-9.]*/$VER/g" "$COMPOSER_FILE"
+                echo "  [suggest] $PKG: updated version in description"
+              fi
+            done <<< "$INSTALLED"
+          done
+
+      - name: Check for changes
+        id: check-changes
+        run: |
+          if git diff --quiet; then
+            echo "No dependency updates found."
+            echo "has-changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Dependency updates found."
+            echo "has-changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure git identity
+        if: steps.check-changes.outputs.has-changes == 'true'
+        env:
+          APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
+          BOT_USER_ID: ${{ steps.get-bot-user-id.outputs.user-id }}
+        run: |
+          git config user.name "$APP_SLUG[bot]"
+          git config user.email "$BOT_USER_ID+$APP_SLUG[bot]@users.noreply.github.com"
+
+      - name: Create or update PR branch
+        if: steps.check-changes.outputs.has-changes == 'true'
+        id: branch
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          BASE: ${{ github.ref_name }}
+          ACTOR: ${{ github.actor }}
+          ACTOR_ID: ${{ github.actor_id }}
+        run: |
+          EXISTING=$(gh pr list \
+            --base "$BASE" \
+            --state open \
+            --json headRefName \
+            --jq '[.[] | select(.headRefName | startswith("deps/update-dependencies-"))] | first | .headRefName // ""')
+
+          if [ -n "$EXISTING" ]; then
+            BRANCH="$EXISTING"
+            echo "is-new=false" >> "$GITHUB_OUTPUT"
+          else
+            BRANCH="deps/update-dependencies-$(date +%Y-%m-%d)"
+            echo "is-new=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          git checkout -b "$BRANCH"
+          git add -A
+          git commit \
+            --author="$ACTOR <$ACTOR_ID+$ACTOR@users.noreply.github.com>" \
+            -m "Update composer dependencies"
+          git push --force-with-lease origin "$BRANCH"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Create pull request
+        if: steps.check-changes.outputs.has-changes == 'true' && steps.branch.outputs.is-new == 'true'
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          BASE: ${{ github.ref_name }}
+          BRANCH: ${{ steps.branch.outputs.branch }}
+          DEPENDENCIES: ${{ inputs.dependencies }}
+        run: |
+          BODY="## Automated Dependency Updates\n\n"
+          LENGTH=$(echo "$DEPENDENCIES" | jq 'length')
+          for i in $(seq 0 $((LENGTH - 1))); do
+            NAME=$(echo "$DEPENDENCIES" | jq -r ".[$i].name")
+            BODY+="- $NAME\n"
+          done
+          gh pr create \
+            --title "Update composer dependencies" \
+            --body "$(printf "$BODY")" \
+            --base "$BASE" \
+            --head "$BRANCH"
