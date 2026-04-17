@@ -19,6 +19,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Validate inputs
+        env:
+          DESCRIPTION: ${{ inputs.description }}
+        run: |
+          if [[ "$DESCRIPTION" == *. ]]; then
+            echo "Error: description must not end with a period."
+            exit 1
+          fi
+
       - name: Generate a token
         id: generate-token
         uses: actions/create-github-app-token@v2
@@ -39,9 +48,17 @@ jobs:
           REPO_NAME: ${{ inputs.name }}
           DESCRIPTION: ${{ inputs.description }}
         run: |
+          COMBINED=$(echo "$REPO_NAME $DESCRIPTION" | tr '[:upper:]' '[:lower:]')
+          if echo "$COMBINED" | grep -q "php"; then
+            TEMPLATE_FLAG="--template $ORG/php-template"
+          else
+            TEMPLATE_FLAG=""
+          fi
+
           gh repo create "$ORG/$REPO_NAME" \
             --public \
-            --description "$DESCRIPTION"
+            --description "$DESCRIPTION" \
+            $TEMPLATE_FLAG
 
           gh api --method PATCH "repos/$ORG/$REPO_NAME" \
             --field allow_squash_merge=true \
