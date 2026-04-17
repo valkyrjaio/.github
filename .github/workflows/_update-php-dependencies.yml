@@ -159,7 +159,7 @@ jobs:
           git add -A
           git commit \
             --author="$ACTOR <$ACTOR_ID+$ACTOR@users.noreply.github.com>" \
-            -m "[Composer] Update composer dependencies"
+            -m "[Composer] Update composer dependencies."
           git push --force-with-lease origin "$BRANCH"
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
 
