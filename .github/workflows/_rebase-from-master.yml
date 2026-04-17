@@ -1,0 +1,45 @@
+name: Rebase from Master
+
+on:
+  workflow_call:
+
+jobs:
+  rebase:
+    name: "Rebase ${{ github.ref_name }} from master"
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Set up Git user
+        run: |
+          git config --global user.email "${{ vars.USER_EMAIL }}"
+          git config --global user.name "${{ vars.USER_NAME }}"
+
+      - name: Backup ${{ github.ref_name }}
+        run: |
+          git push --force-with-lease origin ${{ github.ref_name }}:${{ github.ref_name }}-backup
+
+      - name: Rebase ${{ github.ref_name }} from master
+        run: |
+          git fetch origin master
+          git rebase origin/master
+
+      - name: Push ${{ github.ref_name }}
+        run: |
+          git push --force-with-lease origin ${{ github.ref_name }}
