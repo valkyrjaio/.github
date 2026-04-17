@@ -66,7 +66,11 @@ jobs:
             --field allow_rebase_merge=false \
             --field delete_branch_on_merge=true \
             --field squash_merge_commit_title="PR_TITLE" \
-            --field squash_merge_commit_message="PR_BODY"
+            --field squash_merge_commit_message="PR_BODY" \
+            --field has_wiki=false
+
+          gh api --method PUT "repos/$ORG/$REPO_NAME/vulnerability-alerts" > /dev/null
+          gh api --method PUT "repos/$ORG/$REPO_NAME/automated-security-fixes" > /dev/null
 
       - name: Apply branch rulesets
         env:

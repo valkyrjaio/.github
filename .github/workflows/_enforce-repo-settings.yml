@@ -44,6 +44,32 @@ jobs:
               --jq '.[] | select(.isArchived == false) | [.name, (.description // "")] | @json')
           fi
 
+          apply_or_update_ruleset() {
+            local ruleset_file="$1"
+            local RULESET_NAME
+            RULESET_NAME=$(jq -r '.name' "$ruleset_file")
+            local RULESET_ID
+            RULESET_ID=$(echo "$EXISTING" | jq -r --arg n "$RULESET_NAME" '.[] | select(.name == $n) | .id')
+
+            if [ -z "$RULESET_ID" ]; then
+              echo "  Applying ruleset: $RULESET_NAME"
+              jq '{name, target, enforcement, conditions, rules, bypass_actors}' "$ruleset_file" \
+                | gh api --method POST "repos/$ORG/$REPO_NAME/rulesets" --input - > /dev/null
+            else
+              local DESIRED CURRENT
+              DESIRED=$(jq -S '{name, target, enforcement, conditions, rules, bypass_actors}' "$ruleset_file")
+              CURRENT=$(gh api "repos/$ORG/$REPO_NAME/rulesets/$RULESET_ID" \
+                --jq '{name, target, enforcement, conditions, rules, bypass_actors}' | jq -S .)
+              if [ "$DESIRED" != "$CURRENT" ]; then
+                echo "  Updating ruleset: $RULESET_NAME"
+                jq '{name, target, enforcement, conditions, rules, bypass_actors}' "$ruleset_file" \
+                  | gh api --method PUT "repos/$ORG/$REPO_NAME/rulesets/$RULESET_ID" --input - > /dev/null
+              else
+                echo "  Ruleset up to date: $RULESET_NAME"
+              fi
+            fi
+          }
+
           while IFS= read -r repo_json; do
             REPO_NAME=$(echo "$repo_json" | jq -r '.[0]')
             DESCRIPTION=$(echo "$repo_json" | jq -r '.[1]')
@@ -55,7 +81,6 @@ jobs:
 
             echo "Enforcing settings for $ORG/$REPO_NAME..."
 
-            # Apply merge and branch settings
             gh api --method PATCH "repos/$ORG/$REPO_NAME" \
               --field allow_squash_merge=true \
               --field allow_merge_commit=false \
@@ -63,40 +88,26 @@ jobs:
               --field delete_branch_on_merge=true \
               --field squash_merge_commit_title="PR_TITLE" \
               --field squash_merge_commit_message="PR_BODY" \
+              --field has_wiki=false \
               > /dev/null
             echo "  Settings applied"
 
-            # Get existing ruleset names
-            EXISTING=$(gh api "repos/$ORG/$REPO_NAME/rulesets" \
-              --jq '[.[].name]' 2>/dev/null || echo "[]")
+            gh api --method PUT "repos/$ORG/$REPO_NAME/vulnerability-alerts" > /dev/null
+            gh api --method PUT "repos/$ORG/$REPO_NAME/automated-security-fixes" > /dev/null
+            echo "  Security settings applied"
 
-            # Apply missing root rulesets
+            EXISTING=$(gh api "repos/$ORG/$REPO_NAME/rulesets" \
+              --jq '[.[] | {id: .id, name: .name}]' 2>/dev/null || echo "[]")
+
             for ruleset_file in rulesets/*.json; do
-              RULESET_NAME=$(jq -r '.name' "$ruleset_file")
-              HAS=$(echo "$EXISTING" | jq --arg n "$RULESET_NAME" 'map(select(. == $n)) | length')
-              if [ "$HAS" = "0" ]; then
-                echo "  Applying ruleset: $RULESET_NAME"
-                jq '{name, target, enforcement, conditions, rules, bypass_actors}' "$ruleset_file" \
-                  | gh api --method POST "repos/$ORG/$REPO_NAME/rulesets" --input - > /dev/null
-              else
-                echo "  Ruleset already exists: $RULESET_NAME"
-              fi
+              apply_or_update_ruleset "$ruleset_file"
             done
 
-            # Apply PHP-specific rulesets for PHP repos
             COMBINED=$(echo "$REPO_NAME $DESCRIPTION" | tr '[:upper:]' '[:lower:]')
             if echo "$COMBINED" | grep -qi "php"; then
-              echo "  PHP repo detected, applying PHP-specific rulesets..."
+              echo "  PHP repo detected, checking PHP-specific rulesets..."
               for ruleset_file in rulesets/php/*.json; do
-                RULESET_NAME=$(jq -r '.name' "$ruleset_file")
-                HAS=$(echo "$EXISTING" | jq --arg n "$RULESET_NAME" 'map(select(. == $n)) | length')
-                if [ "$HAS" = "0" ]; then
-                  echo "  Applying PHP ruleset: $RULESET_NAME"
-                  jq '{name, target, enforcement, conditions, rules, bypass_actors}' "$ruleset_file" \
-                    | gh api --method POST "repos/$ORG/$REPO_NAME/rulesets" --input - > /dev/null
-                else
-                  echo "  PHP ruleset already exists: $RULESET_NAME"
-                fi
+                apply_or_update_ruleset "$ruleset_file"
               done
             fi
           done <<< "$REPOS"
