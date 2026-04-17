@@ -19,6 +19,7 @@ jobs:
     uses: ./.github/workflows/_cherry-pick-commits.yml
     permissions:
       contents: write
+    secrets: inherit
     with:
       destination: ${{ inputs.destination }}
       hash: ${{ inputs.hash }}
