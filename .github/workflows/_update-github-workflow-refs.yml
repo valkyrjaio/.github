@@ -64,7 +64,7 @@ jobs:
               fi
 
               BRANCH_EXISTS=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/$UPDATE_BRANCH" \
-                --jq '.object.sha' 2>/dev/null || true)
+                --jq 'if type == "object" then .object.sha else "" end' 2>/dev/null || true)
 
               FILES_UPDATED=0
 
@@ -126,7 +126,8 @@ jobs:
                 EXISTING_PR=$(gh pr list --repo "$ORG/$REPO_NAME" \
                   --state open \
                   --json headRefName \
-                  --jq "[.[] | select(.headRefName == \"$UPDATE_BRANCH\")] | first | .headRefName // \"\"")
+                  --jq "[.[] | select(.headRefName == \"$UPDATE_BRANCH\")] | first | .headRefName // \"\"" \
+                  2>/dev/null || true)
 
                 if [ -z "$EXISTING_PR" ]; then
                   REVIEWER_FLAGS=""
