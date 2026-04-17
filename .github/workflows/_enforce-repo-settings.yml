@@ -6,7 +6,7 @@ on:
       repo:
         description: 'Single repository name to target (leave empty to run on all repos)'
         type: string
-        default: 'tester-php'
+        default: ''
 
 jobs:
   enforce:
