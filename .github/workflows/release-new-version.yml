@@ -11,6 +11,7 @@ on:
           - patch
           - minor
           - major
+          - rc
 
 run-name: "Release ${{ inputs.bump }} bump on ${{ github.ref_name }}"
 
@@ -33,6 +34,7 @@ jobs:
 
   release:
     needs: [update-version-files, check-version]
+    if: always() && needs.check-version.result == 'success' && (needs.update-version-files.result == 'success' || needs.update-version-files.result == 'skipped')
     uses: valkyrjaio/.github/.github/workflows/_release.yml@master
     secrets: inherit
     with:

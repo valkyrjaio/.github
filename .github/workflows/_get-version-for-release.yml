@@ -45,10 +45,51 @@ jobs:
           BRANCH: ${{ github.ref_name }}
           LATEST_MAJOR_VERSION: ${{ vars.LATEST_MAJOR_VERSION }}
         run: |
-          # Validate branch — all releases must come from a major version branch
+          # Release candidates must come from master and target the next unreleased major
+          if [ "$BUMP" = "rc" ]; then
+            if [ "$BRANCH" != "master" ]; then
+              echo "Release candidates must be created from master. Current branch: $BRANCH"
+              exit 1
+            fi
+
+            # Find the highest existing major version branch
+            HIGHEST_MAJOR=$(gh api "repos/$GITHUB_REPOSITORY/branches" --paginate \
+              --jq '.[].name' 2>/dev/null \
+              | grep -E '^[0-9]+\.x$' \
+              | sed 's/\.x//' \
+              | sort -n \
+              | tail -1 || echo "")
+
+            if [ -z "$HIGHEST_MAJOR" ]; then
+              echo "No version branches found. Cannot determine next major version for RC."
+              exit 1
+            fi
+
+            NEXT_MAJOR=$((HIGHEST_MAJOR + 1))
+
+            # Find the highest existing RC number for this next major
+            LATEST_RC=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 \
+              --json tagName,isPrerelease \
+              --jq '.[] | select(.isPrerelease == true) | .tagName' 2>/dev/null \
+              | grep -E "^v${NEXT_MAJOR}\.0\.0-RC[0-9]+$" \
+              | sed "s/^v${NEXT_MAJOR}\.0\.0-RC//" \
+              | sort -n \
+              | tail -1 || echo "0")
+
+            NEXT_RC=$((LATEST_RC + 1))
+            NEW_VERSION="${NEXT_MAJOR}.0.0-RC${NEXT_RC}"
+
+            echo "Computed RC version: v$NEW_VERSION (based on highest version branch: ${HIGHEST_MAJOR}.x)"
+            echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+            echo "major-version=$NEXT_MAJOR" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Validate branch — all stable releases must come from a major version branch
           if [ "$BRANCH" = "master" ]; then
-            echo "Releases cannot be triggered from master."
+            echo "Stable releases cannot be triggered from master."
             echo "Create a version branch (e.g. 26.x) first, then release from it."
+            echo "For a release candidate, use the 'rc' bump type."
             exit 1
           elif [[ "$BRANCH" =~ ^([0-9]+)\.x$ ]]; then
             BRANCH_MAJOR="${BASH_REMATCH[1]}"
@@ -121,6 +162,12 @@ jobs:
           BUMP: ${{ inputs.bump }}
           SUPPORTED_VERSIONS: ${{ vars.SUPPORTED_VERSIONS }}
         run: |
+          # RC versions have their own format; skip standard semver checks
+          if [[ "$VERSION" =~ ^[0-9]+\.0\.0-RC[0-9]+$ ]]; then
+            echo "RC version v$VERSION passed format check."
+            exit 0
+          fi
+
           # Verify semver format
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Computed version '$VERSION' is not valid semver. Aborting."
