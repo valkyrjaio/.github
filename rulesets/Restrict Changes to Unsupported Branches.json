@@ -28,5 +28,11 @@
       "type": "update"
     }
   ],
-  "bypass_actors": []
+  "bypass_actors": [
+    {
+      "actor_id": 2462900,
+      "actor_type": "Integration",
+      "bypass_mode": "always"
+    }
+  ]
 }
