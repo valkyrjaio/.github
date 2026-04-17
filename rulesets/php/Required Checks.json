@@ -56,10 +56,6 @@
           {
             "context": "PHPUnit / PHP 8.6",
             "integration_id": 15368
-          },
-          {
-            "context": "Commit Message Check / Check Commit Message",
-            "integration_id": 15368
           }
         ]
       }
