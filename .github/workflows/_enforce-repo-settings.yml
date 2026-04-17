@@ -38,7 +38,7 @@ jobs:
 
           if [ -n "$TARGET_REPO" ]; then
             REPOS=$(gh repo list "$ORG" --limit 200 --json name,description,isArchived \
-              --jq --arg r "$TARGET_REPO" '.[] | select(.name == $r) | [.name, (.description // "")] | @json')
+              --jq ".[] | select(.name == \"$TARGET_REPO\") | [.name, (.description // \"\")] | @json")
           else
             REPOS=$(gh repo list "$ORG" --limit 200 --json name,description,isArchived \
               --jq '.[] | select(.isArchived == false) | [.name, (.description // "")] | @json')
