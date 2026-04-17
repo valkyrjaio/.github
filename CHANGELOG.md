@@ -1,6 +1,11 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.1.2...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.1.3...26.x)
+
+## [v26.1.3](https://github.com/valkyrjaio/.github/compare/v26.1.2...v26.1.3) - 2026-04-17
+
+* [GitHub] Format automated dependency update PR body as a markdown table by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/12
+* [GitHub] Format automated workflow ref update PR body as a markdown table by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/13
 
 ## [v26.1.2](https://github.com/valkyrjaio/.github/compare/v26.1.1...v26.1.2) - 2026-04-17
 
