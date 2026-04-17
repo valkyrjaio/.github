@@ -104,12 +104,6 @@ jobs:
               NEW_MAJOR=$((LATEST_MAJOR + 1))
               NEW_MINOR=0
               NEW_PATCH=0
-
-              if [ "$NEW_MAJOR" -gt "$LATEST_MAJOR_VERSION" ]; then
-                echo "Cannot release v${NEW_MAJOR}.0.0: the ${NEW_MAJOR}.x branch does not exist yet."
-                echo "Run create-version-branch first to create the ${NEW_MAJOR}.x branch."
-                exit 1
-              fi
               ;;
             minor)
               NEW_MAJOR="$LATEST_MAJOR"
