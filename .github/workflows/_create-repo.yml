@@ -1,0 +1,83 @@
+name: Create Repository
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        description: 'Repository name (without org prefix)'
+        type: string
+        required: true
+      description:
+        description: 'Repository description'
+        type: string
+        required: true
+
+jobs:
+  create-repo:
+    name: "Create ${{ github.repository_owner }}/${{ inputs.name }}"
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Create repository
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          ORG: ${{ github.repository_owner }}
+          REPO_NAME: ${{ inputs.name }}
+          DESCRIPTION: ${{ inputs.description }}
+        run: |
+          gh repo create "$ORG/$REPO_NAME" \
+            --public \
+            --description "$DESCRIPTION"
+
+      - name: Configure repository settings
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          ORG: ${{ github.repository_owner }}
+          REPO_NAME: ${{ inputs.name }}
+        run: |
+          gh api --method PATCH "repos/$ORG/$REPO_NAME" \
+            --field allow_squash_merge=true \
+            --field allow_merge_commit=false \
+            --field allow_rebase_merge=false \
+            --field delete_branch_on_merge=true \
+            --field squash_merge_commit_title="PR_TITLE" \
+            --field squash_merge_commit_message="PR_BODY" \
+            --field default_branch="master"
+
+      - name: Apply branch rulesets
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          ORG: ${{ github.repository_owner }}
+          REPO_NAME: ${{ inputs.name }}
+          DESCRIPTION: ${{ inputs.description }}
+        run: |
+          shopt -s nullglob
+
+          for ruleset_file in rulesets/*.json; do
+            echo "Applying ruleset: $ruleset_file"
+            jq '{name, target, enforcement, conditions, rules, bypass_actors}' "$ruleset_file" \
+              | gh api --method POST "repos/$ORG/$REPO_NAME/rulesets" --input -
+          done
+
+          COMBINED=$(echo "$REPO_NAME $DESCRIPTION" | tr '[:upper:]' '[:lower:]')
+          if echo "$COMBINED" | grep -qi "php"; then
+            echo "PHP repo detected, applying PHP-specific rulesets..."
+            for ruleset_file in rulesets/php/*.json; do
+              echo "Applying PHP ruleset: $ruleset_file"
+              jq '{name, target, enforcement, conditions, rules, bypass_actors}' "$ruleset_file" \
+                | gh api --method POST "repos/$ORG/$REPO_NAME/rulesets" --input -
+            done
+          fi

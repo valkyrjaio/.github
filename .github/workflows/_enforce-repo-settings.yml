@@ -1,0 +1,90 @@
+name: Enforce Repository Settings
+
+on:
+  workflow_call:
+
+jobs:
+  enforce:
+    name: Enforce Repository Settings
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Enforce settings on all repositories
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          ORG: ${{ github.repository_owner }}
+        run: |
+          shopt -s nullglob
+
+          REPOS=$(gh repo list "$ORG" --limit 200 --json name,description,isArchived \
+            --jq '.[] | select(.isArchived == false) | [.name, (.description // "")] | @json')
+
+          while IFS= read -r repo_json; do
+            REPO_NAME=$(echo "$repo_json" | jq -r '.[0]')
+            DESCRIPTION=$(echo "$repo_json" | jq -r '.[1]')
+
+            if [ "$REPO_NAME" = ".github" ]; then
+              echo "Skipping .github meta-repo"
+              continue
+            fi
+
+            echo "Enforcing settings for $ORG/$REPO_NAME..."
+
+            # Apply merge and branch settings
+            gh api --method PATCH "repos/$ORG/$REPO_NAME" \
+              --field allow_squash_merge=true \
+              --field allow_merge_commit=false \
+              --field allow_rebase_merge=false \
+              --field delete_branch_on_merge=true \
+              --field squash_merge_commit_title="PR_TITLE" \
+              --field squash_merge_commit_message="PR_BODY" \
+              > /dev/null
+            echo "  Settings applied"
+
+            # Get existing ruleset names
+            EXISTING=$(gh api "repos/$ORG/$REPO_NAME/rulesets" \
+              --jq '[.[].name]' 2>/dev/null || echo "[]")
+
+            # Apply missing root rulesets
+            for ruleset_file in rulesets/*.json; do
+              RULESET_NAME=$(jq -r '.name' "$ruleset_file")
+              HAS=$(echo "$EXISTING" | jq --arg n "$RULESET_NAME" 'map(select(. == $n)) | length')
+              if [ "$HAS" = "0" ]; then
+                echo "  Applying ruleset: $RULESET_NAME"
+                jq '{name, target, enforcement, conditions, rules, bypass_actors}' "$ruleset_file" \
+                  | gh api --method POST "repos/$ORG/$REPO_NAME/rulesets" --input - > /dev/null
+              else
+                echo "  Ruleset already exists: $RULESET_NAME"
+              fi
+            done
+
+            # Apply PHP-specific rulesets for PHP repos
+            COMBINED=$(echo "$REPO_NAME $DESCRIPTION" | tr '[:upper:]' '[:lower:]')
+            if echo "$COMBINED" | grep -qi "php"; then
+              echo "  PHP repo detected, applying PHP-specific rulesets..."
+              for ruleset_file in rulesets/php/*.json; do
+                RULESET_NAME=$(jq -r '.name' "$ruleset_file")
+                HAS=$(echo "$EXISTING" | jq --arg n "$RULESET_NAME" 'map(select(. == $n)) | length')
+                if [ "$HAS" = "0" ]; then
+                  echo "  Applying PHP ruleset: $RULESET_NAME"
+                  jq '{name, target, enforcement, conditions, rules, bypass_actors}' "$ruleset_file" \
+                    | gh api --method POST "repos/$ORG/$REPO_NAME/rulesets" --input - > /dev/null
+                else
+                  echo "  PHP ruleset already exists: $RULESET_NAME"
+                fi
+              done
+            fi
+          done <<< "$REPOS"

@@ -1,0 +1,23 @@
+name: Create Repository
+
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: 'Repository name (without org prefix)'
+        type: string
+        required: true
+      description:
+        description: 'Repository description'
+        type: string
+        required: true
+
+run-name: "Create ${{ github.repository_owner }}/${{ inputs.name }}"
+
+jobs:
+  create-repo:
+    uses: valkyrjaio/.github/.github/workflows/_create-repo.yml@master
+    secrets: inherit
+    with:
+      name: ${{ inputs.name }}
+      description: ${{ inputs.description }}
