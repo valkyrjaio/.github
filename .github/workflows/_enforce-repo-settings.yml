@@ -89,6 +89,7 @@ jobs:
               --field squash_merge_commit_title="PR_TITLE" \
               --field squash_merge_commit_message="PR_BODY" \
               --field has_wiki=false \
+              --field has_projects=false \
               > /dev/null
             echo "  Settings applied"
 
