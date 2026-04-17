@@ -55,7 +55,7 @@ jobs:
           BRANCH: ${{ inputs.branch }}
           SOURCE_BRANCH: ${{ github.ref_name }}
         run: |
-          sed -i "s/$SOURCE_BRANCH/$BRANCH/g" README.md
+          sed -i "/valkyrjaio\/art/! s/$SOURCE_BRANCH/$BRANCH/g" README.md
 
       - name: Update CHANGELOG.md
         env:
