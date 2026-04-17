@@ -44,7 +44,8 @@ jobs:
             ALL_BRANCHES=$(gh api "repos/$ORG/$REPO_NAME/branches" --paginate \
               --jq '.[].name' 2>/dev/null || true)
 
-            BASE_BRANCHES="master"
+            # Collect supported version branches; fall back to master if none exist
+            BASE_BRANCHES=""
             while IFS= read -r b; do
               if [[ "$b" =~ ^([0-9]+)\.x$ ]]; then
                 MAJOR="${BASH_REMATCH[1]}"
@@ -53,6 +54,10 @@ jobs:
                 fi
               fi
             done <<< "$ALL_BRANCHES"
+
+            if [ -z "$BASE_BRANCHES" ]; then
+              BASE_BRANCHES="master"
+            fi
 
             while IFS= read -r BASE_BRANCH; do
               [ -z "$BASE_BRANCH" ] && continue
