@@ -42,6 +42,17 @@ jobs:
       - name: Pull latest changes
         run: git pull --rebase origin ${{ github.ref_name }}
 
+      - name: Detect release type
+        id: release-type
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$VERSION" =~ -RC[0-9]+$ ]]; then
+            echo "is-rc=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is-rc=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Generate release notes
         id: generated-notes
         uses: RedCrafter07/release-notes-action@main
@@ -117,4 +128,5 @@ jobs:
           name: v${{ inputs.version }}
           body: ${{ steps.generated-notes.outputs.release-notes }}
           target_commitish: ${{ github.ref_name }}
-          make_latest: "${{ github.ref_name == github.event.repository.default_branch }}"
+          prerelease: ${{ steps.release-type.outputs.is-rc == 'true' }}
+          make_latest: "${{ steps.release-type.outputs.is-rc != 'true' && github.ref_name == github.event.repository.default_branch }}"
