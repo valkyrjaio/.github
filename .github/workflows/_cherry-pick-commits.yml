@@ -1,4 +1,4 @@
-name: Cherry-pick pull-requests to Branches
+name: Reusable Cherry-pick pull-requests to Branches
 
 on:
   workflow_call:

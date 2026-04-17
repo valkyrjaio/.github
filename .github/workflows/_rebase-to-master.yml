@@ -1,4 +1,4 @@
-name: Rebase to Master
+name: Reusable Rebase to Master
 
 on:
   workflow_call:

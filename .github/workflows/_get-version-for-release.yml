@@ -1,4 +1,4 @@
-name: Get Version For Release
+name: Reusable Get Version For Release
 
 on:
   workflow_call:

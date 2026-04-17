@@ -1,4 +1,4 @@
-name: Create Repository
+name: Reusable Create Repository
 
 on:
   workflow_call:

@@ -1,4 +1,4 @@
-name: Update PHP Dependencies
+name: Reusable Update PHP Dependencies
 
 on:
   workflow_call:

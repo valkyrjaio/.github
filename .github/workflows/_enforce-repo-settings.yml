@@ -1,4 +1,4 @@
-name: Enforce Repository Settings
+name: Reusable Enforce Repository Settings
 
 on:
   workflow_call:

@@ -1,4 +1,4 @@
-name: Check Outdated PHP Dependencies
+name: Reusable Check Outdated PHP Dependencies
 
 on:
   workflow_call:

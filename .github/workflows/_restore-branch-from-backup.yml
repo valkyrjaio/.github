@@ -1,4 +1,4 @@
-name: Restore Branch From Backup
+name: Reusable Restore Branch From Backup
 
 on:
   workflow_call:
