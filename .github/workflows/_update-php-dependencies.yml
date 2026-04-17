@@ -66,15 +66,20 @@ jobs:
             CMD=$(echo "$DEPENDENCIES" | jq -r ".[$i].command")
             DIR=$(echo "$DEPENDENCIES" | jq -r ".[$i].directory // \".\"")
 
-            BEFORE=$(cd "$DIR" && composer show --locked --direct --format=json 2>/dev/null \
-              | jq -r '.installed[]? | "\(.name) \(.version)"' || echo "")
+            LOCK_FILE="$DIR/composer.lock"
+            BEFORE=""
+            if [ -f "$LOCK_FILE" ]; then
+              BEFORE=$(jq -r '(.packages + (.["packages-dev"] // []))[] | "\(.name) \(.version)"' "$LOCK_FILE" 2>/dev/null || echo "")
+            fi
 
             echo "Updating $NAME..."
             composer $CMD
 
             echo "Syncing $NAME composer.json version constraints..."
-            INSTALLED=$(cd "$DIR" && composer show --locked --direct --format=json 2>/dev/null \
-              | jq -r '.installed[]? | "\(.name) \(.version)"' || echo "")
+            INSTALLED=""
+            if [ -f "$LOCK_FILE" ]; then
+              INSTALLED=$(jq -r '(.packages + (.["packages-dev"] // []))[] | "\(.name) \(.version)"' "$LOCK_FILE" 2>/dev/null || echo "")
+            fi
 
             while IFS= read -r line; do
               [ -z "$line" ] && continue
@@ -201,7 +206,7 @@ jobs:
 
           gh pr create \
             --title "[Composer] Update composer dependencies" \
-            --body "$(printf '%s' "$BODY")" \
+            --body "$(printf '%b' "$BODY")" \
             --base "$BASE" \
             --head "$BRANCH" \
             $REVIEWER_FLAGS
