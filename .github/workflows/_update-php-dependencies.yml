@@ -172,12 +172,19 @@ jobs:
           DEPENDENCIES: ${{ inputs.dependencies }}
           REVIEWER: ${{ vars.GITHUB_REVIEWER }}
         run: |
-          BODY="## Automated Dependency Updates\n\n"
+          BODY="# Description\n\nAutomated composer dependency updates\n\n"
           LENGTH=$(echo "$DEPENDENCIES" | jq 'length')
           for i in $(seq 0 $((LENGTH - 1))); do
             NAME=$(echo "$DEPENDENCIES" | jq -r ".[$i].name")
             BODY+="- $NAME\n"
           done
+          BODY+="\n## Types of changes\n\n"
+          BODY+="- [X] Improvement _(non-breaking change which improves code)_\n"
+          BODY+="- [ ] Bug fix _(non-breaking change which fixes an issue)_\n"
+          BODY+="- [ ] New feature _(non-breaking change which adds functionality)_\n"
+          BODY+="- [ ] Deprecation _(breaking change which removes functionality)_\n"
+          BODY+="- [ ] Breaking change _(fix or feature that would cause existing functionality\n  to change)_\n"
+          BODY+="- [ ] Documentation improvement\n"
 
           REVIEWER_FLAGS=""
           if [ -n "$REVIEWER" ]; then
