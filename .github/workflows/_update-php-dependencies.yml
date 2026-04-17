@@ -170,6 +170,7 @@ jobs:
           BASE: ${{ github.ref_name }}
           BRANCH: ${{ steps.branch.outputs.branch }}
           DEPENDENCIES: ${{ inputs.dependencies }}
+          REVIEWER: ${{ vars.GITHUB_REVIEWER }}
         run: |
           BODY="## Automated Dependency Updates\n\n"
           LENGTH=$(echo "$DEPENDENCIES" | jq 'length')
@@ -177,8 +178,15 @@ jobs:
             NAME=$(echo "$DEPENDENCIES" | jq -r ".[$i].name")
             BODY+="- $NAME\n"
           done
+
+          REVIEWER_FLAGS=""
+          if [ -n "$REVIEWER" ]; then
+            REVIEWER_FLAGS="--assignee $REVIEWER --reviewer $REVIEWER"
+          fi
+
           gh pr create \
-            --title "Update composer dependencies" \
+            --title "[Composer] Update composer dependencies" \
             --body "$(printf "$BODY")" \
             --base "$BASE" \
-            --head "$BRANCH"
+            --head "$BRANCH" \
+            $REVIEWER_FLAGS
