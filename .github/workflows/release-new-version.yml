@@ -1,0 +1,39 @@
+name: Create a New Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version component to bump'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+run-name: "Release ${{ inputs.bump }} bump on ${{ github.ref_name }}"
+
+permissions:
+  contents: write
+
+jobs:
+  check-version:
+    uses: valkyrjaio/.github/.github/workflows/_get-version-for-release.yml@master
+    secrets: inherit
+    with:
+      bump: ${{ inputs.bump }}
+
+  update-version-files:
+    needs: check-version
+    uses: valkyrjaio/.github/.github/workflows/_update-version-files.yml@master
+    secrets: inherit
+    with:
+      version: ${{ needs.check-version.outputs.version }}
+
+  release:
+    needs: [update-version-files, check-version]
+    uses: valkyrjaio/.github/.github/workflows/_release.yml@master
+    secrets: inherit
+    with:
+      version: ${{ needs.check-version.outputs.version }}
