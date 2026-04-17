@@ -48,6 +48,31 @@ jobs:
         with:
           token: ${{ steps.generate-token.outputs.token }}
 
+      - name: Checkout existing PR branch if present
+        id: prep-branch
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          BASE: ${{ github.ref_name }}
+        run: |
+          EXISTING=$(gh pr list \
+            --base "$BASE" \
+            --state open \
+            --json headRefName \
+            --jq '[.[] | select(.headRefName | startswith("deps/update-dependencies-"))] | first | .headRefName // ""')
+
+          if [ -n "$EXISTING" ]; then
+            echo "Found existing PR branch: $EXISTING"
+            git fetch origin "$EXISTING"
+            git checkout "$EXISTING"
+            echo "branch=$EXISTING" >> "$GITHUB_OUTPUT"
+            echo "is-new=false" >> "$GITHUB_OUTPUT"
+          else
+            BRANCH="deps/update-dependencies-$(date +%Y-%m-%d)"
+            echo "No existing PR branch. Will create: $BRANCH"
+            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+            echo "is-new=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -147,43 +172,30 @@ jobs:
           git config user.name "$APP_SLUG[bot]"
           git config user.email "$BOT_USER_ID+$APP_SLUG[bot]@users.noreply.github.com"
 
-      - name: Create or update PR branch
+      - name: Commit and push PR branch
         if: steps.check-changes.outputs.has-changes == 'true'
         id: branch
         env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
-          BASE: ${{ github.ref_name }}
+          BRANCH: ${{ steps.prep-branch.outputs.branch }}
+          IS_NEW: ${{ steps.prep-branch.outputs.is-new }}
           ACTOR: ${{ github.actor }}
           ACTOR_ID: ${{ github.actor_id }}
         run: |
-          EXISTING=$(gh pr list \
-            --base "$BASE" \
-            --state open \
-            --json headRefName \
-            --jq '[.[] | select(.headRefName | startswith("deps/update-dependencies-"))] | first | .headRefName // ""')
-
-          if [ -n "$EXISTING" ]; then
-            BRANCH="$EXISTING"
-            echo "is-new=false" >> "$GITHUB_OUTPUT"
-          else
-            BRANCH="deps/update-dependencies-$(date +%Y-%m-%d)"
-            echo "is-new=true" >> "$GITHUB_OUTPUT"
+          if [ "$IS_NEW" = "true" ]; then
+            git checkout -b "$BRANCH"
           fi
-
-          git checkout -b "$BRANCH"
           git add -A
           git commit \
             --author="$ACTOR <$ACTOR_ID+$ACTOR@users.noreply.github.com>" \
             -m "[Composer] Update composer dependencies."
           git push --force-with-lease origin "$BRANCH"
-          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
 
       - name: Create pull request
-        if: steps.check-changes.outputs.has-changes == 'true' && steps.branch.outputs.is-new == 'true'
+        if: steps.check-changes.outputs.has-changes == 'true' && steps.prep-branch.outputs.is-new == 'true'
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           BASE: ${{ github.ref_name }}
-          BRANCH: ${{ steps.branch.outputs.branch }}
+          BRANCH: ${{ steps.prep-branch.outputs.branch }}
           DEPENDENCIES: ${{ inputs.dependencies }}
           REVIEWER: ${{ vars.VALKYRJA_REVIEWER }}
         run: |
