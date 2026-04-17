@@ -1,6 +1,12 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.1.1...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.1.2...26.x)
+
+## [v26.1.2](https://github.com/valkyrjaio/.github/compare/v26.1.1...v26.1.2) - 2026-04-17
+
+* [Documentation] Update PR template and contributing guidelines. by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/9
+* [GitHub] Skip master when supported version branches exist by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/10
+* [GitHub] Add Changes section to PR template by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/11
 
 ## [v26.1.1](https://github.com/valkyrjaio/.github/compare/v26.1.0...v26.1.1) - 2026-04-17
 
