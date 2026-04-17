@@ -73,20 +73,6 @@ jobs:
 
           echo "Version $VERSION is within the current year ($YEAR_SHORT). Proceeding."
 
-      - name: Verify v${{ steps.version.outputs.version }}.0.0 has been released
-        env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
-        run: |
-          RELEASE="v${{ steps.version.outputs.version }}.0.0"
-
-          if ! gh release view "$RELEASE" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "Cannot create ${{ steps.branch.outputs.branch }}: release $RELEASE has not been made yet."
-            echo "Release $RELEASE from master first, then create the version branch."
-            exit 1
-          fi
-
-          echo "Release $RELEASE exists. Proceeding."
-
       - name: Check if branch already exists
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}

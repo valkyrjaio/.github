@@ -45,30 +45,28 @@ jobs:
           BRANCH: ${{ github.ref_name }}
           LATEST_MAJOR_VERSION: ${{ vars.LATEST_MAJOR_VERSION }}
         run: |
-          # Validate branch and bump combination
+          # Validate branch — all releases must come from a major version branch
           if [ "$BRANCH" = "master" ]; then
-            IS_MASTER=true
+            echo "Releases cannot be triggered from master."
+            echo "Create a version branch (e.g. 26.x) first, then release from it."
+            exit 1
           elif [[ "$BRANCH" =~ ^([0-9]+)\.x$ ]]; then
-            IS_MASTER=false
             BRANCH_MAJOR="${BASH_REMATCH[1]}"
-
-            if [ "$BUMP" = "major" ]; then
-              echo "Major version bumps must be released from master, not from a feature branch."
-              exit 1
-            fi
           else
-            echo "Releases must be triggered from master or a major version branch (e.g. 26.x)."
+            echo "Releases must be triggered from a major version branch (e.g. 26.x)."
             exit 1
           fi
 
-          # Determine which releases to look at
-          if [ "$IS_MASTER" = "true" ]; then
-            # On master: compare against the globally highest release
-            FILTER_PATTERN="^v[0-9]+\.[0-9]+\.[0-9]+$"
-          else
-            # On a feature branch: only look at this major's releases
-            FILTER_PATTERN="^v${BRANCH_MAJOR}\.[0-9]+\.[0-9]+$"
+          # For a major bump, the version is always BRANCH_MAJOR.0.0
+          if [ "$BUMP" = "major" ]; then
+            echo "Major bump on $BRANCH: releasing v${BRANCH_MAJOR}.0.0"
+            echo "version=${BRANCH_MAJOR}.0.0" >> "$GITHUB_OUTPUT"
+            echo "major-version=${BRANCH_MAJOR}" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+
+          # For minor/patch: only look at this major's releases
+          FILTER_PATTERN="^v${BRANCH_MAJOR}\.[0-9]+\.[0-9]+$"
 
           LATEST_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '.[].tagName' 2>/dev/null \
             | grep -E "$FILTER_PATTERN" \
@@ -79,17 +77,10 @@ jobs:
           if [ -z "$LATEST_TAG" ]; then
             YEAR=$(date +%Y)
             YEAR_SHORT="${YEAR:2}"
-
-            if [ "$BUMP" = "major" ]; then
-              # Seed one below current year so incrementing yields current year (e.g. 2026 → 26.0.0)
-              LATEST_MAJOR=$((YEAR_SHORT - 1))
-            else
-              LATEST_MAJOR="$YEAR_SHORT"
-              LATEST_MINOR=0
-              LATEST_PATCH=0
-            fi
-
-            echo "No existing releases found. Seeding base version from current year: ${YEAR_SHORT}"
+            LATEST_MAJOR="$BRANCH_MAJOR"
+            LATEST_MINOR=0
+            LATEST_PATCH=0
+            echo "No existing releases found for v${BRANCH_MAJOR}.x. Seeding from branch: v${BRANCH_MAJOR}.0.0"
           else
             LATEST="${LATEST_TAG#v}"
             LATEST_MAJOR=$(echo "$LATEST" | cut -d. -f1)
