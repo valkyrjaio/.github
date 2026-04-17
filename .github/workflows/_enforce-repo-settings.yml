@@ -93,11 +93,6 @@ jobs:
             gh api --method PUT "repos/$ORG/$REPO_NAME/immutable-releases" > /dev/null
             echo "  Security settings applied"
 
-            if [ "$REPO_NAME" = ".github" ]; then
-              echo "  Skipping rulesets for .github meta-repo"
-              continue
-            fi
-
             EXISTING=$(gh api "repos/$ORG/$REPO_NAME/rulesets" \
               --jq '[.[] | {id: .id, name: .name}]' 2>/dev/null || echo "[]")
 
