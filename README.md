@@ -23,6 +23,52 @@ all repositories in the organization.
 [`profile/README.md`](profile/README.md) renders on the
 [valkyrjaio organization page][org-page] on GitHub.
 
+### Workflows
+
+Reusable workflows shared across all Valkyrja repositories. Prefixed with `_` to
+indicate they are called by other workflows rather than triggered directly.
+
+#### PR Quality Gates
+
+| Workflow                                                                   | Trigger         | Description                                                                         |
+|----------------------------------------------------------------------------|-----------------|-------------------------------------------------------------------------------------|
+| [`commit-message-check.yml`](.github/workflows/commit-message-check.yml)   | `pull_request`  | Validates that every commit message on a PR meets the project conventions           |
+| [`_commit-message-check.yml`](.github/workflows/_commit-message-check.yml) | `workflow_call` | Reusable implementation of the above; posts/removes a PR comment on failure/success |
+
+#### Release Management
+
+| Workflow                                                                                         | Description                                                                                                                                                                                                                    |
+|--------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`_get-version-for-release.yml`](.github/workflows/_get-version-for-release.yml)                 | Computes the next release version from the latest GitHub release tag, based on a `major`/`minor`/`patch` bump input. Seeds from the current year when no releases exist. Outputs `version`, `major-version`, and `build-date`. |
+| [`_get-version.yml`](.github/workflows/_get-version.yml)                                         | Computes the next major version number and branch name (e.g. `27` → `27.x`) for creating a new major version branch. Must be run from `master`.                                                                                |
+| [`_check-outdated-php-dependencies.yml`](.github/workflows/_check-outdated-php-dependencies.yml) | Runs a matrix of Composer scripts to verify all direct dependencies are up to date before a release proceeds.                                                                                                                  |
+| [`_update-version-files.yml`](.github/workflows/_update-version-files.yml)                       | Checks out the calling repository, updates `VERSION.md` with the new version, and commits the change using the org bot as committer.                                                                                           |
+| [`_create-version-branch.yml`](.github/workflows/_create-version-branch.yml)                     | Creates a new major version branch, rewrites `README.md`, `CHANGELOG.md`, and `VERSION.md` for that branch, commits, and updates the `LATEST_MAJOR_VERSION` org variable.                                                      |
+| [`_release.yml`](.github/workflows/_release.yml)                                                 | Generates and cleans release notes, updates `CHANGELOG.md`, commits it, creates the GitHub release, and tags the release.                                                                                                      |
+
+#### Branch Management
+
+| Workflow                                                                               | Description                                                                                                                                                                                 |
+|----------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`cherry-pick-commits.yml`](.github/workflows/cherry-pick-commits.yml)                 | Manually cherry-picks a commit hash to a target branch. Validates the destination against a configurable branch pattern and creates a backup before picking.                                |
+| [`_cherry-pick-commits.yml`](.github/workflows/_cherry-pick-commits.yml)               | Reusable implementation of the above. Inputs: `destination`, `hash`, `valid-branch-pattern`.                                                                                                |
+| [`_rebase-to-master.yml`](.github/workflows/_rebase-to-master.yml)                     | Rebases `master` onto the branch the workflow is run from (must be the latest major version branch). Backs up `master` first, validates the source branch major version, then force-pushes. |
+| [`_rebase-from-master.yml`](.github/workflows/_rebase-from-master.yml)                 | Rebases the branch the workflow is run from onto `master`. Backs up the branch first, then force-pushes.                                                                                    |
+| [`_restore-branch-from-backup.yml`](.github/workflows/_restore-branch-from-backup.yml) | Restores the branch the workflow is run from using its `<branch>-backup` counterpart.                                                                                                       |
+
+#### Required Secrets and Variables
+
+All reusable workflows that use the Valkyrja GitHub App require these to be set
+at the organization level:
+
+| Name                       | Type     | Description                                                                                             |
+|----------------------------|----------|---------------------------------------------------------------------------------------------------------|
+| `VALKYRJA_GHA_APP_ID`      | Secret   | GitHub App ID used to generate short-lived tokens                                                       |
+| `VALKYRJA_GHA_PRIVATE_KEY` | Secret   | GitHub App private key                                                                                  |
+| `LATEST_MAJOR_VERSION`     | Variable | Current latest major version number (e.g. `26`). Falls back to current year's last two digits if unset. |
+| `USER_EMAIL`               | Variable | Git committer email for rebase/cherry-pick operations                                                   |
+| `USER_NAME`                | Variable | Git committer name for rebase/cherry-pick operations                                                    |
+
 ### Rulesets
 
 The [`rulesets/`](rulesets/) directory contains exported GitHub branch ruleset
