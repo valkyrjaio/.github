@@ -130,12 +130,16 @@ Triggers:
 
 Behavior:
 - Iterates all non-archived repos in the org (excluding `.github` itself).
-- For each repo: checks `master` and all supported `??.x` branches (filtered
-  by `SUPPORTED_VERSIONS`).
+- For each repo: targets all supported `??.x` branches (filtered by
+  `SUPPORTED_VERSIONS`). Falls back to `master` only if no supported version
+  branches exist in that repo.
+- **`master` is intentionally skipped when version branches exist.** Master
+  should be kept in sync via rebase or cherry-pick from the version branch —
+  not via a direct dependency PR.
 - Scans every workflow file for `valkyrjaio/.github/.github/workflows/*@<sha>`.
 - Updates the SHA to the latest stable release's commit SHA.
-- Creates a PR per base branch (`deps/update-github-workflow-refs` for master,
-  `deps/update-github-workflow-refs-26.x` for version branches).
+- Creates a PR per base branch (`deps/update-github-workflow-refs-26.x` for
+  version branches, `deps/update-github-workflow-refs` for master fallback).
 - If branch creation or file update is blocked by a ruleset, logs a clean
   message and continues — treats protection as expected, not a failure.
 - If a PR already exists for that branch, skips PR creation (does not force
