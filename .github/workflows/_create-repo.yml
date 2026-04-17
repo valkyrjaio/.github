@@ -49,8 +49,7 @@ jobs:
             --field allow_rebase_merge=false \
             --field delete_branch_on_merge=true \
             --field squash_merge_commit_title="PR_TITLE" \
-            --field squash_merge_commit_message="PR_BODY" \
-            --field default_branch="master"
+            --field squash_merge_commit_message="PR_BODY"
 
       - name: Apply branch rulesets
         env:
