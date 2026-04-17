@@ -64,6 +64,9 @@ jobs:
             CMD=$(echo "$DEPENDENCIES" | jq -r ".[$i].command")
             DIR=$(echo "$DEPENDENCIES" | jq -r ".[$i].directory // \".\"")
 
+            BEFORE=$(cd "$DIR" && composer show --locked --direct --format=json 2>/dev/null \
+              | jq -r '.installed[]? | "\(.name) \(.version)"' || echo "")
+
             echo "Updating $NAME..."
             composer $CMD
 
@@ -108,6 +111,11 @@ jobs:
                 PKG_ESC=$(printf '%s' "$PKG" | sed 's/[.+*?^${}()|[\]]/\\&/g')
                 sed -i -E "\|$PKG_ESC| s/[0-9]+\.[0-9]+\.[0-9]+[0-9.]*/$VER/g" "$COMPOSER_FILE"
                 echo "  [suggest] $PKG: updated version in description"
+              fi
+              # Track version change for PR body
+              OLD_VER=$(echo "$BEFORE" | grep "^$PKG " | awk '{print $2}' | sed 's/^v//')
+              if [ -n "$OLD_VER" ] && [ "$OLD_VER" != "$VER" ]; then
+                echo "- $PKG: v$OLD_VER -> v$VER" >> /tmp/dependency_changes.txt
               fi
             done <<< "$INSTALLED"
           done
@@ -173,11 +181,9 @@ jobs:
           REVIEWER: ${{ vars.GITHUB_REVIEWER }}
         run: |
           BODY="# Description\n\nAutomated composer dependency updates\n\n"
-          LENGTH=$(echo "$DEPENDENCIES" | jq 'length')
-          for i in $(seq 0 $((LENGTH - 1))); do
-            NAME=$(echo "$DEPENDENCIES" | jq -r ".[$i].name")
-            BODY+="- $NAME\n"
-          done
+          while IFS= read -r change; do
+            BODY+="$change\n"
+          done < /tmp/dependency_changes.txt
           BODY+="\n## Types of changes\n\n"
           BODY+="- [X] Improvement _(non-breaking change which improves code)_\n"
           BODY+="- [ ] Bug fix _(non-breaking change which fixes an issue)_\n"
