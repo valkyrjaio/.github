@@ -39,6 +39,9 @@ jobs:
         with:
           token: ${{ steps.generate-token.outputs.token }}
 
+      - name: Pull latest changes
+        run: git pull --rebase origin ${{ github.ref_name }}
+
       - name: Generate release notes
         id: generated-notes
         uses: RedCrafter07/release-notes-action@main
@@ -94,12 +97,6 @@ jobs:
           latest-version: v${{ inputs.version }}
           compare-url-target-revision: ${{ github.ref_name }}
           parse-github-usernames: true
-
-      - name: Pull latest changes before committing
-        run: |
-          git stash
-          git pull --rebase origin ${{ github.ref_name }}
-          git stash pop
 
       - name: Commit updated CHANGELOG
         uses: stefanzweifel/git-auto-commit-action@v7
