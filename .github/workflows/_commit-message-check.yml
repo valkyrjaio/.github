@@ -12,8 +12,6 @@ jobs:
   commit-message-check:
     name: Check Commit Message
 
-    if: github.actor != 'dependabot[bot]'
-
     runs-on: ubuntu-latest
 
     permissions:
@@ -33,6 +31,7 @@ jobs:
           private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
       - name: Check Commit Type
+        if: github.actor != 'dependabot[bot]'
         uses: gsactions/commit-message-checker@v2
         with:
           pattern: '\[[^\]]+\] .+$'
@@ -55,6 +54,7 @@ jobs:
           done <<< "$COMMITS"
 
       - name: Check Period at end
+        if: github.actor != 'dependabot[bot]'
         uses: gsactions/commit-message-checker@v2
         with:
           pattern: '.*\.$'
