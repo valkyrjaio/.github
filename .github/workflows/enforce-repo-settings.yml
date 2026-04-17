@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 9 * * 1'
   workflow_dispatch:
+    inputs:
+      repo:
+        description: 'Single repository name to target (leave empty to run on all repos)'
+        type: string
+        default: ''
 
 run-name: Enforce repository settings across ${{ github.repository_owner }}
 
@@ -11,3 +16,5 @@ jobs:
   enforce:
     uses: valkyrjaio/.github/.github/workflows/_enforce-repo-settings.yml@master
     secrets: inherit
+    with:
+      repo: ${{ inputs.repo || '' }}
