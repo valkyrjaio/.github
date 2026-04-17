@@ -90,6 +90,7 @@ jobs:
 
             gh api --method PUT "repos/$ORG/$REPO_NAME/vulnerability-alerts" > /dev/null
             gh api --method PUT "repos/$ORG/$REPO_NAME/automated-security-fixes" > /dev/null
+            gh api --method PUT "repos/$ORG/$REPO_NAME/immutable-releases" > /dev/null
             echo "  Security settings applied"
 
             if [ "$REPO_NAME" = ".github" ]; then
