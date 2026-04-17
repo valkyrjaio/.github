@@ -31,6 +31,7 @@ jobs:
           private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
       - name: Check Commit Type
+        if: github.actor != 'dependabot[bot]'
         uses: gsactions/commit-message-checker@v2
         with:
           pattern: '\[[^\]]+\] .+$'
