@@ -1,0 +1,11 @@
+name: Update PHP Dependencies
+
+on:
+  workflow_dispatch:
+
+run-name: Update PHP dependencies across all PHP repos
+
+jobs:
+  update-dependencies:
+    uses: ./.github/workflows/_update-php-dependencies-across-repos.yml
+    secrets: inherit
