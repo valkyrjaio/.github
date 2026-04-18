@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   release:
-    uses: .github/workflows/_create-release.yml
+    uses: ./.github/workflows/_create-release.yml
     secrets: inherit
     with:
       bump: ${{ inputs.bump }}
