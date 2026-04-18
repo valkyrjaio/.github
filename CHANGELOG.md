@@ -1,6 +1,14 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.1.3...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.2.0...26.x)
+
+## [v26.2.0](https://github.com/valkyrjaio/.github/compare/v26.1.3...v26.2.0) - 2026-04-17
+
+* [GitHub] Update release workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/14
+* [GitHub] Add NAMING.md documenting org-wide repository naming convention by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/15
+* [GitHub] Rename php-template repo to project-template-php by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/16
+* [Documentation] Add Current Organization State section to NAMING.md by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/17
+* [GitHub] Delegate release and version branch workflows to reusable org workflows by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/18
 
 ## [v26.1.3](https://github.com/valkyrjaio/.github/compare/v26.1.2...v26.1.3) - 2026-04-17
 
