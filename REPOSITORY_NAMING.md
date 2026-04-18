@@ -5,22 +5,12 @@ Valkyrjaio GitHub organization. Following these conventions keeps the org
 listing scannable, makes the purpose of each repo clear from its name alone,
 and scales cleanly as new projects and language ports are added.
 
-## Current Organization State
-
-All repos in the Valkyrjaio organization follow the conventions defined above.
-Every repo either ends with a language suffix or is one of the three
-legitimately language-agnostic exceptions (`.github`, `architecture`, `art`).
-
-| Category                 | Examples                                                                                    |
-|--------------------------|---------------------------------------------------------------------------------------------|
-| Language-agnostic (1)    | `.github`, `architecture`, `art`                                                            |
-| CI tooling (2)           | `ci-phpstan-php`, `ci-phpunit-php`, `ci-rector-php`                                         |
-| Project templates (3)    | `project-template-php`, `project-template-java`                                             |
-| Project base (4a)        | `valkyrja-php`, `sindri-php`, `application-java`                                            |
-| Project integration (4b) | `valkyrja-openswoole-php`, `valkyrja-netty-java`, `valkyrja-docker-php`                     |
-
-This table is illustrative, not exhaustive. See the Valkyrjaio organization
-page on GitHub for the complete repo listing.
+**A note on naming:** Throughout this document, **Valkyrja** refers to the
+project, framework, and brand. **Valkyrjaio** is the GitHub organization
+handle (derived from the valkyrja.io website, with the dot removed to satisfy
+GitHub's org naming rules). When speaking about the project or its repos in
+prose, use "Valkyrja." Use "Valkyrjaio" only when specifically referring to
+the GitHub org as a GitHub entity.
 
 ## Core Principle
 
@@ -53,7 +43,7 @@ If there's any chance it becomes language-specific, use a different category.
 ### 2. CI and shared tooling (`ci-{tool}-{lang}`)
 
 Repos that ship shared CI configuration, linting rules, and tooling conventions
-used across multiple projects in the org. The `ci-` prefix signals the repo is
+used across multiple Valkyrja projects. The `ci-` prefix signals the repo is
 shared infrastructure rather than project-specific code.
 
 **Format:** `ci-{tool}-{lang}`
@@ -74,70 +64,97 @@ shared infrastructure rather than project-specific code.
 - `ci-spotbugs-java` _(future)_
 
 **Rule:** Use this category when the repo contains configuration or rules that
-any project in the org could consume. If the configuration is specific to one
+any Valkyrja project could consume. If the configuration is specific to one
 project, put it in that project's repo instead.
 
 **Note on repeated language:** Names like `ci-phpunit-php` have `php` twice —
 once in the tool name, once in the language suffix. This is intentional and
 correct. The consistency of the convention outweighs the redundancy.
 
-### 3. Project templates (`template-{lang}`)
+### 3. Project templates (`project-template-{lang}`)
 
 Starter templates for bootstrapping new projects in the org. These are marked
 as "Template repository" in GitHub settings so they can be used with the "Use
 this template" button.
 
-**Format:** `template-{lang}`
+**Format:** `project-template-{lang}`
 
 **Examples:**
 
-- `template-php`
-- `template-java`
+- `project-template-php`
+- `project-template-java`
 
-**Rule:** One template per language. Templates are org-level infrastructure —
-they're not specific to any single project.
+**Rule:** One project template per language. Templates are org-level
+infrastructure — they're not specific to any single project.
 
-### 4. Project repos (`{project}[-{integration}]-{lang}`)
+**Note:** If other kinds of templates emerge later (module templates, library
+templates, etc.), they follow the same pattern: `{type}-template-{lang}`.
+The generic `template-*` namespace is reserved for this extensibility.
 
-Repos that ship actual projects — frameworks, applications, build tools, and
-their integrations with third-party runtimes.
+### 4. Project repos (`{project}[-{component}]-{lang}`)
+
+Repos that ship actual projects. Valkyrja is the framework itself (the primary
+product of the project), and everything else in the org exists to support or
+extend it — Sindri (the build tool), starter applications, and the various
+third-party integrations.
+
+The distinction between 4a and 4b comes down to a single question: **does the
+repo stand on its own, or does it require another Valkyrja project to
+function?**
+
+- A repo that is self-contained and usable independently is a **base project**
+  (4a). Examples: the Valkyrja framework, the Sindri build tool — each is
+  complete on its own, even though they interoperate.
+- A repo that requires a base project to function is a **project component**
+  (4b). Examples: worker runtime integrations, framework starters, benchmarking
+  harnesses, Docker configs — none of these have meaning without their parent
+  project.
+
+The `{project}-` prefix on 4b repos names the parent they depend on.
 
 #### 4a. Base project (`{project}-{lang}`)
 
-The main repo for a project in a given language.
+The main repo for a self-contained project in a given language. A base project
+can be cloned, installed, and used as-is without depending on any other
+Valkyrja repo.
 
 **Format:** `{project}-{lang}`
 
 **Examples:**
 
-- `valkyrja-php`
-- `valkyrja-java`
-- `sindri-php`
+- `valkyrja-php` — the Valkyrja framework in PHP
+- `valkyrja-java` — the Valkyrja framework in Java
+- `sindri-php` — the Sindri build tool in PHP
 - `sindri-java` _(future)_
-- `application-php`
-- `application-java`
 
-#### 4b. Project integration (`{project}-{integration}-{lang}`)
+**Rule:** If the repo requires another Valkyrja project to function, it is
+not a base project. Use Category 4b instead.
 
-A repo that ships an integration between a project and a specific third-party
-runtime, library, or service. The integration name sits between the project
-name and the language suffix.
+#### 4b. Project component (`{project}-{component}-{lang}`)
 
-**Format:** `{project}-{integration}-{lang}`
+A repo that extends, integrates with, or depends on a base project. The
+component cannot function on its own — it requires the named parent project
+(the `{project}-` prefix) to be useful.
+
+**Format:** `{project}-{component}-{lang}`
 
 **Examples:**
 
-- `valkyrja-openswoole-php`
-- `valkyrja-frankenphp-php`
-- `valkyrja-roadrunner-php`
-- `valkyrja-netty-java`
-- `valkyrja-jetty-java`
-- `valkyrja-tomcat-java`
-- `valkyrja-docker-php`
+- `valkyrja-openswoole-php` — OpenSwoole worker runtime integration
+- `valkyrja-frankenphp-php` — FrankenPHP worker runtime integration
+- `valkyrja-roadrunner-php` — RoadRunner worker runtime integration
+- `valkyrja-netty-java` — Netty worker runtime integration
+- `valkyrja-jetty-java` — Jetty worker runtime integration
+- `valkyrja-tomcat-java` — Tomcat worker runtime integration
+- `valkyrja-docker-php` — Docker container for running Valkyrja applications
+- `valkyrja-benchmarking-php` — benchmarking harness for Valkyrja
+- `valkyrja-starter-php` — starter application template for Valkyrja
+- `valkyrja-starter-java` — starter application template for Valkyrja
 
-**Rule:** The integration name is the third-party thing being integrated
-(OpenSwoole, Netty, Docker), not a description of what the integration does.
-Describe the role of the integration in the repo's description, not its name.
+**Rule:** The `{component}` name is either the third-party thing being
+integrated (OpenSwoole, Netty, Docker) or the role the component plays
+(starter, benchmarking). Describe the specifics in the repo's description,
+not its name.
 
 ## Decision Rules
 
@@ -146,15 +163,15 @@ When creating a new repo, work through these questions in order:
 1. **Is it language-agnostic?** Does the content apply to every language port
    with no changes? If yes, no language suffix (Category 1). If no, continue.
 
-2. **Is it shared CI or tooling configuration?** Could multiple projects in the
-   org consume this without modification? If yes, use `ci-{tool}-{lang}`
+2. **Is it shared CI or tooling configuration?** Could multiple Valkyrja
+   projects consume this without modification? If yes, use `ci-{tool}-{lang}`
    (Category 2). If no, continue.
 
-3. **Is it a starter template for new projects?** If yes, use `template-{lang}`
-   (Category 3). If no, continue.
+3. **Is it a starter template for new projects?** If yes, use
+   `project-template-{lang}` (Category 3). If no, continue.
 
-4. **Is it an integration with a specific third-party thing?** If yes, use
-   `{project}-{integration}-{lang}` (Category 4b). If no, use `{project}-{lang}`
+4. **Does it require another Valkyrja project to function?** If yes, use
+   `{project}-{component}-{lang}` (Category 4b). If no, use `{project}-{lang}`
    (Category 4a).
 
 ## Language Suffixes
@@ -195,14 +212,48 @@ These match the file extensions and community norms for each language.
   prefixes should meet the same bar: they represent a real category with
   multiple repos, not a one-off.
 
+- **Don't use "Valkyrjaio" in repo descriptions, READMEs, or user-facing prose.
+  **
+  "Valkyrjaio" is the GitHub org handle only — an administrative artifact of
+  GitHub's naming rules. Use "Valkyrja" when referring to the project in any
+  user-facing context.
+
+- **Don't give base-project naming (4a) to a repo that requires another
+  Valkyrja project to function.** If the repo would be useless without its
+  parent, it's a component (4b) and takes the `{project}-` prefix.
+
+## Current Organization State
+
+All repos in the Valkyrjaio organization follow the conventions defined above.
+Every repo either ends with a language suffix or is one of the three
+legitimately language-agnostic exceptions (`.github`, `architecture`, `art`).
+
+| Category               | Examples                                                                 |
+|------------------------|--------------------------------------------------------------------------|
+| Language-agnostic (1)  | `.github`, `architecture`, `art`                                         |
+| CI tooling (2)         | `ci-phpstan-php`, `ci-phpunit-php`, `ci-rector-php`                      |
+| Project templates (3)  | `project-template-php`, `project-template-java`                          |
+| Project base (4a)      | `valkyrja-php`, `valkyrja-java`, `sindri-php`                            |
+| Project component (4b) | `valkyrja-openswoole-php`, `valkyrja-starter-php`, `valkyrja-docker-php` |
+
+This table is illustrative, not exhaustive. See the Valkyrjaio organization
+page on GitHub for the complete repo listing.
+
 ## Renames
 
 Repository renames on GitHub preserve URL redirects indefinitely, so renaming
 an established repo is safe for anyone clicking old links. However:
 
-- Packagist package names are independent of GitHub repo names and do not need
-  to change when a GitHub repo is renamed.
-- Composer `composer.json` `homepage` and `support.source` fields that
-  reference the GitHub URL will continue to work via redirect, but should be
-  updated when convenient.
+- Package names on Packagist, Maven Central, and other language-specific
+  package registries are independent of GitHub repo names and do not change
+  when a GitHub repo is renamed. Packages are named after what they are
+  (`valkyrja/valkyrja` on Packagist is the framework), decoupling distribution
+  identity from GitHub organization.
+- `composer.json` `homepage` and `support.source` fields (and their equivalents
+  in `pom.xml`, `package.json`, etc.) that reference the GitHub URL will
+  continue to work via redirect, but should be updated when convenient.
 - Local git remotes continue to work via redirect, but should be updated:
+
+```
+  git remote set-url origin git@github.com:valkyrjaio/{new-name}.git
+```
