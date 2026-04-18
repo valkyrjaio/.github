@@ -34,14 +34,8 @@ jobs:
 
       - name: Check for trailing newlines
         id: check
-        env:
-          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          if [ -n "$BASE_REF" ]; then
-            mapfile -d '' files < <(git diff --name-only --diff-filter=d -z "origin/${BASE_REF}...HEAD")
-          else
-            mapfile -d '' files < <(git ls-files -z)
-          fi
+          mapfile -d '' files < <(git ls-files -z)
 
           missing=()
           for file in "${files[@]}"; do
