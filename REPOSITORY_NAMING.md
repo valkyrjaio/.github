@@ -5,12 +5,16 @@ Valkyrjaio GitHub organization. Following these conventions keeps the org
 listing scannable, makes the purpose of each repo clear from its name alone,
 and scales cleanly as new projects and language ports are added.
 
+See also: [`VOCABULARY.md`](./VOCABULARY.md) for the canonical definitions
+of Valkyrja terms (app, module, component, tool, etc.) used throughout this
+document.
+
 **A note on naming:** Throughout this document, **Valkyrja** refers to the
 project, framework, and brand. **Valkyrjaio** is the GitHub organization
 handle (derived from the valkyrja.io website, with the dot removed to satisfy
 GitHub's org naming rules). When speaking about the project or its repos in
 prose, use "Valkyrja." Use "Valkyrjaio" only when specifically referring to
-the GitHub org as a GitHub entity.
+the GitHub org as a GitHub entity. See `VOCABULARY.md` for full definitions.
 
 ## Core Principle
 
@@ -161,23 +165,17 @@ component type and the language suffix: `{project}-{type}-{variant}-{lang}`.
 
 **Starter templates** are the primary example of this pattern. Valkyrja
 distinguishes between several kinds of starter based on what the user is
-building:
+building. See `VOCABULARY.md` for the definitions of app, module, component,
+and tool.
 
 - `valkyrja-starter-app-{lang}` — starter for building an application on
-  Valkyrja (HTTP, CLI, RPC, queue worker, or any other runnable form). Matches
-  Valkyrja's own `App` namespace for this layer.
+  Valkyrja (HTTP, CLI, RPC, queue worker, or any other runnable form).
 - `valkyrja-starter-module-{lang}` — starter for building a self-contained
-  feature module (e.g. a complete auth system, billing system, admin panel)
-  that composes multiple components together for drop-in use.
+  feature module that composes multiple components together for drop-in use.
 - `valkyrja-starter-component-{lang}` — starter for building a single-purpose
-  framework component (e.g. a new CLI extension, an ORM adapter).
-- `valkyrja-starter-tool-{lang}` — starter for building a standalone tool on
-  Valkyrja (like Sindri). Runs independently rather than as a framework layer.
-
-These four types cover the spectrum from "a complete deployed application"
-(app) through "reusable composed functionality" (module) down to "a single
-focused unit" (component), plus the orthogonal case of "a standalone tool"
-(tool).
+  framework component.
+- `valkyrja-starter-tool-{lang}` — starter for building a standalone tool
+  on Valkyrja (like Sindri).
 
 ## Decision Rules
 
@@ -239,19 +237,18 @@ These match the file extensions and community norms for each language.
   **
   "Valkyrjaio" is the GitHub org handle only — an administrative artifact of
   GitHub's naming rules. Use "Valkyrja" when referring to the project in any
-  user-facing context.
+  user-facing context. See `VOCABULARY.md`.
 
 - **Don't give base-project naming (4a) to a repo that requires another
   Valkyrja project to function.** If the repo would be useless without its
   parent, it's a component (4b) and takes the `{project}-` prefix.
 
-- **Don't use alternative terms like "bundle," "plugin," or "package" for
-  Valkyrja-specific concepts.** Valkyrja uses a specific vocabulary:
-  **app**, **module**, **component**, and **tool**. These words have distinct
-  meanings within the project and should be used consistently in repo names
-  and documentation. Avoid borrowing vocabulary from other frameworks
-  (Symfony's "bundle," Laravel's "package") even if the underlying concept
-  is similar.
+- **Don't use alternative vocabulary for Valkyrja concepts.** Valkyrja uses a
+  specific vocabulary: **app**, **module**, **component**, and **tool**. These
+  words have distinct meanings within the project and should be used
+  consistently in repo names and documentation. See `VOCABULARY.md` for full
+  definitions and for the complete list of terms to avoid (Symfony's "bundle,"
+  Laravel's "package," WordPress's "plugin," etc.).
 
 ## Current Organization State
 
