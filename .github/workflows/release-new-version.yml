@@ -19,23 +19,8 @@ permissions:
   contents: write
 
 jobs:
-  check-version:
-    uses: valkyrjaio/.github/.github/workflows/_get-version-for-release.yml@master
+  release:
+    uses: .github/workflows/_create-release.yml
     secrets: inherit
     with:
       bump: ${{ inputs.bump }}
-
-  update-version-files:
-    needs: check-version
-    uses: valkyrjaio/.github/.github/workflows/_update-version-files.yml@master
-    secrets: inherit
-    with:
-      version: ${{ needs.check-version.outputs.version }}
-
-  release:
-    needs: [update-version-files, check-version]
-    if: always() && needs.check-version.result == 'success' && (needs.update-version-files.result == 'success' || needs.update-version-files.result == 'skipped')
-    uses: valkyrjaio/.github/.github/workflows/_release.yml@master
-    secrets: inherit
-    with:
-      version: ${{ needs.check-version.outputs.version }}
