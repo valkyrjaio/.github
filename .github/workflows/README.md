@@ -236,10 +236,7 @@ Triggers:
 - On every pull request targeting `master` or `*.x` branches.
 
 Behavior (via `_trailing-newline-check.yml`):
-- In a PR context: checks only files changed in the PR
-  (`git diff --name-only --diff-filter=d origin/<base>...HEAD`).
-- Outside a PR context (e.g., `workflow_dispatch`): checks all tracked files
-  (`git ls-files`).
+- Always checks all tracked files in the repository (`git ls-files`).
 - Skips binary files (detected via `file --mime-encoding`).
 - Skips empty files.
 - Fails if any file's last byte is not a newline (`\n`), listing every offending
