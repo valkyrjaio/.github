@@ -1,0 +1,67 @@
+name: Reusable Create PHP Release
+
+on:
+  workflow_call:
+    inputs:
+      bump:
+        description: 'Version component to bump'
+        type: string
+        required: true
+      php-version:
+        description: 'PHP version to use'
+        type: string
+        default: '8.4'
+      dependencies:
+        description: >
+          JSON array of dependencies to check for outdated versions.
+          Each item must have a "name" and "command".
+          Example: [{"name":"PHPStan","command":"phpstan-outdated-check"}]
+        type: string
+        required: true
+      info-class-path:
+        description: 'Relative path to the Info class (e.g. src/OpenSwoole/Constant/OpenSwooleInfo.php)'
+        type: string
+        required: true
+      info-class-name:
+        description: 'Simple class name for display (e.g. OpenSwooleInfo)'
+        type: string
+        required: true
+
+jobs:
+  check-version:
+    uses: ./.github/workflows/_get-version-for-release.yml
+    secrets: inherit
+    with:
+      bump: ${{ inputs.bump }}
+
+  check-outdated-dependencies:
+    needs: check-version
+    uses: ./.github/workflows/_check-outdated-php-dependencies.yml
+    secrets: inherit
+    with:
+      php-version: ${{ inputs.php-version }}
+      dependencies: ${{ inputs.dependencies }}
+
+  update-version-files:
+    needs: [check-outdated-dependencies, check-version]
+    uses: ./.github/workflows/_update-version-files.yml
+    secrets: inherit
+    with:
+      version: ${{ needs.check-version.outputs.version }}
+
+  update-php-info-files:
+    needs: [update-version-files, check-version]
+    uses: ./.github/workflows/_update-php-info-files.yml
+    secrets: inherit
+    with:
+      version: ${{ needs.check-version.outputs.version }}
+      build-date: ${{ needs.check-version.outputs.build-date }}
+      info-class-path: ${{ inputs.info-class-path }}
+      info-class-name: ${{ inputs.info-class-name }}
+
+  release:
+    needs: [update-php-info-files, check-version]
+    uses: ./.github/workflows/_release.yml
+    secrets: inherit
+    with:
+      version: ${{ needs.check-version.outputs.version }}
