@@ -16,6 +16,7 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 - [Repository Enforcement](#repository-enforcement)
 - [Rulesets](#rulesets)
 - [Commit Message Rules](#commit-message-rules)
+- [Trailing Newline Check](#trailing-newline-check)
 - [Dependabot](#dependabot)
 - [Dependency Updates](#dependency-updates)
 - [Branch Utilities](#branch-utilities)
@@ -227,6 +228,38 @@ required status check.
 
 ---
 
+## Trailing Newline Check
+
+### `trailing-newline-check.yml`
+
+Triggers:
+- On every pull request targeting `master` or `*.x` branches.
+
+Behavior (via `_trailing-newline-check.yml`):
+- Always checks all tracked files in the repository (`git ls-files`).
+- Skips binary files (detected via `file --mime-encoding`).
+- Skips empty files.
+- Fails if any file's last byte is not a newline (`\n`), listing every offending
+  file by path.
+- Posts a PR comment on failure listing all offending files, and removes it when
+  the check subsequently passes.
+
+### Adding to a consumer repo
+
+Add a workflow that calls the reusable implementation:
+
+```yaml
+jobs:
+  trailing-newline-check:
+    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@<sha>
+    permissions:
+      pull-requests: write
+      contents: read
+    secrets: inherit
+```
+
+---
+
 ## Dependabot
 
 Dependabot PRs require access to `VALKYRJA_GHA_APP_ID` and
@@ -319,6 +352,7 @@ contains `php`. The template provides:
 | `rebase-to-master.yml`                  | `workflow_dispatch`       | Rebase `master` onto the current (latest major) version branch               |
 | `rebase-from-master.yml`                | `workflow_dispatch`       | Rebase the current branch onto `master`                                      |
 | `restore-branch-from-backup.yml`        | `workflow_dispatch`       | Restore a branch from its `<branch>-backup` counterpart                      |
+| `trailing-newline-check.yml`            | `pull_request`            | Validate all PR-changed files end with a trailing newline                    |
 | `commit-message-check.yml`              | `pull_request`            | Validate commit message format                                               |
 | `_create-release.yml`                   | `workflow_call`           | Orchestrate stable/RC release (version → update files → release)             |
 | `_aggregate-release.yml`                | `workflow_call`           | Like `_create-release.yml` with externally pinned SHA refs for central steps |
@@ -334,6 +368,7 @@ contains `php`. The template provides:
 | `_update-github-workflow-refs.yml`      | `workflow_call`           | Update workflow SHA pins across all repos                                    |
 | `_check-outdated-php-dependencies.yml`  | `workflow_call`           | Run Composer scripts to verify all direct PHP dependencies are up to date    |
 | `_update-php-dependencies.yml`          | `workflow_call`           | Run composer update and open PR                                              |
+| `_trailing-newline-check.yml`           | `workflow_call`           | Trailing newline check logic; posts/removes PR comment on failure/success    |
 | `_commit-message-check.yml`             | `workflow_call`           | Commit message format check logic                                            |
 | `_cherry-pick-commits.yml`              | `workflow_call`           | Cherry-pick logic with branch validation                                     |
 | `_rebase-to-master.yml`                 | `workflow_call`           | Rebase `master` onto the current branch (with backup + validation)           |

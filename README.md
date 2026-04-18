@@ -30,10 +30,12 @@ indicate they are called by other workflows rather than triggered directly.
 
 #### PR Quality Gates
 
-| Workflow                                                                   | Trigger         | Description                                                                         |
-|----------------------------------------------------------------------------|-----------------|-------------------------------------------------------------------------------------|
-| [`commit-message-check.yml`](.github/workflows/commit-message-check.yml)   | `pull_request`  | Validates that every commit message on a PR meets the project conventions           |
-| [`_commit-message-check.yml`](.github/workflows/_commit-message-check.yml) | `workflow_call` | Reusable implementation of the above; posts/removes a PR comment on failure/success |
+| Workflow                                                                       | Trigger         | Description                                                                                                                                                                     |
+|--------------------------------------------------------------------------------|-----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`commit-message-check.yml`](.github/workflows/commit-message-check.yml)       | `pull_request`  | Validates that every commit message on a PR meets the project conventions                                                                                                       |
+| [`_commit-message-check.yml`](.github/workflows/_commit-message-check.yml)     | `workflow_call` | Reusable implementation of the above; posts/removes a PR comment on failure/success                                                                                             |
+| [`trailing-newline-check.yml`](.github/workflows/trailing-newline-check.yml)   | `pull_request`  | Validates that every file changed in a PR ends with a trailing newline                                                                                                          |
+| [`_trailing-newline-check.yml`](.github/workflows/_trailing-newline-check.yml) | `workflow_call` | Reusable implementation of the above; checks all tracked files in the repo, skips binary and empty files; posts/removes a PR comment listing offending files on failure/success |
 
 #### Dependency Management
 
