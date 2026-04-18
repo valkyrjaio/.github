@@ -12,6 +12,17 @@ code, tests or documentation.
 Thank you for your interest in helping us develop, maintain, and release the
 Valkyrja framework!
 
+## Project References
+
+These documents govern how Valkyrja is organized and described:
+
+- [`VOCABULARY.md`](./VOCABULARY.md) — canonical definitions of Valkyrja
+  terms (app, module, component, tool, etc.) used throughout the project.
+- [`REPOSITORY_NAMING.md`](./REPOSITORY_NAMING.md) — naming conventions for
+  repos in the Valkyrjaio GitHub organization.
+
+Contributors should skim both before their first PR.
+
 ## Submitting Code Changes
 
 If you have a feature, bug fix, documentation update, or any other type of code
@@ -28,6 +39,8 @@ PR:
 6. Follow the [commit and PR title format](#commit-and-pr-titles).
 7. Fill out the PR template completely. See
    [Writing Your PR Description](#writing-your-pr-description) below.
+8. Use Valkyrja vocabulary consistently — see
+   [`VOCABULARY.md`](./VOCABULARY.md).
 
 ### Running CI Locally
 
@@ -41,16 +54,16 @@ in progress and will have their own CI sections as they come online.
 
 Each check has a composer script:
 
-| Check              | Command                        |
-|--------------------|--------------------------------|
-| PHPArkitect        | `composer phparkitect`         |
-| PHP Code Sniffer   | `composer phpcodesniffer`      |
-| PHP CS Fixer       | `composer phpcsfixer`          |
-| PHPStan            | `composer phpstan`             |
-| PHPUnit            | `composer phpunit`             |
-| PHPUnit (coverage) | `composer phpunit-coverage`    |
-| Psalm              | `composer psalm`               |
-| Rector             | `composer rector`              |
+| Check              | Command                     |
+|--------------------|-----------------------------|
+| PHPArkitect        | `composer phparkitect`      |
+| PHP Code Sniffer   | `composer phpcodesniffer`   |
+| PHP CS Fixer       | `composer phpcsfixer`       |
+| PHPStan            | `composer phpstan`          |
+| PHPUnit            | `composer phpunit`          |
+| PHPUnit (coverage) | `composer phpunit-coverage` |
+| Psalm              | `composer psalm`            |
+| Rector             | `composer rector`           |
 
 Use `composer phpunit-coverage` instead of `composer phpunit` to verify you
 aren't reducing overall code coverage.
@@ -83,18 +96,18 @@ PR titles (no trailing period on PR titles).
 
 **Component tags:**
 
-| Tag               | Use for                                                     |
-|-------------------|-------------------------------------------------------------|
-| `[Documentation]` | Any documentation changes                                   |
-| `[CI]`            | CI-related changes                                          |
-| `[GitHub]`        | GitHub-specific changes (workflows, templates, etc.)        |
-| `[Git]`           | Git-related changes (`.gitignore`, `.gitattributes`, etc.)  |
-| `[Composer]`      | Composer-related changes                                    |
-| `[Functions]`     | Helper function changes                                     |
-| `[Deprecation]`   | Any deprecations                                            |
-| `[ModuleName]`    | Module changes — e.g. `[Container]`, `[Http]`, `[Cli]`      |
-| `[VERSION.x]`     | Version-specific changes — e.g. `[25.x]`                    |
-| `[Release]`       | Reserved for releases                                       |
+| Tag               | Use for                                                    |
+|-------------------|------------------------------------------------------------|
+| `[Documentation]` | Any documentation changes                                  |
+| `[CI]`            | CI-related changes                                         |
+| `[GitHub]`        | GitHub-specific changes (workflows, templates, etc.)       |
+| `[Git]`           | Git-related changes (`.gitignore`, `.gitattributes`, etc.) |
+| `[Composer]`      | Composer-related changes                                   |
+| `[Functions]`     | Helper function changes                                    |
+| `[Deprecation]`   | Any deprecations                                           |
+| `[ModuleName]`    | Module changes — e.g. `[Container]`, `[Http]`, `[Cli]`     |
+| `[VERSION.x]`     | Version-specific changes — e.g. `[25.x]`                   |
+| `[Release]`       | Reserved for releases                                      |
 
 **Good examples:**
 
@@ -109,8 +122,10 @@ PR titles (no trailing period on PR titles).
 - `fix bug` — no component, no detail, no period
 - `[http] fix stuff.` — lowercase tag, vague message
 - `Add caching.` — missing component tag
-- `[Container] Add support for contextual bindings` — missing period (commit message)
-- `[Container] Add support for contextual bindings.` — trailing period (PR title)
+- `[Container] Add support for contextual bindings` — missing period (commit
+  message)
+- `[Container] Add support for contextual bindings.` — trailing period (PR
+  title)
 
 ### Writing Your PR Description
 
@@ -150,11 +165,15 @@ why, and serves as a useful reference for anyone reading the PR months later.
 
 **Good examples:**
 
-- **`_release.yml`** — added release-type detection step; sets `prerelease: true` and `make_latest: false` when version contains `-RC`
+- **`_release.yml`** — added release-type detection step; sets
+  `prerelease: true` and `make_latest: false` when version contains `-RC`
 - **`_update-github-workflow-refs.yml`**
-    - Split `jq | gh api PUT` into discrete steps to eliminate pipefail ambiguity
-    - Changed `2>&1` to `2>/dev/null` on `gh pr create` so the `if !` handler fires correctly
-- **`README.md`** — updated workflow behavior description to document the intentional `master` skip and the rationale
+    - Split `jq | gh api PUT` into discrete steps to eliminate pipefail
+      ambiguity
+    - Changed `2>&1` to `2>/dev/null` on `gh pr create` so the `if !` handler
+      fires correctly
+- **`README.md`** — updated workflow behavior description to document the
+  intentional `master` skip and the rationale
 
 The Changes section is optional for small single-file PRs where the description
 already covers everything. For any PR touching multiple files or making several
@@ -162,23 +181,23 @@ discrete changes, fill it in.
 
 ### Branches for Code Changes
 
-| Branch    | Purpose                                                                                            |
-|-----------|----------------------------------------------------------------------------------------------------|
-| `master`  | Active development branch, open for backwards incompatible changes and major internal API changes. |
-| `??.x`    | Version maintenance branches. Open for bug fixes only.                                             |
+| Branch   | Purpose                                                                                            |
+|----------|----------------------------------------------------------------------------------------------------|
+| `master` | Active development branch, open for backwards incompatible changes and major internal API changes. |
+| `??.x`   | Version maintenance branches. Open for bug fixes only.                                             |
 
 ### Which Branch to Target
 
 Choosing the right base branch depends on the type of change:
 
-| Change type      | Target branch                                                        |
-|------------------|----------------------------------------------------------------------|
-| Improvement      | Lowest major affected `??.x` branch                                  |
-| Bug fix          | Lowest major affected `??.x` branch                                  |
-| New feature      | `master`                                                             |
-| Deprecation      | `master`                                                             |
-| Breaking change  | `master` — unless it's a bug fix, in which case please open an issue to discuss first |
-| Documentation    | Lowest major affected branch the docs apply to                       |
+| Change type     | Target branch                                                                         |
+|-----------------|---------------------------------------------------------------------------------------|
+| Improvement     | Lowest major affected `??.x` branch                                                   |
+| Bug fix         | Lowest major affected `??.x` branch                                                   |
+| New feature     | `master`                                                                              |
+| Deprecation     | `master`                                                                              |
+| Breaking change | `master` — unless it's a bug fix, in which case please open an issue to discuss first |
+| Documentation   | Lowest major affected branch the docs apply to                                        |
 
 If you're unsure which branch to target, open an issue first or target `master`
 and a maintainer will redirect the PR if needed.
