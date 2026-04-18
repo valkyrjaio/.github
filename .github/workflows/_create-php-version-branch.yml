@@ -1,0 +1,29 @@
+name: Reusable Create PHP Version Branch
+
+on:
+  workflow_call:
+    inputs:
+      php-version:
+        description: 'PHP version to use'
+        type: string
+        default: '8.4'
+      dependencies:
+        description: >
+          JSON array of dependencies to check for outdated versions.
+          Each item must have a "name" and "command".
+          Example: [{"name":"PHPStan","command":"phpstan-outdated-check-major-release"}]
+        type: string
+        required: true
+
+jobs:
+  check-outdated-dependencies:
+    uses: ./.github/workflows/_check-outdated-php-dependencies.yml
+    secrets: inherit
+    with:
+      php-version: ${{ inputs.php-version }}
+      dependencies: ${{ inputs.dependencies }}
+
+  create-version-branch:
+    needs: check-outdated-dependencies
+    uses: ./.github/workflows/_create-version-branch.yml
+    secrets: inherit

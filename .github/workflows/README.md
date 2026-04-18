@@ -21,6 +21,7 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 - [Branch Utilities](#branch-utilities)
 - [Cron Behavior](#cron-behavior)
 - [PHP Template](#php-template)
+- [Workflow Index](#workflow-index)
 
 ---
 
@@ -39,11 +40,13 @@ settings so Dependabot PRs can access them.
 
 ### Variables (org-level)
 
-| Variable               | Example          | Purpose                                                         |
-|------------------------|------------------|-----------------------------------------------------------------|
+| Variable               | Example          | Purpose                                                                             |
+|------------------------|------------------|-------------------------------------------------------------------------------------|
 | `SUPPORTED_VERSIONS`   | `2[6-9]`         | Regex matching supported major versions (used in cherry-pick, ref updates, enforce) |
-| `LATEST_MAJOR_VERSION` | `26`             | Latest released major version number                           |
-| `VALKYRJA_REVIEWER`    | `melechmizrachi` | GitHub username assigned as reviewer on automated PRs          |
+| `LATEST_MAJOR_VERSION` | `26`             | Latest released major version number                                                |
+| `USER_EMAIL`           | `bot@example.com`| Git committer email for rebase, cherry-pick, and branch operations                  |
+| `USER_NAME`            | `Valkyrja Bot`   | Git committer name for rebase, cherry-pick, and branch operations                   |
+| `VALKYRJA_REVIEWER`    | `melechmizrachi` | GitHub username assigned as reviewer on automated PRs                               |
 
 ---
 
@@ -157,7 +160,7 @@ time to force a refresh across all repos.
 ### `enforce-repo-settings.yml`
 
 Triggers:
-- Daily cron (`0 9 * * *` — 09:00 UTC).
+- Weekly cron (`0 9 * * 1` — Monday 09:00 UTC).
 - Manual `workflow_dispatch`.
 
 Behavior (via `_enforce-repo-settings.yml`):
@@ -264,10 +267,18 @@ in the `command` string:
 Manually cherry-picks a commit hash to a destination branch. Valid destination
 branches must match `^2([6-9]).x$` (supported version branches only).
 
-### `rebase-branch.yml` / `restore-branch.yml`
+### `rebase-to-master.yml` / `rebase-from-master.yml`
 
-Rebase or restore a branch. Typically used to keep version branches in sync
-with master or to recover after a bad merge.
+Rebase the current version branch **to** master (rebases `master` onto the
+version branch) or **from** master (rebases the version branch onto `master`).
+Run from the target version branch. Only the latest major version branch may
+be rebased to master. Both workflows back up the affected branch before
+force-pushing.
+
+### `restore-branch-from-backup.yml`
+
+Restores the current branch by force-pushing its `<branch>-backup` counterpart
+onto it. Used to recover after a bad rebase or merge.
 
 ---
 
@@ -297,23 +308,35 @@ contains `php`. The template provides:
 
 ## Workflow Index
 
-| File                                    | Trigger              | Description                                          |
-|-----------------------------------------|----------------------|------------------------------------------------------|
-| `release-new-version.yml`               | `workflow_dispatch`  | Create a new release (patch/minor/major/rc)          |
-| `enforce-repo-settings.yml`             | cron + dispatch      | Enforce settings and rulesets across all repos       |
-| `update-github-workflow-refs.yml`       | release + cron + dispatch | Pin workflow refs to latest `.github` release SHA |
-| `update-php-dependencies.yml`           | cron + dispatch      | Update PHP Composer dependencies via PRs             |
-| `cherry-pick-commits.yml`               | `workflow_dispatch`  | Cherry-pick a commit to a target branch              |
-| `rebase-branch.yml`                     | `workflow_dispatch`  | Rebase a branch                                      |
-| `restore-branch.yml`                    | `workflow_dispatch`  | Restore a branch                                     |
-| `commit-message-check.yml`              | pull_request         | Validate commit message format                       |
-| `_release.yml`                          | `workflow_call`      | Core release logic (notes, changelog, tag)           |
-| `_get-version-for-release.yml`          | `workflow_call`      | Compute and validate the next release version        |
-| `_update-version-files.yml`             | `workflow_call`      | Commit updated `VERSION.md`                          |
-| `_enforce-repo-settings.yml`            | `workflow_call`      | Apply settings and rulesets to a repo                |
-| `_update-github-workflow-refs.yml`      | `workflow_call`      | Update workflow SHA pins across all repos            |
-| `_update-php-dependencies.yml`          | `workflow_call`      | Run composer update and open PR                      |
-| `_commit-message-check.yml`             | `workflow_call`      | Commit message format check logic                    |
-| `_cherry-pick-commits.yml`              | `workflow_call`      | Cherry-pick logic with branch validation             |
-| `_rebase-branch.yml`                    | `workflow_call`      | Rebase logic                                         |
-| `_restore-branch.yml`                   | `workflow_call`      | Restore logic                                        |
+| File                                    | Trigger                   | Description                                                                  |
+|-----------------------------------------|---------------------------|------------------------------------------------------------------------------|
+| `release-new-version.yml`               | `workflow_dispatch`       | Create a new release (patch/minor/major/rc)                                  |
+| `create-version-branch.yml`             | `workflow_dispatch`       | Create a new major release version branch from `master`                      |
+| `enforce-repo-settings.yml`             | cron + dispatch           | Enforce settings and rulesets across all repos                               |
+| `update-github-workflow-refs.yml`       | release + cron + dispatch | Pin workflow refs to latest `.github` release SHA                            |
+| `update-php-dependencies.yml`           | cron + dispatch           | Update PHP Composer dependencies via PRs                                     |
+| `cherry-pick-commits.yml`               | `workflow_dispatch`       | Cherry-pick a commit to a target branch                                      |
+| `rebase-to-master.yml`                  | `workflow_dispatch`       | Rebase `master` onto the current (latest major) version branch               |
+| `rebase-from-master.yml`                | `workflow_dispatch`       | Rebase the current branch onto `master`                                      |
+| `restore-branch-from-backup.yml`        | `workflow_dispatch`       | Restore a branch from its `<branch>-backup` counterpart                      |
+| `commit-message-check.yml`              | `pull_request`            | Validate commit message format                                               |
+| `_create-release.yml`                   | `workflow_call`           | Orchestrate stable/RC release (version → update files → release)             |
+| `_aggregate-release.yml`                | `workflow_call`           | Like `_create-release.yml` with externally pinned SHA refs for central steps |
+| `_release.yml`                          | `workflow_call`           | Core release logic (notes, changelog, tag)                                   |
+| `_create-php-release.yml`               | `workflow_call`           | Full PHP release (version → outdated check → version files → info files → release) |
+| `_php-release.yml`                      | `workflow_call`           | Lightweight PHP release: update info class then release                      |
+| `_get-version-for-release.yml`          | `workflow_call`           | Compute and validate the next release version                                |
+| `_get-version.yml`                      | `workflow_call`           | Compute next major version number and branch name                            |
+| `_update-version-files.yml`             | `workflow_call`           | Commit updated `VERSION.md`                                                  |
+| `_update-php-info-files.yml`            | `workflow_call`           | Update `VERSION` and `BUILD_DATE` constants in a PHP Info class              |
+| `_create-version-branch.yml`            | `workflow_call`           | Create and configure a new major version branch                              |
+| `_enforce-repo-settings.yml`            | `workflow_call`           | Apply settings and rulesets to a repo                                        |
+| `_update-github-workflow-refs.yml`      | `workflow_call`           | Update workflow SHA pins across all repos                                    |
+| `_check-outdated-php-dependencies.yml`  | `workflow_call`           | Run Composer scripts to verify all direct PHP dependencies are up to date    |
+| `_update-php-dependencies.yml`          | `workflow_call`           | Run composer update and open PR                                              |
+| `_commit-message-check.yml`             | `workflow_call`           | Commit message format check logic                                            |
+| `_cherry-pick-commits.yml`              | `workflow_call`           | Cherry-pick logic with branch validation                                     |
+| `_rebase-to-master.yml`                 | `workflow_call`           | Rebase `master` onto the current branch (with backup + validation)           |
+| `_rebase-from-master.yml`               | `workflow_call`           | Rebase the current branch onto `master` (with backup)                        |
+| `_restore-branch-from-backup.yml`       | `workflow_call`           | Restore branch logic using its backup counterpart                            |
+| `_create-repo.yml`                      | `workflow_call`           | Create and configure a new org repository with rulesets                      |
