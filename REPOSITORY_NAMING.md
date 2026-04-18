@@ -5,6 +5,23 @@ Valkyrjaio GitHub organization. Following these conventions keeps the org
 listing scannable, makes the purpose of each repo clear from its name alone,
 and scales cleanly as new projects and language ports are added.
 
+## Current Organization State
+
+All repos in the Valkyrjaio organization follow the conventions defined above.
+Every repo either ends with a language suffix or is one of the three
+legitimately language-agnostic exceptions (`.github`, `architecture`, `art`).
+
+| Category                 | Examples                                                                                    |
+|--------------------------|---------------------------------------------------------------------------------------------|
+| Language-agnostic (1)    | `.github`, `architecture`, `art`                                                            |
+| CI tooling (2)           | `ci-phpstan-php`, `ci-phpunit-php`, `ci-rector-php`                                         |
+| Project templates (3)    | `project-template-php`, `project-template-java`                                             |
+| Project base (4a)        | `valkyrja-php`, `sindri-php`, `application-java`                                            |
+| Project integration (4b) | `valkyrja-openswoole-php`, `valkyrja-netty-java`, `valkyrja-docker-php`                     |
+
+This table is illustrative, not exhaustive. See the Valkyrjaio organization
+page on GitHub for the complete repo listing.
+
 ## Core Principle
 
 Every repo name encodes three things (where applicable):
