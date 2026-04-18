@@ -4,15 +4,42 @@
 
 # Valkyrja
 
-[Valkyrja][Valkyrja url] is a framework for web and console applications.
+[Valkyrja][valkyrja url] is a framework for web and console applications.
 
-About Valkyrja
-------------
+Valkyrja (pronounced "Valk-ear-ya") is the Old Norse spelling for Valkyrie,
+a mythical creature that guides warriors to a better place. In the same
+spirit, the Valkyrja framework guides your application to a better state —
+fast, light, and robust.
 
-Valkyrja (pronounced "Valk-ear-ya") is the Old Norse spelling for Valkyrie, a
-mythical creature that would guide warriors to Valhalla (the afterlife and a
-better place) after death. In a similar sense, the Valkyrja framework guides
-your application to be in a better state. Let this fast, light, and robust
-framework do the heavy lifting for your app.
+Get Started
+-----------
 
-[Valkyrja url]: https://valkyrja.io
+- **PHP** — [framework][valkyrja-php url] · [starter][starter-php url] _(
+  production)_
+- **Java** — [framework][valkyrja-java url] · [starter][starter-java url] _(in
+  progress)_
+
+[Browse all repositories][org repos url].
+
+Learn More
+----------
+
+[valkyrja.io][valkyrja url] · [Contributing][contributing url] · [Vocabulary][vocabulary url] · [Security][security url]
+
+[valkyrja url]: https://valkyrja.io
+
+[valkyrja-php url]: https://github.com/valkyrjaio/valkyrja-php
+
+[valkyrja-java url]: https://github.com/valkyrjaio/valkyrja-java
+
+[starter-php url]: https://github.com/valkyrjaio/valkyrja-starter-app-php
+
+[starter-java url]: https://github.com/valkyrjaio/valkyrja-starter-app-java
+
+[org repos url]: https://github.com/orgs/valkyrjaio/repositories?type=all
+
+[contributing url]: https://github.com/valkyrjaio/.github/blob/master/CONTRIBUTING.md
+
+[vocabulary url]: https://github.com/valkyrjaio/.github/blob/master/VOCABULARY.md
+
+[security url]: https://github.com/valkyrjaio/.github/blob/master/SECURITY.md
