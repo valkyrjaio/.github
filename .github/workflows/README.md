@@ -283,7 +283,7 @@ when cutting a new version branch.
 
 ## PHP Template
 
-New PHP repos are created using `valkyrjaio/php-template` as a GitHub template
+New PHP repos are created using `valkyrjaio/project-template-php` as a GitHub template
 repository. This applies automatically when the repo name or description
 contains `php`. The template provides:
 

@@ -50,7 +50,7 @@ jobs:
         run: |
           COMBINED=$(echo "$REPO_NAME $DESCRIPTION" | tr '[:upper:]' '[:lower:]')
           if echo "$COMBINED" | grep -q "php"; then
-            TEMPLATE_FLAG="--template $ORG/php-template"
+            TEMPLATE_FLAG="--template $ORG/project-template-php"
           else
             TEMPLATE_FLAG=""
           fi
