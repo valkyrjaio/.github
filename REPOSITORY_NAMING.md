@@ -95,7 +95,7 @@ The generic `template-*` namespace is reserved for this extensibility.
 
 Repos that ship actual projects. Valkyrja is the framework itself (the primary
 product of the project), and everything else in the org exists to support or
-extend it — Sindri (the build tool), starter applications, and the various
+extend it — Sindri (the build tool), starter templates, and the various
 third-party integrations.
 
 The distinction between 4a and 4b comes down to a single question: **does the
@@ -106,7 +106,7 @@ function?**
   (4a). Examples: the Valkyrja framework, the Sindri build tool — each is
   complete on its own, even though they interoperate.
 - A repo that requires a base project to function is a **project component**
-  (4b). Examples: worker runtime integrations, framework starters, benchmarking
+  (4b). Examples: worker runtime integrations, starter templates, benchmarking
   harnesses, Docker configs — none of these have meaning without their parent
   project.
 
@@ -148,13 +148,36 @@ component cannot function on its own — it requires the named parent project
 - `valkyrja-tomcat-java` — Tomcat worker runtime integration
 - `valkyrja-docker-php` — Docker container for running Valkyrja applications
 - `valkyrja-benchmarking-php` — benchmarking harness for Valkyrja
-- `valkyrja-starter-php` — starter application template for Valkyrja
-- `valkyrja-starter-java` — starter application template for Valkyrja
 
 **Rule:** The `{component}` name is either the third-party thing being
 integrated (OpenSwoole, Netty, Docker) or the role the component plays
-(starter, benchmarking). Describe the specifics in the repo's description,
-not its name.
+(benchmarking). Describe the specifics in the repo's description, not its
+name.
+
+**Sub-categories within a component type:** When a component family has
+multiple distinct variants (starters of different types, adapters for
+different database families, etc.), the variant name goes between the
+component type and the language suffix: `{project}-{type}-{variant}-{lang}`.
+
+**Starter templates** are the primary example of this pattern. Valkyrja
+distinguishes between several kinds of starter based on what the user is
+building:
+
+- `valkyrja-starter-app-{lang}` — starter for building an application on
+  Valkyrja (HTTP, CLI, RPC, queue worker, or any other runnable form). Matches
+  Valkyrja's own `App` namespace for this layer.
+- `valkyrja-starter-module-{lang}` — starter for building a self-contained
+  feature module (e.g. a complete auth system, billing system, admin panel)
+  that composes multiple components together for drop-in use.
+- `valkyrja-starter-component-{lang}` — starter for building a single-purpose
+  framework component (e.g. a new CLI extension, an ORM adapter).
+- `valkyrja-starter-tool-{lang}` — starter for building a standalone tool on
+  Valkyrja (like Sindri). Runs independently rather than as a framework layer.
+
+These four types cover the spectrum from "a complete deployed application"
+(app) through "reusable composed functionality" (module) down to "a single
+focused unit" (component), plus the orthogonal case of "a standalone tool"
+(tool).
 
 ## Decision Rules
 
@@ -222,19 +245,27 @@ These match the file extensions and community norms for each language.
   Valkyrja project to function.** If the repo would be useless without its
   parent, it's a component (4b) and takes the `{project}-` prefix.
 
+- **Don't use alternative terms like "bundle," "plugin," or "package" for
+  Valkyrja-specific concepts.** Valkyrja uses a specific vocabulary:
+  **app**, **module**, **component**, and **tool**. These words have distinct
+  meanings within the project and should be used consistently in repo names
+  and documentation. Avoid borrowing vocabulary from other frameworks
+  (Symfony's "bundle," Laravel's "package") even if the underlying concept
+  is similar.
+
 ## Current Organization State
 
 All repos in the Valkyrjaio organization follow the conventions defined above.
 Every repo either ends with a language suffix or is one of the three
 legitimately language-agnostic exceptions (`.github`, `architecture`, `art`).
 
-| Category               | Examples                                                                 |
-|------------------------|--------------------------------------------------------------------------|
-| Language-agnostic (1)  | `.github`, `architecture`, `art`                                         |
-| CI tooling (2)         | `ci-phpstan-php`, `ci-phpunit-php`, `ci-rector-php`                      |
-| Project templates (3)  | `project-template-php`, `project-template-java`                          |
-| Project base (4a)      | `valkyrja-php`, `valkyrja-java`, `sindri-php`                            |
-| Project component (4b) | `valkyrja-openswoole-php`, `valkyrja-starter-php`, `valkyrja-docker-php` |
+| Category               | Examples                                                                     |
+|------------------------|------------------------------------------------------------------------------|
+| Language-agnostic (1)  | `.github`, `architecture`, `art`                                             |
+| CI tooling (2)         | `ci-phpstan-php`, `ci-phpunit-php`, `ci-rector-php`                          |
+| Project templates (3)  | `project-template-php`, `project-template-java`                              |
+| Project base (4a)      | `valkyrja-php`, `valkyrja-java`, `sindri-php`                                |
+| Project component (4b) | `valkyrja-openswoole-php`, `valkyrja-starter-app-php`, `valkyrja-docker-php` |
 
 This table is illustrative, not exhaustive. See the Valkyrjaio organization
 page on GitHub for the complete repo listing.
