@@ -14,7 +14,7 @@ run-name: Enforce repository settings across ${{ github.repository_owner }}
 
 jobs:
   enforce:
-    uses: valkyrjaio/.github/.github/workflows/_enforce-repo-settings.yml@master
+    uses: ./.github/workflows/_enforce-repo-settings.yml
     secrets: inherit
     with:
       repo: ${{ inputs.repo || '' }}

@@ -16,7 +16,7 @@ run-name: "Create ${{ github.repository_owner }}/${{ inputs.name }}"
 
 jobs:
   create-repo:
-    uses: valkyrjaio/.github/.github/workflows/_create-repo.yml@master
+    uses: ./.github/workflows/_create-repo.yml
     secrets: inherit
     with:
       name: ${{ inputs.name }}

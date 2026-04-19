@@ -10,14 +10,14 @@ on:
 
 jobs:
   check-version:
-    uses: valkyrjaio/.github/.github/workflows/_get-version-for-release.yml@e0d0947d4a6a8631e392d4ccbc3fbe4f349e5349
+    uses: ./.github/workflows/_get-version-for-release.yml
     secrets: inherit
     with:
       bump: ${{ inputs.bump }}
 
   update-version-files:
     needs: check-version
-    uses: valkyrjaio/.github/.github/workflows/_update-version-files.yml@e0d0947d4a6a8631e392d4ccbc3fbe4f349e5349
+    uses: ./.github/workflows/_update-version-files.yml
     secrets: inherit
     with:
       version: ${{ needs.check-version.outputs.version }}
