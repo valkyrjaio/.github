@@ -1,4 +1,4 @@
-name: Reusable Trailing Newline Check
+name: Z Reusable Trailing Newline Check
 
 on:
   workflow_call:

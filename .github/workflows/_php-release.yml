@@ -1,4 +1,4 @@
-name: Reusable PHP Release
+name: Z Reusable PHP Release
 
 on:
   workflow_call:

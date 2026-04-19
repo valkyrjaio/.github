@@ -1,4 +1,4 @@
-name: Reusable Enforce Repository Settings
+name: Z Reusable Enforce Repository Settings
 
 on:
   workflow_call:

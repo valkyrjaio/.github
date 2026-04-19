@@ -1,4 +1,4 @@
-name: Reusable Fix Trailing Newlines
+name: Z Reusable Fix Trailing Newlines
 
 on:
   workflow_call:
