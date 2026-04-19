@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [ 'master', '*.x' ]
+  pull_request:
+    branches: [ 'master', '*.x' ]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  commit-message-check:
+    name: Commit Message Check
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/_commit-message-check.yml
+    secrets: inherit
+
+  trailing-newline-check:
+    name: Trailing Newline Check
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/_trailing-newline-check.yml
+    permissions:
+      pull-requests: write
+      contents: read
+    secrets: inherit
