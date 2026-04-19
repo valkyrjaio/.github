@@ -24,6 +24,10 @@
           {
             "context": "Commit Message Check / Check Commit Message",
             "integration_id": 15368
+          },
+          {
+            "context": "Trailing Newline Check / Check Trailing Newline",
+            "integration_id": 15368
           }
         ]
       }
