@@ -1,6 +1,16 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.2.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.2.1...26.x)
+
+## [v26.2.1](https://github.com/valkyrjaio/.github/compare/v26.2.0...v26.2.1) - 2026-04-18
+
+* [Documentation] Update repository naming documentation by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/19
+* [Documentation] Add VOCABULARY.md by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/20
+* [GitHub] Add trailing newline check workflow and update documentation by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/21
+* [GitHub] Add centralized PHP dependency update workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/22
+* [Documentation] Rewrite .github README to match ecosystem conventions by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/23
+* [Documentation] Rewrite profile README as a compact landing page by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/24
+* [GitHub] Fix PR title check by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/25
 
 ## [v26.2.0](https://github.com/valkyrjaio/.github/compare/v26.1.3...v26.2.0) - 2026-04-17
 
