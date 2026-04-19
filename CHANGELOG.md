@@ -1,6 +1,15 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.2.1...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.2.2...26.x)
+
+## [v26.2.2](https://github.com/valkyrjaio/.github/compare/v26.2.1...v26.2.2) - 2026-04-18
+
+* [GitHub] Use local workflow refs instead of remote org repo refs by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/26
+* [GitHub] Add failure messages by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/27
+* [GitHub] Fix update-github-workflow-refs branch existence check by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/28
+* [GitHub] Fix branch-exists check capturing non-zero exit response body by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/29
+* [GitHub] Fix automated PR title ending with a trailing period by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/30
+* [GitHub] Report specific failing rules in commit message check PR comment by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/31
 
 ## [v26.2.1](https://github.com/valkyrjaio/.github/compare/v26.2.0...v26.2.1) - 2026-04-18
 
