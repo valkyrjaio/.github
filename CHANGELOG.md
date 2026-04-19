@@ -1,6 +1,18 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.2.2...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.3.0...26.x)
+
+## [v26.3.0](https://github.com/valkyrjaio/.github/compare/v26.2.2...v26.3.0) - 2026-04-19
+
+* [GitHub] Add workflow to fix missing trailing newlines across all repos by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/32
+* [GitHub] Surface actual error when workflow dispatch trigger fails by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/33
+* [GitHub] Ensure required-workflows refs are updated by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/34
+* [GitHub] Fix ci.yml job ordering and missing trailing newlines in ensure-workflows by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/35
+* [GitHub] Fix create-version-branch routing and empty ci.yml handling by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/36
+* [GitHub] Add trailing newline check to required status checks ruleset by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/37
+* [GitHub] Rename Required PHP Checks to Required PHP PR Checks by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/38
+* [GitHub] Prefix reusable workflow names with "Z" to sort to bottom of list by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/39
+* [CI] Add workflows to enforce reusable workflow naming conventions by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/40
 
 ## [v26.2.2](https://github.com/valkyrjaio/.github/compare/v26.2.1...v26.2.2) - 2026-04-18
 
