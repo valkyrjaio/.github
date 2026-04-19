@@ -1,0 +1,22 @@
+name: Create Major Release Version Branch
+
+on: workflow_dispatch
+
+run-name: Create new version for upcoming major release
+
+jobs:
+  create:
+    uses: valkyrjaio/.github/.github/workflows/_create-php-version-branch.yml@95cda0ed015efe46c0f0577b2c0e103b68a1ef80
+    secrets: inherit
+    with:
+      dependencies: |
+        [
+          {"name": "Root Packages",    "command": "root-outdated-check-major-release"},
+          {"name": "PHPArkitect",      "command": "phparkitect-outdated-check-major-release"},
+          {"name": "PHP Code Sniffer", "command": "phpcodesniffer-outdated-check-major-release"},
+          {"name": "PHP CS Fixer",     "command": "phpcsfixer-outdated-check-major-release"},
+          {"name": "PHPStan",          "command": "phpstan-outdated-check-major-release"},
+          {"name": "PHPUnit",          "command": "phpunit-outdated-check-major-release"},
+          {"name": "Psalm",            "command": "psalm-outdated-check-major-release"},
+          {"name": "Rector",           "command": "rector-outdated-check-major-release"}
+        ]

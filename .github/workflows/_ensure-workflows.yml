@@ -38,7 +38,6 @@ jobs:
 
           REQUIRED_WORKFLOWS=(
             "cherry-pick-commits.yml"
-            "create-version-branch.yml"
             "rebase-from-master.yml"
             "rebase-to-master.yml"
             "restore-branch-from-backup.yml"
@@ -71,6 +70,10 @@ jobs:
 
           if not missing:
               sys.exit(1)
+
+          if not existing_jobs:
+              sys.stdout.write(template if template.endswith('\n') else template + '\n')
+              sys.exit(0)
 
           result = existing.rstrip('\n')
 
@@ -192,7 +195,11 @@ jobs:
 
             local FILE_PATH=".github/workflows/ci.yml"
             local TMPL_WITH_SHA
-            TMPL_WITH_SHA=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$TMPL_FILE")
+            TMPL_WITH_SHA=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$TMPL_FILE" 2>/dev/null || true)
+            if [ -z "$TMPL_WITH_SHA" ]; then
+              echo "  [$BASE_BRANCH] Could not read template $TMPL_FILE, skipping ci.yml"
+              return 1
+            fi
 
             local FILE_DATA
             FILE_DATA=$(gh api "repos/$ORG/$REPO_NAME/contents/$FILE_PATH?ref=$BASE_BRANCH" 2>/dev/null || true)
@@ -314,11 +321,15 @@ jobs:
                     "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || \
                     { [ $? -eq 2 ] && break; }
                 done
+                ensure_workflow "create-version-branch.yml" "$TEMPLATE_DIR/php/create-version-branch.yml" \
+                  "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
                 ensure_workflow "release-new-version.yml" "$TEMPLATE_DIR/php/release-new-version.yml" \
                   "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
                 ensure_ci_jobs "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
                   "$TEMPLATE_DIR/php/ci.yml" || true
               else
+                ensure_workflow "create-version-branch.yml" "$TEMPLATE_DIR/create-version-branch.yml" \
+                  "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
                 ensure_workflow "release-new-version.yml" "$TEMPLATE_DIR/release-new-version.yml" \
                   "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
                 ensure_ci_jobs "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
