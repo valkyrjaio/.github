@@ -69,7 +69,7 @@ jobs:
               fi
 
               BRANCH_EXISTS=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/$UPDATE_BRANCH" \
-                --jq '.object.sha // empty' 2>/dev/null || true)
+                --jq '.object.sha' 2>/dev/null) || BRANCH_EXISTS=""
 
               FILES_UPDATED=0
               FILES_LIST=""
