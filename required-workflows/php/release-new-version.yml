@@ -1,0 +1,39 @@
+name: Create a New Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version component to bump'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - rc
+
+run-name: "Release ${{ inputs.bump }} bump on ${{ github.ref_name }}"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    uses: valkyrjaio/.github/.github/workflows/_create-php-release.yml@95cda0ed015efe46c0f0577b2c0e103b68a1ef80
+    secrets: inherit
+    with:
+      bump: ${{ inputs.bump }}
+      dependencies: |
+        [
+          {"name": "Root Packages",    "command": "root-outdated-check"},
+          {"name": "PHPArkitect",      "command": "phparkitect-outdated-check"},
+          {"name": "PHP Code Sniffer", "command": "phpcodesniffer-outdated-check"},
+          {"name": "PHP CS Fixer",     "command": "phpcsfixer-outdated-check"},
+          {"name": "PHPStan",          "command": "phpstan-outdated-check"},
+          {"name": "PHPUnit",          "command": "phpunit-outdated-check"},
+          {"name": "Psalm",            "command": "psalm-outdated-check"},
+          {"name": "Rector",           "command": "rector-outdated-check"}
+        ]
+      info-class-path: src/Template/Constant/TemplateInfo.php
+      info-class-name: TemplateInfo
