@@ -1,0 +1,11 @@
+name: Fix Trailing Newlines
+
+on:
+  schedule:
+    - cron: '0 11 * * 1'
+  workflow_dispatch:
+
+jobs:
+  fix-trailing-newlines:
+    uses: ./.github/workflows/_fix-trailing-newlines.yml
+    secrets: inherit
