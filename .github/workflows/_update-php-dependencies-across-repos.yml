@@ -58,12 +58,13 @@ jobs:
             while IFS= read -r BRANCH; do
               [ -z "$BRANCH" ] && continue
               echo "  Triggering update-dependencies.yml on $BRANCH..."
-              if gh workflow run update-dependencies.yml \
+              TRIGGER_ERR=$(gh workflow run update-dependencies.yml \
                 --repo "$ORG/$REPO_NAME" \
-                --ref "$BRANCH" 2>/dev/null; then
-                echo "  Triggered on $BRANCH."
+                --ref "$BRANCH" 2>&1 >/dev/null || true)
+              if [ -n "$TRIGGER_ERR" ]; then
+                echo "  Failed to trigger on $BRANCH: $TRIGGER_ERR"
               else
-                echo "  Failed to trigger on $BRANCH, skipping."
+                echo "  Triggered on $BRANCH."
               fi
             done <<< "$BASE_BRANCHES"
           done <<< "$REPOS"
