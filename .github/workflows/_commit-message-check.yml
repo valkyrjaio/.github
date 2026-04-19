@@ -1,4 +1,4 @@
-name: Reusable Commit Message Check
+name: Z Reusable Commit Message Check
 
 on:
   workflow_call:

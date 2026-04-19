@@ -1,4 +1,4 @@
-name: Reusable Update PHP Info Files
+name: Z Reusable Update PHP Info Files
 
 on:
   workflow_call:

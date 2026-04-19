@@ -1,4 +1,4 @@
-name: Reusable Update PHP Dependencies Across Repos
+name: Z Reusable Update PHP Dependencies Across Repos
 
 on:
   workflow_call:

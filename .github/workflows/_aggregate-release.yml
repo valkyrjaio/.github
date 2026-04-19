@@ -1,4 +1,4 @@
-name: Reusable Aggregate Release
+name: Z Reusable Aggregate Release
 
 on:
   workflow_call:
