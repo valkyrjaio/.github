@@ -38,6 +38,14 @@ jobs:
           error: 'Your first line has to contain a commit type like "[Documentation]".'
           excludeDescription: 'true'
 
+      - name: Check No Trailing Period on PR Title
+        if: github.actor != 'dependabot[bot]'
+        uses: gsactions/commit-message-checker@v2
+        with:
+          pattern: '.*[^.]$'
+          error: 'PR title must not end with a period.'
+          excludeDescription: 'true'
+
       - name: Check Line Length
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
