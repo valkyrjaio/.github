@@ -1,6 +1,6 @@
 {
   "id": 11086771,
-  "name": "Required Checks",
+  "name": "Required PHP PR Checks",
   "target": "branch",
   "source_type": "Repository",
   "source": "valkyrjaio/valkyrja",
