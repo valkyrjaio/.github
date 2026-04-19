@@ -31,7 +31,9 @@ jobs:
           private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
       - name: Check Commit Type
+        id: check-commit-type
         if: github.actor != 'dependabot[bot]'
+        continue-on-error: true
         uses: gsactions/commit-message-checker@v2
         with:
           pattern: '\[[^\]]+\] .+$'
@@ -39,7 +41,9 @@ jobs:
           excludeDescription: 'true'
 
       - name: Check No Trailing Period on PR Title
+        id: check-no-trailing-period-title
         if: github.actor != 'dependabot[bot]'
+        continue-on-error: true
         uses: gsactions/commit-message-checker@v2
         with:
           pattern: '.*[^.]$'
@@ -47,6 +51,8 @@ jobs:
           excludeDescription: 'true'
 
       - name: Check Line Length
+        id: check-line-length
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -62,7 +68,9 @@ jobs:
           done <<< "$COMMITS"
 
       - name: Check Period at end
+        id: check-period-at-end
         if: github.actor != 'dependabot[bot]'
+        continue-on-error: true
         uses: gsactions/commit-message-checker@v2
         with:
           pattern: '.*\.$'
@@ -72,12 +80,24 @@ jobs:
           checkAllCommitMessages: 'true'
           accessToken: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Assert all checks passed
+        if: |
+          steps.check-commit-type.outcome == 'failure' ||
+          steps.check-no-trailing-period-title.outcome == 'failure' ||
+          steps.check-line-length.outcome == 'failure' ||
+          steps.check-period-at-end.outcome == 'failure'
+        run: exit 1
+
       - name: Report failure in PR comment
         if: failure() && github.event.pull_request.number && inputs.post-pr-comment
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          COMMIT_TYPE_OUTCOME: ${{ steps.check-commit-type.outcome }}
+          NO_TRAILING_PERIOD_OUTCOME: ${{ steps.check-no-trailing-period-title.outcome }}
+          LINE_LENGTH_OUTCOME: ${{ steps.check-line-length.outcome }}
+          PERIOD_AT_END_OUTCOME: ${{ steps.check-period-at-end.outcome }}
         run: |
           COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
             --jq '.[] | select(.body | contains("<!-- workflow-id: commit-message-check -->")) | .id' \
@@ -85,7 +105,21 @@ jobs:
           if [ -n "$COMMENT_ID" ]; then
             gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
           fi
-          gh pr comment "$PR_NUMBER" --body "Commit message does not adhere to requirements. Please fix this. <!-- workflow-id: commit-message-check -->"
+          BODY="One or more commit message checks failed:"$'\n\n'
+          if [ "$COMMIT_TYPE_OUTCOME" = "failure" ]; then
+            BODY+="- PR title must start with a commit type: \`[Type] Description\`"$'\n'
+          fi
+          if [ "$NO_TRAILING_PERIOD_OUTCOME" = "failure" ]; then
+            BODY+="- PR title must not end with a period"$'\n'
+          fi
+          if [ "$LINE_LENGTH_OUTCOME" = "failure" ]; then
+            BODY+="- No commit message line may exceed 120 characters"$'\n'
+          fi
+          if [ "$PERIOD_AT_END_OUTCOME" = "failure" ]; then
+            BODY+="- Each commit message (excluding PR title) must end with a period"$'\n'
+          fi
+          BODY+=$'\n<!-- workflow-id: commit-message-check -->'
+          gh pr comment "$PR_NUMBER" --body "$BODY"
 
       - name: Remove failure comment on success
         if: success() && github.event.pull_request.number && inputs.post-pr-comment
