@@ -1,0 +1,11 @@
+name: Ensure Reusable Workflow Names
+
+on:
+  schedule:
+    - cron: '0 13 * * 1'
+  workflow_dispatch:
+
+jobs:
+  ensure-reusable-workflow-names:
+    uses: ./.github/workflows/_ensure-reusable-workflow-names.yml
+    secrets: inherit
