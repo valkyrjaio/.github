@@ -176,7 +176,7 @@ jobs:
 
                   if ! gh pr create \
                     --repo "$ORG/$REPO_NAME" \
-                    --title "[GitHub] Update .github workflow refs to $LATEST_TAG." \
+                    --title "[GitHub] Update .github workflow refs to $LATEST_TAG" \
                     --body "$BODY" \
                     --base "$BASE_BRANCH" \
                     --head "$UPDATE_BRANCH" \
