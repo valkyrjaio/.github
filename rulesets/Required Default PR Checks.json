@@ -1,6 +1,6 @@
 {
   "id": 15226055,
-  "name": "Required Commit Message Checks",
+  "name": "Required Default PR Checks",
   "target": "branch",
   "source_type": "Repository",
   "source": "valkyrjaio/.github",

@@ -100,8 +100,9 @@ jobs:
               apply_or_update_ruleset "$ruleset_file"
             done
 
+            PHP_EXCLUDED_REPOS="valkyrja-benchmarking-php valkyrja-docker-php"
             COMBINED=$(echo "$REPO_NAME $DESCRIPTION" | tr '[:upper:]' '[:lower:]')
-            if echo "$COMBINED" | grep -qi "php"; then
+            if echo "$COMBINED" | grep -qi "php" && [[ ! " $PHP_EXCLUDED_REPOS " == *" $REPO_NAME "* ]]; then
               echo "  PHP repo detected, checking PHP-specific rulesets..."
               for ruleset_file in rulesets/php/*.json; do
                 apply_or_update_ruleset "$ruleset_file"
