@@ -30,13 +30,19 @@ jobs:
           echo "Latest .github release: $LATEST_TAG ($LATEST_SHA)"
 
           REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
-            --jq '.[] | select(.isArchived == false and .name != ".github") | .name')
+            --jq '.[] | select(.isArchived == false) | .name')
 
           while IFS= read -r REPO_NAME; do
             echo "Checking $ORG/$REPO_NAME..."
 
-            WORKFLOW_FILES=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows" \
-              --jq '.[].path' 2>/dev/null || true)
+            if [ "$REPO_NAME" = ".github" ]; then
+              WORKFLOW_FILES=$(gh api "repos/$ORG/$REPO_NAME/git/trees/HEAD?recursive=1" \
+                --jq '.tree[] | select(.type == "blob" and (.path | startswith("required-workflows/"))) | .path' \
+                2>/dev/null || true)
+            else
+              WORKFLOW_FILES=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows" \
+                --jq '.[].path' 2>/dev/null || true)
+            fi
 
             [ -z "$WORKFLOW_FILES" ] && continue
 

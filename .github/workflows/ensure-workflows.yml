@@ -1,0 +1,11 @@
+name: Ensure Required Workflows
+
+on:
+  schedule:
+    - cron: '0 12 * * 1'
+  workflow_dispatch:
+
+jobs:
+  ensure-workflows:
+    uses: ./.github/workflows/_ensure-workflows.yml
+    secrets: inherit
