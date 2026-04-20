@@ -28,5 +28,7 @@ jobs:
   update-refs:
     name: Update Workflow Refs
     needs: release
-    uses: ./.github/workflows/_update-github-workflow-refs.yml
+    uses: ./.github/workflows/_update-workflow-refs.yml
     secrets: inherit
+    with:
+      source-repo: .github

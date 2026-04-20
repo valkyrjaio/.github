@@ -12,5 +12,7 @@ run-name: Update .github workflow refs to latest release across all repos
 jobs:
   update-refs:
     if: github.event_name != 'release' || !github.event.release.prerelease
-    uses: ./.github/workflows/_update-github-workflow-refs.yml
+    uses: ./.github/workflows/_update-workflow-refs.yml
     secrets: inherit
+    with:
+      source-repo: .github
