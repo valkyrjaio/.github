@@ -152,39 +152,40 @@ jobs:
 
                 EXISTING_PR=$(gh pr list --repo "$ORG/$REPO_NAME" \
                   --state open \
-                  --json headRefName \
-                  --jq "[.[] | select(.headRefName == \"$UPDATE_BRANCH\")] | first | .headRefName // \"\"" \
+                  --json number,headRefName,title \
+                  --jq "[.[] | select(.headRefName == \"$UPDATE_BRANCH\")] | first // \"\"" \
                   2>/dev/null || true)
 
+                REVIEWER_FLAGS=""
+                if [ -n "$REVIEWER" ]; then
+                  REVIEWER_FLAGS="--assignee $REVIEWER --reviewer $REVIEWER"
+                fi
+
+                BODY=""
+                BODY+="# Description"$'\n'$'\n'
+                BODY+="Update reusable workflow references from \`valkyrjaio/.github\` to release \`$LATEST_TAG\`."$'\n'$'\n'
+                BODY+="## Types of changes"$'\n'$'\n'
+                BODY+="- [X] Improvement _(non-breaking change which improves code)_"$'\n'
+                BODY+="- [ ] Bug fix _(non-breaking change which fixes an issue)_"$'\n'
+                BODY+="- [ ] New feature _(non-breaking change which adds functionality)_"$'\n'
+                BODY+="- [ ] Deprecation _(breaking change which removes functionality)_"$'\n'
+                BODY+="- [ ] Breaking change _(fix or feature that would cause existing functionality to change)_"$'\n'
+                BODY+="- [ ] Documentation improvement"$'\n'$'\n'
+                BODY+="## Changes"$'\n'$'\n'
+                BODY+="| File | Updated To |"$'\n'
+                BODY+="|------|------------|"$'\n'
+                while IFS= read -r file; do
+                  [ -z "$file" ] && continue
+                  BODY+="| \`$file\` | \`$LATEST_TAG\` |"$'\n'
+                done <<< "$FILES_LIST"
+
+                NEW_TITLE="[GitHub] Update .github workflow refs to $LATEST_TAG"
+
                 if [ -z "$EXISTING_PR" ]; then
-                  REVIEWER_FLAGS=""
-                  if [ -n "$REVIEWER" ]; then
-                    REVIEWER_FLAGS="--assignee $REVIEWER --reviewer $REVIEWER"
-                  fi
-
-                  BODY=""
-                  BODY+="# Description"$'\n'$'\n'
-                  BODY+="Update reusable workflow references from \`valkyrjaio/.github\` to release \`$LATEST_TAG\`."$'\n'$'\n'
-                  BODY+="## Types of changes"$'\n'$'\n'
-                  BODY+="- [X] Improvement _(non-breaking change which improves code)_"$'\n'
-                  BODY+="- [ ] Bug fix _(non-breaking change which fixes an issue)_"$'\n'
-                  BODY+="- [ ] New feature _(non-breaking change which adds functionality)_"$'\n'
-                  BODY+="- [ ] Deprecation _(breaking change which removes functionality)_"$'\n'
-                  BODY+="- [ ] Breaking change _(fix or feature that would cause existing functionality to change)_"$'\n'
-                  BODY+="- [ ] Documentation improvement"$'\n'$'\n'
-                  BODY+="## Changes"$'\n'$'\n'
-                  BODY+="| File | Updated To |"$'\n'
-                  BODY+="|------|------------|"$'\n'
-                  while IFS= read -r file; do
-                    [ -z "$file" ] && continue
-                    BODY+="| \`$file\` | \`$LATEST_TAG\` |"$'\n'
-                  done <<< "$FILES_LIST"
-
                   echo "  [$BASE_BRANCH] Creating PR from $UPDATE_BRANCH → $BASE_BRANCH..."
-
                   if ! gh pr create \
                     --repo "$ORG/$REPO_NAME" \
-                    --title "[GitHub] Update .github workflow refs to $LATEST_TAG" \
+                    --title "$NEW_TITLE" \
                     --body "$BODY" \
                     --base "$BASE_BRANCH" \
                     --head "$UPDATE_BRANCH" \
@@ -194,7 +195,15 @@ jobs:
                     echo "  [$BASE_BRANCH] PR created."
                   fi
                 else
-                  echo "  [$BASE_BRANCH] PR already exists, skipping."
+                  PR_NUMBER=$(echo "$EXISTING_PR" | jq -r '.number')
+                  CURRENT_TITLE=$(echo "$EXISTING_PR" | jq -r '.title')
+                  if [ "$CURRENT_TITLE" != "$NEW_TITLE" ]; then
+                    echo "  [$BASE_BRANCH] Updating PR #$PR_NUMBER title to reflect $LATEST_TAG..."
+                    gh pr edit "$PR_NUMBER" --repo "$ORG/$REPO_NAME" \
+                      --title "$NEW_TITLE" --body "$BODY" 2>/dev/null || true
+                  else
+                    echo "  [$BASE_BRANCH] PR already exists and title is current, skipping."
+                  fi
                 fi
               fi
             done <<< "$BASE_BRANCHES"
