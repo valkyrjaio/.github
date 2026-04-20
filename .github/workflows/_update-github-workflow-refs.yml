@@ -81,7 +81,9 @@ jobs:
               FILES_LIST=""
 
               while IFS= read -r FILE_PATH; do
-                FILE_DATA=$(gh api "repos/$ORG/$REPO_NAME/contents/$FILE_PATH?ref=$BASE_BRANCH" \
+                READ_REF="$BASE_BRANCH"
+                [ -n "$BRANCH_EXISTS" ] && READ_REF="$UPDATE_BRANCH"
+                FILE_DATA=$(gh api "repos/$ORG/$REPO_NAME/contents/$FILE_PATH?ref=$READ_REF" \
                   2>/dev/null || true)
                 [ -z "$FILE_DATA" ] && continue
 

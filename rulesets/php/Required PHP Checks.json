@@ -1,0 +1,76 @@
+{
+  "id": 11086771,
+  "name": "Required PHP Checks",
+  "target": "branch",
+  "source_type": "Repository",
+  "source": "valkyrjaio/valkyrja",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "exclude": [],
+      "include": [
+        "~DEFAULT_BRANCH",
+        "refs/heads/??.x"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [
+          {
+            "context": "PHP CS Fixer / PHP 8.4",
+            "integration_id": 15368
+          },
+          {
+            "context": "PHP Code Sniffer / PHP 8.4",
+            "integration_id": 15368
+          },
+          {
+            "context": "PHPArkitect / PHP 8.4",
+            "integration_id": 15368
+          },
+          {
+            "context": "PHPStan / PHP 8.4",
+            "integration_id": 15368
+          },
+          {
+            "context": "PHPUnit / PHP 8.4",
+            "integration_id": 15368
+          },
+          {
+            "context": "Psalm / PHP 8.4",
+            "integration_id": 15368
+          },
+          {
+            "context": "Rector / PHP 8.4",
+            "integration_id": 15368
+          },
+          {
+            "context": "PHPUnit / PHP 8.5",
+            "integration_id": 15368
+          },
+          {
+            "context": "PHPUnit / PHP 8.6",
+            "integration_id": 15368
+          }
+        ]
+      }
+    }
+  ],
+  "bypass_actors": [
+    {
+      "actor_id": null,
+      "actor_type": "OrganizationAdmin",
+      "bypass_mode": "always"
+    },
+    {
+      "actor_id": 2462900,
+      "actor_type": "Integration",
+      "bypass_mode": "always"
+    }
+  ]
+}
