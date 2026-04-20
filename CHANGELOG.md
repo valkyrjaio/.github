@@ -1,6 +1,10 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.3.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.3.1...26.x)
+
+## [v26.3.1](https://github.com/valkyrjaio/.github/compare/v26.3.0...v26.3.1) - 2026-04-19
+
+* [GitHub] Fix missing trailing newline in refs update workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/42
 
 ## [v26.3.0](https://github.com/valkyrjaio/.github/compare/v26.2.2...v26.3.0) - 2026-04-19
 
