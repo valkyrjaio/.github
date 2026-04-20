@@ -1,11 +1,16 @@
-name: Z Reusable Update .github Workflow References
+name: Z Reusable Update Workflow References
 
 on:
   workflow_call:
+    inputs:
+      source-repo:
+        description: 'Repository whose refs to update (e.g. .github or ci-phparkitect-php)'
+        type: string
+        required: true
 
 jobs:
   update-refs:
-    name: Update .github Workflow References
+    name: Update Workflow References
 
     runs-on: ubuntu-latest
 
@@ -22,12 +27,16 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           ORG: ${{ github.repository_owner }}
+          SOURCE_REPO: ${{ inputs.source-repo }}
           REVIEWER: ${{ vars.VALKYRJA_REVIEWER }}
           SUPPORTED_VERSIONS: ${{ vars.SUPPORTED_VERSIONS }}
         run: |
-          LATEST_TAG=$(gh api "repos/$ORG/.github/releases/latest" --jq '.tag_name')
-          LATEST_SHA=$(gh api "repos/$ORG/.github/commits/$LATEST_TAG" --jq '.sha')
-          echo "Latest .github release: $LATEST_TAG ($LATEST_SHA)"
+          LATEST_TAG=$(gh api "repos/$ORG/$SOURCE_REPO/releases/latest" --jq '.tag_name')
+          LATEST_SHA=$(gh api "repos/$ORG/$SOURCE_REPO/commits/$LATEST_TAG" --jq '.sha')
+          echo "Latest $SOURCE_REPO release: $LATEST_TAG ($LATEST_SHA)"
+
+          # Escape dots in source repo name for use in sed/grep patterns
+          SOURCE_REPO_ESCAPED=$(echo "$SOURCE_REPO" | sed 's/\./\\./g')
 
           REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
             --jq '.[] | select(.isArchived == false) | .name')
@@ -46,11 +55,9 @@ jobs:
 
             [ -z "$WORKFLOW_FILES" ] && continue
 
-            # Collect base branches: master + supported ?.x branches that exist
             ALL_BRANCHES=$(gh api "repos/$ORG/$REPO_NAME/branches" --paginate \
               --jq '.[].name' 2>/dev/null || true)
 
-            # Collect supported version branches; fall back to master if none exist
             BASE_BRANCHES=""
             while IFS= read -r b; do
               if [[ "$b" =~ ^([0-9]+)\.x$ ]]; then
@@ -69,9 +76,9 @@ jobs:
               [ -z "$BASE_BRANCH" ] && continue
 
               if [ "$BASE_BRANCH" = "master" ]; then
-                UPDATE_BRANCH="deps/update-github-workflow-refs"
+                UPDATE_BRANCH="deps/update-${SOURCE_REPO}-workflow-refs"
               else
-                UPDATE_BRANCH="deps/update-github-workflow-refs-$BASE_BRANCH"
+                UPDATE_BRANCH="deps/update-${SOURCE_REPO}-workflow-refs-$BASE_BRANCH"
               fi
 
               BRANCH_EXISTS=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/$UPDATE_BRANCH" \
@@ -90,11 +97,11 @@ jobs:
                 FILE_SHA=$(echo "$FILE_DATA" | jq -r '.sha')
                 CONTENT=$(echo "$FILE_DATA" | jq -r '.content' | base64 -d)
 
-                if ! echo "$CONTENT" | grep -q "valkyrjaio/\.github/\.github/workflows/"; then
+                if ! echo "$CONTENT" | grep -q "valkyrjaio/$SOURCE_REPO_ESCAPED/"; then
                   continue
                 fi
 
-                NEW_CONTENT=$(echo "$CONTENT" | sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[^[:space:]]*|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g")
+                NEW_CONTENT=$(echo "$CONTENT" | sed "s|valkyrjaio/$SOURCE_REPO_ESCAPED/\([^@]*\)@[^[:space:]]*|valkyrjaio/$SOURCE_REPO/\1@$LATEST_SHA|g")
 
                 if [ "$CONTENT" = "$NEW_CONTENT" ]; then
                   echo "  [$BASE_BRANCH] $FILE_PATH: already up to date"
@@ -105,7 +112,6 @@ jobs:
 
                 if [ -z "$BRANCH_EXISTS" ]; then
                   echo "  [$BASE_BRANCH] Creating branch $UPDATE_BRANCH..."
-
                   BASE_SHA=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/$BASE_BRANCH" \
                     --jq '.object.sha' 2>/dev/null || true)
                   if [ -z "$BASE_SHA" ]; then
@@ -128,7 +134,7 @@ jobs:
                 NEW_CONTENT_B64=$(printf '%s\n' "$NEW_CONTENT" | base64 | tr -d '\n')
 
                 PUT_BODY=$(jq -cn \
-                  --arg message "[GitHub] Update .github workflow refs to $LATEST_TAG." \
+                  --arg message "[GitHub] Update $SOURCE_REPO workflow refs to $LATEST_TAG." \
                   --arg content "$NEW_CONTENT_B64" \
                   --arg sha "$FILE_SHA" \
                   --arg branch "$UPDATE_BRANCH" \
@@ -142,7 +148,6 @@ jobs:
                 fi
 
                 echo "  [$BASE_BRANCH] $FILE_PATH committed."
-
                 FILES_LIST+="$FILE_PATH"$'\n'
                 FILES_UPDATED=$((FILES_UPDATED + 1))
               done <<< "$WORKFLOW_FILES"
@@ -156,14 +161,9 @@ jobs:
                   --jq "[.[] | select(.headRefName == \"$UPDATE_BRANCH\")] | first // \"\"" \
                   2>/dev/null || true)
 
-                REVIEWER_FLAGS=""
-                if [ -n "$REVIEWER" ]; then
-                  REVIEWER_FLAGS="--assignee $REVIEWER --reviewer $REVIEWER"
-                fi
-
                 BODY=""
                 BODY+="# Description"$'\n'$'\n'
-                BODY+="Update reusable workflow references from \`valkyrjaio/.github\` to release \`$LATEST_TAG\`."$'\n'$'\n'
+                BODY+="Update reusable workflow references from \`valkyrjaio/$SOURCE_REPO\` to release \`$LATEST_TAG\`."$'\n'$'\n'
                 BODY+="## Types of changes"$'\n'$'\n'
                 BODY+="- [X] Improvement _(non-breaking change which improves code)_"$'\n'
                 BODY+="- [ ] Bug fix _(non-breaking change which fixes an issue)_"$'\n'
@@ -179,9 +179,13 @@ jobs:
                   BODY+="| \`$file\` | \`$LATEST_TAG\` |"$'\n'
                 done <<< "$FILES_LIST"
 
-                NEW_TITLE="[GitHub] Update .github workflow refs to $LATEST_TAG"
+                NEW_TITLE="[GitHub] Update $SOURCE_REPO workflow refs to $LATEST_TAG"
 
                 if [ -z "$EXISTING_PR" ]; then
+                  REVIEWER_FLAGS=""
+                  if [ -n "$REVIEWER" ]; then
+                    REVIEWER_FLAGS="--assignee $REVIEWER --reviewer $REVIEWER"
+                  fi
                   echo "  [$BASE_BRANCH] Creating PR from $UPDATE_BRANCH → $BASE_BRANCH..."
                   if ! gh pr create \
                     --repo "$ORG/$REPO_NAME" \
