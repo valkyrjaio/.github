@@ -123,7 +123,8 @@ Enforcement
 
 The PHP CS Fixer configuration in `ci-phpcsfixer-php` automatically
 injects this header into every file. Consuming repositories pass their
-`{PACKAGE_NAME}` value to `Rules::getConfig()` via the `$header` argument:
+`{PACKAGE_IDENTIFIER}` value to `Rules::getConfig()` via the `$header`
+argument:
 
 ```
 $header = <<<HEADER
