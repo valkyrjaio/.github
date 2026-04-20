@@ -123,7 +123,7 @@ jobs:
 
                 echo "  [$BASE_BRANCH] Committing $FILE_PATH to $UPDATE_BRANCH..."
 
-                NEW_CONTENT_B64=$(printf '%s' "$NEW_CONTENT" | base64 | tr -d '\n')
+                NEW_CONTENT_B64=$(printf '%s\n' "$NEW_CONTENT" | base64 | tr -d '\n')
 
                 PUT_BODY=$(jq -cn \
                   --arg message "[GitHub] Update .github workflow refs to $LATEST_TAG." \
