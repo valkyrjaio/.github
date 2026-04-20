@@ -24,3 +24,9 @@ jobs:
     secrets: inherit
     with:
       bump: ${{ inputs.bump }}
+
+  update-refs:
+    name: Update Workflow Refs
+    needs: release
+    uses: ./.github/workflows/_update-github-workflow-refs.yml
+    secrets: inherit
