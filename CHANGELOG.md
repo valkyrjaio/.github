@@ -1,6 +1,14 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.3.1...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.4.0...26.x)
+
+## [v26.4.0](https://github.com/valkyrjaio/.github/compare/v26.3.1...v26.4.0) - 2026-04-19
+
+* [GitHub] Fix 409 on refs update when update branch already exists by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/43
+* [GitHub] Update .github workflow refs to v26.3.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/41
+* [GitHub] Update existing PR title and body when a newer release is available by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/44
+* [GitHub] Trigger refs update workflow after release by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/45
+* [GitHub] Generalize _update-github-workflow-refs to support any source repo by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/46
 
 ## [v26.3.1](https://github.com/valkyrjaio/.github/compare/v26.3.0...v26.3.1) - 2026-04-19
 
