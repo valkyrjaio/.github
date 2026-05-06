@@ -1,0 +1,36 @@
+name: Create a New Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version component to bump'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - rc
+
+run-name: "Release ${{ inputs.bump }} bump on ${{ github.ref_name }}"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    uses: valkyrjaio/.github/.github/workflows/_create-java-release.yml@8bfa5fbef8b47c9e154c9996b17e527e6d0aee25
+    secrets: inherit
+    with:
+      bump: ${{ inputs.bump }}
+      dependencies: |
+        [
+          {"name": "Spotless",    "directory": ".github/ci/spotless"},
+          {"name": "ArchUnit",    "directory": ".github/ci/archunit"},
+          {"name": "ErrorProne",  "directory": ".github/ci/errorprone"},
+          {"name": "SpotBugs",   "directory": ".github/ci/spotbugs"},
+          {"name": "JUnit",      "directory": ".github/ci/junit"}
+        ]
+      info-class-path: src/main/java/io/valkyrja/application/constant/ApplicationInfo.java
+      info-class-name: ApplicationInfo
