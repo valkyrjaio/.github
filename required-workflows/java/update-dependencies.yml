@@ -1,0 +1,20 @@
+name: Update Dependencies
+
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+jobs:
+  update-dependencies:
+    uses: valkyrjaio/.github/.github/workflows/_update-java-dependencies.yml@8bfa5fbef8b47c9e154c9996b17e527e6d0aee25
+    secrets: inherit
+    with:
+      dependencies: |
+        [
+          {"name": "Spotless",    "directory": ".github/ci/spotless"},
+          {"name": "ArchUnit",    "directory": ".github/ci/archunit"},
+          {"name": "ErrorProne",  "directory": ".github/ci/errorprone"},
+          {"name": "SpotBugs",   "directory": ".github/ci/spotbugs"},
+          {"name": "JUnit",      "directory": ".github/ci/junit"}
+        ]

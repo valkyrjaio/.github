@@ -1,0 +1,29 @@
+name: Z Reusable Create Java Version Branch
+
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        description: 'Java version to use'
+        type: string
+        default: '21'
+      dependencies:
+        description: >
+          JSON array of dependencies to check for outdated versions.
+          Each item must have a "name" and "directory".
+          Example: [{"name":"JUnit","directory":".github/ci/junit"}]
+        type: string
+        required: true
+
+jobs:
+  check-outdated-dependencies:
+    uses: ./.github/workflows/_check-outdated-java-dependencies.yml
+    secrets: inherit
+    with:
+      java-version: ${{ inputs.java-version }}
+      dependencies: ${{ inputs.dependencies }}
+
+  create-version-branch:
+    needs: check-outdated-dependencies
+    uses: ./.github/workflows/_create-version-branch.yml
+    secrets: inherit

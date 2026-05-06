@@ -1,0 +1,67 @@
+name: Z Reusable Create Java Release
+
+on:
+  workflow_call:
+    inputs:
+      bump:
+        description: 'Version component to bump'
+        type: string
+        required: true
+      java-version:
+        description: 'Java version to use'
+        type: string
+        default: '21'
+      dependencies:
+        description: >
+          JSON array of dependencies to check for outdated versions.
+          Each item must have a "name" and "directory".
+          Example: [{"name":"JUnit","directory":".github/ci/junit"}]
+        type: string
+        required: true
+      info-class-path:
+        description: 'Relative path to the ApplicationInfo class (e.g. src/main/java/io/valkyrja/application/constant/ApplicationInfo.java)'
+        type: string
+        required: true
+      info-class-name:
+        description: 'Simple class name for display (e.g. ApplicationInfo)'
+        type: string
+        required: true
+
+jobs:
+  check-version:
+    uses: ./.github/workflows/_get-version-for-release.yml
+    secrets: inherit
+    with:
+      bump: ${{ inputs.bump }}
+
+  check-outdated-dependencies:
+    needs: check-version
+    uses: ./.github/workflows/_check-outdated-java-dependencies.yml
+    secrets: inherit
+    with:
+      java-version: ${{ inputs.java-version }}
+      dependencies: ${{ inputs.dependencies }}
+
+  update-version-files:
+    needs: [check-outdated-dependencies, check-version]
+    uses: ./.github/workflows/_update-version-files.yml
+    secrets: inherit
+    with:
+      version: ${{ needs.check-version.outputs.version }}
+
+  update-java-info-files:
+    needs: [update-version-files, check-version]
+    uses: ./.github/workflows/_update-java-info-files.yml
+    secrets: inherit
+    with:
+      version: ${{ needs.check-version.outputs.version }}
+      build-date: ${{ needs.check-version.outputs.build-date }}
+      info-class-path: ${{ inputs.info-class-path }}
+      info-class-name: ${{ inputs.info-class-name }}
+
+  release:
+    needs: [update-java-info-files, check-version]
+    uses: ./.github/workflows/_release.yml
+    secrets: inherit
+    with:
+      version: ${{ needs.check-version.outputs.version }}
