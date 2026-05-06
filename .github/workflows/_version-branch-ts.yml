@@ -1,0 +1,110 @@
+name: Z Reusable TypeScript Version Branch
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'The new major version number (e.g. 27)'
+        type: string
+        required: true
+      branch:
+        description: 'The new branch name (e.g. 27.x)'
+        type: string
+        required: true
+      node-version:
+        description: 'Node.js version to use'
+        type: string
+        default: '22'
+
+jobs:
+  create-version-branch:
+    name: "Creating branch ${{ inputs.branch }} (v${{ inputs.version }}) from ${{ github.ref_name }}"
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Get bot user ID
+        id: get-bot-user-id
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
+        run: |
+          BOT_USER_ID=$(gh api "/users/$APP_SLUG[bot]" --jq '.id')
+          echo "user-id=$BOT_USER_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Create branch ${{ inputs.branch }} from ${{ github.ref_name }}
+        env:
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          git checkout -b "$BRANCH"
+          git push origin "$BRANCH"
+
+      - name: Update README.md
+        env:
+          BRANCH: ${{ inputs.branch }}
+          SOURCE_BRANCH: ${{ github.ref_name }}
+        run: |
+          sed -i "/valkyrjaio\/art/! s/$SOURCE_BRANCH/$BRANCH/g" README.md
+
+      - name: Update package.json version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          npm version "$VERSION.0.0" --no-git-tag-version
+
+      - name: Update CHANGELOG.md
+        env:
+          BRANCH: ${{ inputs.branch }}
+          VERSION: ${{ inputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo -e "# Release Notes for $BRANCH\n## [Unreleased](https://github.com/$REPO/compare/$VERSION.0.0...$BRANCH)" > CHANGELOG.md
+
+      - name: Update VERSION.md
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          echo "v${VERSION}.0.0" > VERSION.md
+
+      - name: Commit version branch updates
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "[${{ inputs.branch }}] Update references for v${{ inputs.version }}"
+          branch: ${{ inputs.branch }}
+          push_options: '--set-upstream'
+          commit_user_name: ${{ steps.generate-token.outputs.app-slug }}[bot]
+          commit_user_email: ${{ steps.get-bot-user-id.outputs.user-id }}+${{ steps.generate-token.outputs.app-slug }}[bot]@users.noreply.github.com
+          commit_author: ${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>
+
+      - name: Set default branch to ${{ inputs.branch }}
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        run: |
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY" --field default_branch="${{ inputs.branch }}"
+
+      - name: Update LATEST_MAJOR_VERSION variable
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh variable set LATEST_MAJOR_VERSION --body "$VERSION"

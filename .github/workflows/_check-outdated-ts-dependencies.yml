@@ -1,0 +1,52 @@
+name: Z Reusable Check Outdated TypeScript Dependencies
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Node.js version to use'
+        type: string
+        default: '22'
+      dependencies:
+        description: >
+          JSON array of dependencies to check.
+          Each item must have a "name" (display name) and "directory" (path to the package.json directory).
+          Example: [{"name":"Vitest","directory":".github/ci/vitest"}]
+        type: string
+        required: true
+
+jobs:
+  check-outdated-ts-dependencies:
+    strategy:
+      fail-fast: false
+      matrix:
+        dependency: ${{ fromJson(inputs.dependencies) }}
+
+    name: "Check ${{ matrix.dependency.name }} For Outdated Direct Dependencies"
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.dependency.directory }}
+        run: npm install
+
+      - name: Check ${{ matrix.dependency.name }} for outdated direct dependencies
+        working-directory: ${{ matrix.dependency.directory }}
+        run: |
+          output=$(npm outdated 2>/dev/null || true)
+          if [ -n "$output" ]; then
+            echo "$output"
+            echo ""
+            echo "npm dependencies must be updated before releasing."
+            exit 1
+          fi
+          echo "All ${{ matrix.dependency.name }} dependencies are up to date."
