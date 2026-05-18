@@ -6,7 +6,7 @@ run-name: Create new version for upcoming major release
 
 jobs:
   create:
-    uses: valkyrjaio/.github/.github/workflows/_create-ts-version-branch.yml@REPLACE_WITH_GITHUB_SHA
+    uses: valkyrjaio/.github/.github/workflows/_create-ts-version-branch.yml@9b108a21f1a7161aef43c83046266f2c8de60165
     secrets: inherit
     with:
       dependencies: |
