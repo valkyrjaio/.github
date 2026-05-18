@@ -1,0 +1,21 @@
+name: Update Dependencies
+
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+jobs:
+  update-dependencies:
+    uses: valkyrjaio/.github/.github/workflows/_update-ts-dependencies.yml@REPLACE_WITH_GITHUB_SHA
+    secrets: inherit
+    with:
+      dependencies: |
+        [
+          {"name": "Root and Suggested Packages", "directory": "."},
+          {"name": "Root and Suggested CI",       "directory": ".github/ci/root-and-suggested"},
+          {"name": "TypeScript",                  "directory": ".github/ci/typescript"},
+          {"name": "ESLint",                      "directory": ".github/ci/eslint"},
+          {"name": "Prettier",                    "directory": ".github/ci/prettier"},
+          {"name": "Vitest",                      "directory": ".github/ci/vitest"}
+        ]

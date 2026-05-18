@@ -1,9 +1,6 @@
 {
-  "id": 11086771,
-  "name": "Required PHP Checks",
+  "name": "Required Java PR Checks",
   "target": "branch",
-  "source_type": "Repository",
-  "source": "valkyrjaio/valkyrja",
   "enforcement": "active",
   "conditions": {
     "ref_name": {
@@ -22,39 +19,23 @@
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           {
-            "context": "PHP CS Fixer / PHP 8.4",
+            "context": "Spotless",
             "integration_id": 15368
           },
           {
-            "context": "PHP Code Sniffer / PHP 8.4",
+            "context": "ArchUnit",
             "integration_id": 15368
           },
           {
-            "context": "PHPArkitect / PHP 8.4",
+            "context": "ErrorProne",
             "integration_id": 15368
           },
           {
-            "context": "PHPStan / PHP 8.4",
+            "context": "SpotBugs",
             "integration_id": 15368
           },
           {
-            "context": "PHPUnit / PHP 8.4",
-            "integration_id": 15368
-          },
-          {
-            "context": "Psalm / PHP 8.4",
-            "integration_id": 15368
-          },
-          {
-            "context": "Rector / PHP 8.4",
-            "integration_id": 15368
-          },
-          {
-            "context": "PHPUnit / PHP 8.5",
-            "integration_id": 15368
-          },
-          {
-            "context": "PHPUnit / PHP 8.6",
+            "context": "JUnit",
             "integration_id": 15368
           }
         ]
