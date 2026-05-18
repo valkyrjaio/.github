@@ -1,9 +1,9 @@
 {
-  "id": 11086771,
-  "name": "Required PHP Checks",
+  "id": 16515388,
+  "name": "Required TypeScript PR Checks",
   "target": "branch",
   "source_type": "Repository",
-  "source": "valkyrjaio/valkyrja",
+  "source": "valkyrjaio/valkyrja-ts",
   "enforcement": "active",
   "conditions": {
     "ref_name": {
@@ -22,39 +22,19 @@
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           {
-            "context": "PHP CS Fixer / PHP 8.4",
+            "context": "ESLint",
             "integration_id": 15368
           },
           {
-            "context": "PHP Code Sniffer / PHP 8.4",
+            "context": "TypeScript",
             "integration_id": 15368
           },
           {
-            "context": "PHPArkitect / PHP 8.4",
+            "context": "Vitest",
             "integration_id": 15368
           },
           {
-            "context": "PHPStan / PHP 8.4",
-            "integration_id": 15368
-          },
-          {
-            "context": "PHPUnit / PHP 8.4",
-            "integration_id": 15368
-          },
-          {
-            "context": "Psalm / PHP 8.4",
-            "integration_id": 15368
-          },
-          {
-            "context": "Rector / PHP 8.4",
-            "integration_id": 15368
-          },
-          {
-            "context": "PHPUnit / PHP 8.5",
-            "integration_id": 15368
-          },
-          {
-            "context": "PHPUnit / PHP 8.6",
+            "context": "Prettier",
             "integration_id": 15368
           }
         ]

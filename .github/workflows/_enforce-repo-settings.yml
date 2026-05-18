@@ -108,4 +108,18 @@ jobs:
                 apply_or_update_ruleset "$ruleset_file"
               done
             fi
+
+            if [[ "$REPO_NAME" =~ -ts$ ]]; then
+              echo "  TypeScript repo detected, checking TypeScript-specific rulesets..."
+              for ruleset_file in rulesets/ts/*.json; do
+                apply_or_update_ruleset "$ruleset_file"
+              done
+            fi
+
+            if [[ "$REPO_NAME" =~ -java$ ]]; then
+              echo "  Java repo detected, checking Java-specific rulesets..."
+              for ruleset_file in rulesets/java/*.json; do
+                apply_or_update_ruleset "$ruleset_file"
+              done
+            fi
           done <<< "$REPOS"

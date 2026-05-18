@@ -1,0 +1,19 @@
+name: Create Major Release Version Branch
+
+on: workflow_dispatch
+
+run-name: Create new version for upcoming major release
+
+jobs:
+  create:
+    uses: valkyrjaio/.github/.github/workflows/_create-ts-version-branch.yml@REPLACE_WITH_GITHUB_SHA
+    secrets: inherit
+    with:
+      dependencies: |
+        [
+          {"name": "Root and Suggested CI", "directory": ".github/ci/root-and-suggested"},
+          {"name": "TypeScript",            "directory": ".github/ci/typescript"},
+          {"name": "ESLint",               "directory": ".github/ci/eslint"},
+          {"name": "Prettier",             "directory": ".github/ci/prettier"},
+          {"name": "Vitest",               "directory": ".github/ci/vitest"}
+        ]

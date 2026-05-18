@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [ 'master', '*.x' ]
+  pull_request:
+    branches: [ 'master', '*.x' ]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  commit-message-check:
+    name: Commit Message Check
+    if: github.event_name == 'pull_request'
+    uses: valkyrjaio/.github/.github/workflows/_commit-message-check.yml@REPLACE_WITH_GITHUB_SHA
+    secrets: inherit
+
+  trailing-newline-check:
+    name: Trailing Newline Check
+    if: github.event_name == 'pull_request'
+    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@REPLACE_WITH_GITHUB_SHA
+    permissions:
+      pull-requests: write
+      contents: read
+    secrets: inherit
+
+  typescript:
+    name: TypeScript
+    uses: valkyrjaio/.github/.github/workflows/_typescript-ts.yml@REPLACE_WITH_GITHUB_SHA
+    with:
+      ci-directory: .github/ci/typescript
+      paths: |
+        ci:
+          - '.github/ci/typescript/**'
+          - '.github/workflows/ci.yml'
+        files:
+          - '.github/ci/typescript/**'
+          - '.github/workflows/ci.yml'
+          - 'src/**/*.ts'
+          - 'bin/**/*.ts'
+          - 'tsconfig.json'
+    secrets: inherit
+
+  eslint:
+    name: ESLint
+    uses: valkyrjaio/.github/.github/workflows/_eslint-ts.yml@REPLACE_WITH_GITHUB_SHA
+    with:
+      ci-directory: .github/ci/eslint
+      additional-directory: .github/ci/typescript
+      paths: |
+        ci:
+          - '.github/ci/typescript/**'
+          - '.github/ci/eslint/**'
+          - '.github/workflows/ci.yml'
+        files:
+          - '.github/ci/typescript/**'
+          - '.github/ci/eslint/**'
+          - '.github/workflows/ci.yml'
+          - 'src/**/*.ts'
+          - 'bin/**/*.ts'
+          - 'tsconfig.json'
+    secrets: inherit
+
+  prettier:
+    name: Prettier
+    uses: valkyrjaio/.github/.github/workflows/_prettier-ts.yml@REPLACE_WITH_GITHUB_SHA
+    with:
+      ci-directory: .github/ci/prettier
+      paths: |
+        ci:
+          - '.github/ci/prettier/**'
+          - '.github/workflows/ci.yml'
+        files:
+          - '.github/ci/prettier/**'
+          - '.github/workflows/ci.yml'
+          - 'src/**/*.ts'
+          - 'bin/**/*.ts'
+          - '*.json'
+          - '*.md'
+    secrets: inherit
+
+  vitest:
+    name: Vitest
+    uses: valkyrjaio/.github/.github/workflows/_vitest-ts.yml@REPLACE_WITH_GITHUB_SHA
+    with:
+      ci-directory: .github/ci/vitest
+      paths: |
+        ci:
+          - '.github/ci/vitest/**'
+          - '.github/workflows/ci.yml'
+        files:
+          - '.github/ci/vitest/**'
+          - '.github/workflows/ci.yml'
+          - 'src/**/*.ts'
+          - 'tests/**/*.ts'
+    secrets: inherit
