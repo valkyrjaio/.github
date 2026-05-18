@@ -7,7 +7,7 @@ on:
 
 jobs:
   update-dependencies:
-    uses: valkyrjaio/.github/.github/workflows/_update-java-dependencies.yml@8bfa5fbef8b47c9e154c9996b17e527e6d0aee25
+    uses: valkyrjaio/.github/.github/workflows/_update-java-dependencies.yml@396a3e938cf1c222f11e98afe54612d9170c0557
     secrets: inherit
     with:
       dependencies: |

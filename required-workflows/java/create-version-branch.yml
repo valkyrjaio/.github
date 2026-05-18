@@ -6,7 +6,7 @@ run-name: Create new version for upcoming major release
 
 jobs:
   create:
-    uses: valkyrjaio/.github/.github/workflows/_create-java-version-branch.yml@8bfa5fbef8b47c9e154c9996b17e527e6d0aee25
+    uses: valkyrjaio/.github/.github/workflows/_create-java-version-branch.yml@396a3e938cf1c222f11e98afe54612d9170c0557
     secrets: inherit
     with:
       dependencies: |
