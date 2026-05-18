@@ -1,6 +1,11 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.5.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.6.0...26.x)
+
+## [v26.6.0](https://github.com/valkyrjaio/.github/compare/v26.5.0...v26.6.0) - 2026-05-17
+
+* [GitHub] Update .github workflow refs to v26.5.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/61
+* Update rulesets and workflows by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/62
 
 ## [v26.5.0](https://github.com/valkyrjaio/.github/compare/v26.4.0...v26.5.0) - 2026-05-16
 
