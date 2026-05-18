@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   release:
-    uses: valkyrjaio/.github/.github/workflows/_create-ts-release.yml@REPLACE_WITH_GITHUB_SHA
+    uses: valkyrjaio/.github/.github/workflows/_create-ts-release.yml@9b108a21f1a7161aef43c83046266f2c8de60165
     secrets: inherit
     with:
       bump: ${{ inputs.bump }}
