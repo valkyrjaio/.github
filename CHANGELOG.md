@@ -1,6 +1,22 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.6.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.6.1...26.x)
+
+## [v26.6.1](https://github.com/valkyrjaio/.github/compare/v26.6.0...v26.6.1) - 2026-06-10
+
+* [GitHub] Update .github workflow refs to v26.6.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/63
+* [Rulesets] Update GitHub rulesets for TS by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/64
+* [GitHub] Update ci-phpstan-php workflow refs to v26.1.5 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/65
+* [Java] Update Java PR checks ruleset by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/66
+* [GitHub] Update ci-rector-php workflow refs to v26.1.3 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/67
+* [GitHub] Update ci-rector-php workflow refs to v26.1.4 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/68
+* [GitHub] Update ci-phpunit-php workflow refs to v26.4.1 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/69
+* [GitHub] Update ci-phpstan-php workflow refs to v26.1.6 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/70
+* [GitHub] Update ci-phpcsfixer-php workflow refs to v26.1.4 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/71
+* [GitHub] Update ci-phpunit-php workflow refs to v26.4.2 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/73
+* [GitHub] Update ci-phpcsfixer-php workflow refs to v26.1.5 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/72
+* [GitHub] Update ci-phpstan-php workflow refs to v26.1.8 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/74
+* [GitHub] Allow same version in version branch workflow npm version step by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/75
 
 ## [v26.6.0](https://github.com/valkyrjaio/.github/compare/v26.5.0...v26.6.0) - 2026-05-17
 
