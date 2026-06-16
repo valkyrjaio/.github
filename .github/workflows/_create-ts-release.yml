@@ -19,7 +19,7 @@ on:
         type: string
         required: true
       info-file-path:
-        description: 'Relative path to the ApplicationInfo.ts file (e.g. src/Valkyrja/Application/constant/ApplicationInfo.ts)'
+        description: 'Relative path to the ApplicationInfo.ts file (e.g. src/Valkyrja/Application/Constant/ApplicationInfo.ts)'
         type: string
         required: true
       info-file-name:
