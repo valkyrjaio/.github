@@ -1,6 +1,14 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.6.1...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.6.2...26.x)
+
+## [v26.6.2](https://github.com/valkyrjaio/.github/compare/v26.6.1...v26.6.2) - 2026-06-17
+
+* [GitHub] Update ci-phpcsfixer-php workflow refs to v26.1.6 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/77
+* [GitHub] Update .github workflow refs to v26.6.1 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/76
+* [GitHub] Update ci-phpcsfixer-php workflow refs to v26.1.7 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/78
+* [GitHub] Update ci-phpcsfixer-php workflow refs to v26.1.8 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/79
+* [GitHub] Fix ApplicationInfo path casing and allow same version in TS release workflows by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/80
 
 ## [v26.6.1](https://github.com/valkyrjaio/.github/compare/v26.6.0...v26.6.1) - 2026-06-10
 
