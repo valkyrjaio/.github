@@ -1,0 +1,41 @@
+name: Z Reusable TypeScript Release NPM Publish
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Node.js version to use'
+        type: string
+        default: '22'
+
+jobs:
+  npm-publish:
+    name: Publish to npm
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Update npm for trusted publishing
+        run: npm install --global npm@latest
+
+      - name: Install TypeScript build dependencies
+        run: npm install
+        working-directory: .github/ci/typescript
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
