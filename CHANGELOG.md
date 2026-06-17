@@ -1,6 +1,11 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.8.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.8.1...26.x)
+
+## [v26.8.1](https://github.com/valkyrjaio/.github/compare/v26.8.0...v26.8.1) - 2026-06-17
+
+* [GitHub] Update .github workflow refs to v26.8.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/86
+* [GitHub] Use gradle instead of gradlew wrapper in Java release publish workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/87
 
 ## [v26.8.0](https://github.com/valkyrjaio/.github/compare/v26.7.0...v26.8.0) - 2026-06-17
 
