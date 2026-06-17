@@ -1,6 +1,11 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.7.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.8.0...26.x)
+
+## [v26.8.0](https://github.com/valkyrjaio/.github/compare/v26.7.0...v26.8.0) - 2026-06-17
+
+* [GitHub] Update .github workflow refs to v26.7.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/84
+* [GitHub] Add reusable Java Maven Central publish workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/85
 
 ## [v26.7.0](https://github.com/valkyrjaio/.github/compare/v26.6.2...v26.7.0) - 2026-06-17
 
