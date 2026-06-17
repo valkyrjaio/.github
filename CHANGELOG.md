@@ -1,6 +1,12 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.6.2...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.7.0...26.x)
+
+## [v26.7.0](https://github.com/valkyrjaio/.github/compare/v26.6.2...v26.7.0) - 2026-06-17
+
+* [GitHub] Update .github workflow refs to v26.6.2 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/82
+* [GitHub] Update ci-rector-php workflow refs to v26.1.5 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/81
+* [GitHub] Add reusable TypeScript release npm publish workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/83
 
 ## [v26.6.2](https://github.com/valkyrjaio/.github/compare/v26.6.1...v26.6.2) - 2026-06-17
 
