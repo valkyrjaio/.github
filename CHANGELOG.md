@@ -1,6 +1,11 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.9.2...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.9.3...26.x)
+
+## [v26.9.3](https://github.com/valkyrjaio/.github/compare/v26.9.2...v26.9.3) - 2026-06-18
+
+* [GitHub] Update .github workflow refs to v26.9.2 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/96
+* [GitHub] Name the correct use-latest-versions plugin in the Java deps workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/97
 
 ## [v26.9.2](https://github.com/valkyrjaio/.github/compare/v26.9.1...v26.9.2) - 2026-06-17
 
