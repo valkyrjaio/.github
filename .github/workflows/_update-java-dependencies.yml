@@ -11,7 +11,7 @@ on:
         description: >
           JSON array of dependencies to update.
           Each item must have a "name" (display name) and "directory" (path to the Gradle project).
-          Requires the gradle-use-latest-versions plugin (se.ascp.gradle:gradle-use-latest-versions).
+          Requires the use-latest-versions plugin (se.patrikerdes.use-latest-versions).
           Example: [{"name":"JUnit","directory":".github/ci/junit"}]
         type: string
         required: true
