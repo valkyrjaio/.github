@@ -15,6 +15,11 @@ on:
         description: 'Path filters in dorny/paths-filter format (must define ci and files keys)'
         type: string
         required: true
+      copy-example-sources:
+        description: 'Copy *.example.java templates to their .java target (when missing) before building'
+        type: boolean
+        default: false
+        required: false
 
 jobs:
   archunit:
@@ -64,6 +69,14 @@ jobs:
       - name: Setup Gradle
         if: steps.changes.outputs.files == 'true'
         uses: gradle/actions/setup-gradle@v4
+
+      - name: Copy example sources
+        if: steps.changes.outputs.files == 'true' && inputs.copy-example-sources
+        run: |
+          find . -name '*.example.java' | while read -r f; do
+            target="${f%.example.java}.java"
+            [ -e "$target" ] || cp "$f" "$target"
+          done
 
       - name: Run ArchUnit
         if: steps.changes.outputs.files == 'true'
