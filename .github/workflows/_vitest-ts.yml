@@ -62,6 +62,10 @@ jobs:
           cache: 'npm'
           cache-dependency-path: ${{ inputs.ci-directory }}/package-lock.json
 
+      - name: Install root dependencies
+        if: steps.changes.outputs.files == 'true' && hashFiles('package-lock.json') != ''
+        run: npm ci
+
       - name: Install CI dependencies
         if: steps.changes.outputs.files == 'true'
         working-directory: ${{ inputs.ci-directory }}

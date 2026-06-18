@@ -67,6 +67,10 @@ jobs:
         working-directory: ${{ inputs.ci-directory }}
         run: npm ci
 
+      - name: Install root dependencies
+        if: steps.changes.outputs.files == 'true' && hashFiles('package-lock.json') != ''
+        run: npm ci
+
       - name: Run TypeScript check
         if: steps.changes.outputs.files == 'true'
         id: typescript
