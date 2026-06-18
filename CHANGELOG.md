@@ -1,6 +1,11 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.9.1...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.9.2...26.x)
+
+## [v26.9.2](https://github.com/valkyrjaio/.github/compare/v26.9.1...v26.9.2) - 2026-06-17
+
+* [GitHub] Update .github workflow refs to v26.9.1 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/94
+* [GitHub] Make info-file inputs optional in the TypeScript release workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/95
 
 ## [v26.9.1](https://github.com/valkyrjaio/.github/compare/v26.9.0...v26.9.1) - 2026-06-17
 
