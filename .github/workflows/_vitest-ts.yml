@@ -74,7 +74,16 @@ jobs:
       - name: Run Vitest
         if: steps.changes.outputs.files == 'true'
         id: vitest
-        run: npm run vitest
+        run: npm run vitest-coverage
+
+      - name: Upload Coveralls coverage report
+        uses: coverallsapp/github-action@v2.3.6
+        if: steps.changes.outputs.files == 'true'
+        continue-on-error: true
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: "${{ inputs.ci-directory }}/coverage/lcov.info"
+          format: lcov
 
       - name: Report failure in PR comment
         if: failure() && github.event.pull_request.number
