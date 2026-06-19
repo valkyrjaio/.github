@@ -1,6 +1,10 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.9.4...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.9.5...26.x)
+
+## [v26.9.5](https://github.com/valkyrjaio/.github/compare/v26.9.4...v26.9.5) - 2026-06-19
+
+* [GitHub] Hardcode JaCoCo base path and remove coverage-base-path input by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/102
 
 ## [v26.9.4](https://github.com/valkyrjaio/.github/compare/v26.9.3...v26.9.4) - 2026-06-19
 
