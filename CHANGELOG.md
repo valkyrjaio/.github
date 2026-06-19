@@ -1,6 +1,12 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.9.3...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.9.4...26.x)
+
+## [v26.9.4](https://github.com/valkyrjaio/.github/compare/v26.9.3...v26.9.4) - 2026-06-19
+
+* [GitHub] Update .github workflow refs to v26.9.3 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/98
+* [GitHub] Update ci-phpcsfixer-php workflow refs to v26.1.9 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/99
+* [GitHub] Upload Java and TS test coverage to Coveralls by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/100
 
 ## [v26.9.3](https://github.com/valkyrjaio/.github/compare/v26.9.2...v26.9.3) - 2026-06-18
 
