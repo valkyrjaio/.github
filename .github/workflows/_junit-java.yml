@@ -20,11 +20,6 @@ on:
         type: boolean
         default: false
         required: false
-      coverage-base-path:
-        description: 'Base path to the Java sources, used to resolve file paths in the JaCoCo report for Coveralls'
-        type: string
-        default: 'src/main/java'
-        required: false
 
 jobs:
   junit:
@@ -97,7 +92,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: "${{ inputs.ci-directory }}/build/reports/jacoco/test/jacocoTestReport.xml"
           format: jacoco
-          base-path: ${{ inputs.coverage-base-path }}
+          base-path: src/main/java
 
       - name: Report failure in PR comment
         if: steps.build_step.outcome == 'failure'
