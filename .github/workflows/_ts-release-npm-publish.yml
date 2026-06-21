@@ -33,6 +33,14 @@ jobs:
       - name: Update npm for trusted publishing
         run: npm install --global npm@latest
 
+      # Install the package's own dependencies (including devDependencies such as
+      # esbuild) so the prepublishOnly/build step can run during npm publish.
+      - name: Install root dependencies
+        run: npm ci
+
+      # Some packages delegate their build to the TypeScript CI directory
+      # (e.g. "build": "cd .github/ci/typescript && npm run build"), so install
+      # those dependencies too.
       - name: Install TypeScript build dependencies
         run: npm install
         working-directory: .github/ci/typescript
