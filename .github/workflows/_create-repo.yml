@@ -48,11 +48,23 @@ jobs:
           REPO_NAME: ${{ inputs.name }}
           DESCRIPTION: ${{ inputs.description }}
         run: |
-          COMBINED=$(echo "$REPO_NAME $DESCRIPTION" | tr '[:upper:]' '[:lower:]')
-          if echo "$COMBINED" | grep -q "php"; then
-            TEMPLATE_FLAG="--template $ORG/project-template-php"
+          # A repo's language is the final '-'-delimited segment of its name
+          # (see REPOSITORY_NAMING.md): valkyrja-php → php, ci-junit-java → java,
+          # sindri-ts → ts. It only counts as a language when listed in the
+          # org-level vars.SUPPORTED_LANGUAGES (space-separated), so e.g.
+          # some-global-repo resolves to nothing.
+          LANG_SUFFIX=$(echo "${REPO_NAME##*-}" | tr '[:upper:]' '[:lower:]')
+
+          # Scaffold from project-template-<lang> when the repo targets a known
+          # language — except for the project templates themselves, which have no
+          # template of their own (and must not reference one that may not exist
+          # yet when a new language is introduced).
+          TEMPLATE_FLAG=""
+          if [[ " ${{ vars.SUPPORTED_LANGUAGES }} " == *" $LANG_SUFFIX "* && "$REPO_NAME" != project-template-* ]]; then
+            echo "Detected language '$LANG_SUFFIX'; using template $ORG/project-template-$LANG_SUFFIX"
+            TEMPLATE_FLAG="--template $ORG/project-template-$LANG_SUFFIX"
           else
-            TEMPLATE_FLAG=""
+            echo "No language template for '$REPO_NAME'; creating a bare repo."
           fi
 
           gh repo create "$ORG/$REPO_NAME" \
@@ -79,7 +91,6 @@ jobs:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           ORG: ${{ github.repository_owner }}
           REPO_NAME: ${{ inputs.name }}
-          DESCRIPTION: ${{ inputs.description }}
         run: |
           shopt -s nullglob
 
@@ -89,11 +100,13 @@ jobs:
               | gh api --method POST "repos/$ORG/$REPO_NAME/rulesets" --input -
           done
 
-          COMBINED=$(echo "$REPO_NAME $DESCRIPTION" | tr '[:upper:]' '[:lower:]')
-          if echo "$COMBINED" | grep -qi "php"; then
-            echo "PHP repo detected, applying PHP-specific rulesets..."
-            for ruleset_file in rulesets/php/*.json; do
-              echo "Applying PHP ruleset: $(basename "$ruleset_file")"
+          # Apply language-specific rulesets from rulesets/<lang>/ for known
+          # languages (same suffix rule as the template step).
+          LANG_SUFFIX=$(echo "${REPO_NAME##*-}" | tr '[:upper:]' '[:lower:]')
+          if [[ " ${{ vars.SUPPORTED_LANGUAGES }} " == *" $LANG_SUFFIX "* && -d "rulesets/$LANG_SUFFIX" ]]; then
+            echo "Applying $LANG_SUFFIX-specific rulesets..."
+            for ruleset_file in rulesets/"$LANG_SUFFIX"/*.json; do
+              echo "Applying $LANG_SUFFIX ruleset: $(basename "$ruleset_file")"
               jq '{name, target, enforcement, conditions, rules, bypass_actors}' "$ruleset_file" \
                 | gh api --method POST "repos/$ORG/$REPO_NAME/rulesets" --input -
             done
