@@ -22,6 +22,7 @@ jobs:
     with:
       node-version: ${{ inputs.node-version }}
       dependencies: ${{ inputs.dependencies }}
+      major-release: true
 
   get-version:
     needs: check-outdated-dependencies
