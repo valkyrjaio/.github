@@ -14,6 +14,14 @@ on:
           Example: [{"name":"Vitest","directory":".github/ci/vitest"}]
         type: string
         required: true
+      major-release:
+        description: >
+          When false (default, used for releases), only in-range minor/patch
+          updates block — major updates outside the current semver range are
+          allowed. When true (used for major version branch creation), every
+          dependency must be at its latest version, including major updates.
+        type: boolean
+        default: false
 
 jobs:
   check-outdated-ts-dependencies:
@@ -41,12 +49,33 @@ jobs:
 
       - name: Check ${{ matrix.dependency.name }} for outdated direct dependencies
         working-directory: ${{ matrix.dependency.directory }}
+        env:
+          MAJOR_RELEASE: ${{ inputs.major-release }}
         run: |
-          output=$(npm outdated 2>/dev/null || true)
-          if [ -n "$output" ]; then
-            echo "$output"
+          outdated=$(npm outdated --json 2>/dev/null || true)
+
+          if [ -z "$outdated" ] || [ "$outdated" = "{}" ]; then
+            echo "All ${{ matrix.dependency.name }} dependencies are up to date."
+            exit 0
+          fi
+
+          if [ "$MAJOR_RELEASE" = "true" ]; then
+            # Major version branch: every dependency must be at its latest
+            # version, including major (out-of-range) updates.
+            blocking=$(echo "$outdated" | jq -r 'to_entries[] | select(.value.current != .value.latest) | .key')
+            message="npm dependencies (including major versions) must be updated before creating a major version branch."
+          else
+            # Release: only in-range minor/patch updates are required; a major
+            # update outside the current semver range does not block a release.
+            blocking=$(echo "$outdated" | jq -r 'to_entries[] | select(.value.current != .value.wanted) | .key')
+            message="npm dependencies must be updated before releasing."
+          fi
+
+          if [ -n "$blocking" ]; then
+            npm outdated || true
             echo ""
-            echo "npm dependencies must be updated before releasing."
+            echo "$message"
             exit 1
           fi
-          echo "All ${{ matrix.dependency.name }} dependencies are up to date."
+
+          echo "All ${{ matrix.dependency.name }} dependencies are up to date for this context."
