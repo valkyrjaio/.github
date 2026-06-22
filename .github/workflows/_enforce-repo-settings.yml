@@ -90,7 +90,18 @@ jobs:
 
             gh api --method PUT "repos/$ORG/$REPO_NAME/vulnerability-alerts" > /dev/null
             gh api --method PUT "repos/$ORG/$REPO_NAME/automated-security-fixes" > /dev/null
-            gh api --method PUT "repos/$ORG/$REPO_NAME/immutable-releases" > /dev/null
+
+            # Immutable releases may already be enforced org-wide by the owner,
+            # in which case the per-repo PUT returns 409 — that's the desired
+            # state, so treat only a 409 as success and surface any other error.
+            if ! IMMUTABLE_ERR=$(gh api --method PUT "repos/$ORG/$REPO_NAME/immutable-releases" 2>&1 >/dev/null); then
+              if echo "$IMMUTABLE_ERR" | grep -q "HTTP 409"; then
+                echo "  Immutable releases already enforced org-wide; skipping."
+              else
+                echo "$IMMUTABLE_ERR" >&2
+                exit 1
+              fi
+            fi
             echo "  Security settings applied"
 
             EXISTING=$(gh api "repos/$ORG/$REPO_NAME/rulesets" \
