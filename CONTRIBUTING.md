@@ -47,8 +47,12 @@ PR:
 Valkyrja is implemented across multiple languages, each with their own toolchain
 and checks. Run the checks for the language(s) your PR touches before pushing.
 
-PHP is currently the furthest along. Java, Python, Go, and TypeScript ports are
-in progress and will have their own CI sections as they come online.
+Each language drives its CI tools through a per-language task runner — PHP
+`composer`, Java Gradle (`./gradlew`), TypeScript `npm`, Go `make`, and Python
+`poe` (Poe the Poet). Check that runner's config for the exact target names
+(`composer.json`, `build.gradle.kts`, `package.json`, `Makefile`,
+`pyproject.toml`). Whichever language(s) your PR touches, the full gate must pass
+with 100% line and branch coverage before you push.
 
 #### PHP
 
@@ -75,19 +79,67 @@ If your PR changes a composer file, also validate it:
 
 #### Java
 
-_Coming soon._
+Each check is a Gradle task; `./gradlew ci` runs the full gate:
+
+| Check              | Command                   |
+|--------------------|---------------------------|
+| Spotless (format)  | `./gradlew spotlessCheck` |
+| ArchUnit           | `./gradlew archunit`      |
+| Error Prone        | `./gradlew errorprone`    |
+| SpotBugs           | `./gradlew spotbugs`      |
+| JUnit (+ coverage) | `./gradlew junit`         |
+| Full gate          | `./gradlew ci`            |
+
+`./gradlew spotlessApply` auto-formats. JUnit runs with JaCoCo — keep line and
+branch coverage at 100%.
 
 #### Python
 
-_Coming soon._
+Each check is a Poe task (`poe`); `poe ci` runs the full gate:
+
+| Check             | Command                 |
+|-------------------|-------------------------|
+| Ruff (format)     | `poe ruff-format-check` |
+| Ruff (lint)       | `poe ruff`              |
+| mypy              | `poe mypy`              |
+| import-linter     | `poe import-linter`     |
+| Bandit            | `poe bandit`            |
+| pytest            | `poe pytest`            |
+| pytest (coverage) | `poe pytest-coverage`   |
+| Full gate         | `poe ci`                |
+
+`poe ruff-format` and `poe ruff-fix` auto-fix. `poe pytest-coverage` enforces 100%
+line and branch coverage (`--cov-branch --cov-fail-under=100`).
 
 #### Go
 
-_Coming soon._
+Each check is a Makefile target; `make ci` runs the full gate:
+
+| Check            | Command           |
+|------------------|-------------------|
+| Formatting       | `make fmt-check`  |
+| golangci-lint    | `make lint`       |
+| Tests (race)     | `make test`       |
+| Tests (coverage) | `make coverage`   |
+| Module tidiness  | `make tidy-check` |
+| Full gate        | `make ci`         |
+
+`make fmt` auto-formats and `make tidy` tidies `go.mod`/`go.sum`.
 
 #### TypeScript
 
-_Coming soon._
+Each check has an npm script; the `-check` variants fail without modifying files:
+
+| Check             | Command                   |
+|-------------------|---------------------------|
+| TypeScript (tsc)  | `npm run typescript`      |
+| ESLint            | `npm run eslint-check`    |
+| Prettier          | `npm run prettier-check`  |
+| Vitest            | `npm run vitest`          |
+| Vitest (coverage) | `npm run vitest-coverage` |
+
+`npm run eslint` and `npm run prettier` auto-fix. Use `npm run vitest-coverage` to
+verify you aren't reducing coverage (100% line and branch).
 
 ### Commit and PR Titles
 
