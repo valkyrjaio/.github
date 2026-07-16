@@ -140,4 +140,11 @@ jobs:
                 apply_or_update_ruleset "$ruleset_file"
               done
             fi
+
+            if [[ "$REPO_NAME" =~ -python$ ]]; then
+              echo "  Python repo detected, checking Python-specific rulesets..."
+              for ruleset_file in rulesets/python/*.json; do
+                apply_or_update_ruleset "$ruleset_file"
+              done
+            fi
           done <<< "$REPOS"
