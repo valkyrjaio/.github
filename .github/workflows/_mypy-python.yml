@@ -1,0 +1,97 @@
+name: Z Reusable mypy
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: 'Python version to use'
+        type: string
+        default: '3.14'
+      ci-directory:
+        description: 'Path to the CI directory (containing pyproject.toml and uv.lock for mypy)'
+        type: string
+        default: '.github/ci/mypy'
+      paths:
+        description: 'Path filters in dorny/paths-filter format (must define ci and files keys)'
+        type: string
+        required: true
+
+jobs:
+  mypy:
+    name: mypy
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Generate a token
+        id: generate-token
+        if: github.event.pull_request.number
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Determine if workflow should run based on files changed
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: ${{ inputs.paths }}
+
+      - name: Get latest CI code from target
+        if: steps.changes.outputs.ci != 'true' && github.base_ref
+        env:
+          REF: ${{ github.base_ref }}
+          CI_DIR: ${{ inputs.ci-directory }}
+        run: |
+          echo "Using CI code from $REF"
+          git fetch origin "$REF"
+          git checkout origin/"$REF" -- "$CI_DIR"
+
+      - name: Setup uv
+        if: steps.changes.outputs.files == 'true'
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ inputs.python-version }}
+          enable-cache: true
+          cache-dependency-glob: '**/uv.lock'
+
+      - name: Run mypy
+        if: steps.changes.outputs.files == 'true'
+        id: mypy
+        run: uv run poe mypy
+
+      - name: Report failure in PR comment
+        if: failure() && github.event.pull_request.number
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | contains("<!-- workflow-id: mypy -->")) | .id' \
+            | head -1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+          fi
+          gh pr comment "$PR_NUMBER" --body "mypy failed. Please run \`uv run poe mypy\` locally, fix all the issues, and commit the changes. <!-- workflow-id: mypy -->"
+
+      - name: Remove failure comment on success
+        if: success() && steps.changes.outputs.files == 'true' && github.event.pull_request.number
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | contains("<!-- workflow-id: mypy -->")) | .id' \
+            | head -1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+          fi
