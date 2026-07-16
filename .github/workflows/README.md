@@ -30,15 +30,15 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 
 ### Secrets (org-level)
 
-| Secret                       | Purpose                                                                        |
-|------------------------------|--------------------------------------------------------------------------------|
-| `VALKYRJA_GHA_APP_ID`        | GitHub App ID used to generate short-lived tokens                              |
-| `VALKYRJA_GHA_PRIVATE_KEY`   | Private key for the GitHub App                                                 |
-| `MAVEN_CENTRAL_USERNAME`     | Maven Central (Sonatype) user-token username — publishing Java releases        |
-| `MAVEN_CENTRAL_PASSWORD`     | Maven Central (Sonatype) user-token password — publishing Java releases        |
-| `MAVEN_SIGNING_KEY`          | In-memory PGP signing key for Java release artifacts                           |
-| `MAVEN_SIGNING_KEY_PASSWORD` | Passphrase for the PGP signing key                                            |
-| `PYPI_API_TOKEN`             | PyPI API token for Python releases (`uv publish`)                              |
+| Secret                       | Purpose                                                                 |
+|------------------------------|-------------------------------------------------------------------------|
+| `VALKYRJA_GHA_APP_ID`        | GitHub App ID used to generate short-lived tokens                       |
+| `VALKYRJA_GHA_PRIVATE_KEY`   | Private key for the GitHub App                                          |
+| `MAVEN_CENTRAL_USERNAME`     | Maven Central (Sonatype) user-token username — publishing Java releases |
+| `MAVEN_CENTRAL_PASSWORD`     | Maven Central (Sonatype) user-token password — publishing Java releases |
+| `MAVEN_SIGNING_KEY`          | In-memory PGP signing key for Java release artifacts                    |
+| `MAVEN_SIGNING_KEY_PASSWORD` | Passphrase for the PGP signing key                                      |
+| `PYPI_API_TOKEN`             | PyPI API token for Python releases (`uv publish`)                       |
 
 All reusable workflows receive secrets via `secrets: inherit` from their
 callers. `VALKYRJA_GHA_APP_ID` and `VALKYRJA_GHA_PRIVATE_KEY` must also be
@@ -52,14 +52,14 @@ npm token secret is required.
 
 ### Variables (org-level)
 
-| Variable               | Example              | Purpose                                                                             |
-|------------------------|----------------------|-------------------------------------------------------------------------------------|
-| `SUPPORTED_VERSIONS`   | `2[6-9]`             | Regex matching supported major versions (used in cherry-pick, ref updates, enforce) |
-| `LATEST_MAJOR_VERSION` | `26`                 | Latest released major version number                                                |
+| Variable               | Example                 | Purpose                                                                                                                                  |
+|------------------------|-------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| `SUPPORTED_VERSIONS`   | `2[6-9]`                | Regex matching supported major versions (used in cherry-pick, ref updates, enforce)                                                      |
+| `LATEST_MAJOR_VERSION` | `26`                    | Latest released major version number                                                                                                     |
 | `SUPPORTED_LANGUAGES`  | `php java python ts go` | Space-separated language suffixes; selects the `project-template-<lang>` scaffold and `rulesets/<lang>/` rulesets on repo create/enforce |
-| `USER_EMAIL`           | `bot@example.com`    | Git committer email for rebase, cherry-pick, and branch operations                  |
-| `USER_NAME`            | `Valkyrja Bot`       | Git committer name for rebase, cherry-pick, and branch operations                   |
-| `VALKYRJA_REVIEWER`    | `melechmizrachi`     | GitHub username assigned as reviewer on automated PRs                               |
+| `USER_EMAIL`           | `bot@example.com`       | Git committer email for rebase, cherry-pick, and branch operations                                                                       |
+| `USER_NAME`            | `Valkyrja Bot`          | Git committer name for rebase, cherry-pick, and branch operations                                                                        |
+| `VALKYRJA_REVIEWER`    | `melechmizrachi`        | GitHub username assigned as reviewer on automated PRs                                                                                    |
 
 ---
 
@@ -70,12 +70,12 @@ workflow_dispatch** with a `bump` input.
 
 ### Bump types
 
-| Bump    | Source branch       | Tag format          | Notes                                      |
-|---------|---------------------|---------------------|--------------------------------------------|
-| `patch` | `??.x`              | `v26.0.1`           | Increments patch from latest stable tag   |
-| `minor` | `??.x`              | `v26.1.0`           | Increments minor, resets patch            |
-| `major` | `??.x`              | `v26.0.0`           | Always `BRANCH_MAJOR.0.0`                 |
-| `rc`    | `master` only       | `v27.0.0-RC1`       | Pre-release for next unreleased major     |
+| Bump    | Source branch | Tag format    | Notes                                   |
+|---------|---------------|---------------|-----------------------------------------|
+| `patch` | `??.x`        | `v26.0.1`     | Increments patch from latest stable tag |
+| `minor` | `??.x`        | `v26.1.0`     | Increments minor, resets patch          |
+| `major` | `??.x`        | `v26.0.0`     | Always `BRANCH_MAJOR.0.0`               |
+| `rc`    | `master` only | `v27.0.0-RC1` | Pre-release for next unreleased major   |
 
 ### Stable release flow (`patch` / `minor` / `major`)
 
@@ -89,6 +89,7 @@ workflow_dispatch** with a `bump` input.
 ### Release candidate flow (`rc`)
 
 **Rules:**
+
 - Must be triggered from `master`.
 - Always targets the **next unreleased major** (highest existing version branch
   major + 1). If the highest branch is `26.x`, the RC is for `v27.0.0`.
@@ -99,6 +100,7 @@ workflow_dispatch** with a `bump` input.
   release.
 
 **RC flow:**
+
 1. `_get-version-for-release` — validates branch is `master`, resolves next
    major from version branches, increments RC number.
 2. `_update-version-files` — updates `VERSION.md` on master so the repo
@@ -113,6 +115,7 @@ stable releases propagate the ref pin across repos.
 ### Version validation
 
 `_get-version-for-release` enforces:
+
 - Branch must be `master` for `rc`; must be `??.x` for all other bump types.
 - Computed version must match expected semver structure for the bump type
   (`major` → `X.0.0`, `minor` → `X.Y.0`).
@@ -134,12 +137,12 @@ language's info file (`_update-<lang>-info-files`). These orchestrators end at
 orchestrators. Each language repo wires the appropriate one into its own release
 workflow (typically triggered on release publish):
 
-| Language   | Publish workflow                     | Credentials                                |
-|------------|--------------------------------------|--------------------------------------------|
-| PHP        | — (released via tag; no publish workflow) | none                                   |
-| Java       | `_java-release-maven-publish.yml`    | `MAVEN_CENTRAL_*`, `MAVEN_SIGNING_KEY*`     |
-| Python     | `_python-release-pypi-publish.yml`   | `PYPI_API_TOKEN`                            |
-| TypeScript | `_ts-release-npm-publish.yml`        | npm trusted publishing (OIDC), no secret    |
+| Language   | Publish workflow                          | Credentials                              |
+|------------|-------------------------------------------|------------------------------------------|
+| PHP        | — (released via tag; no publish workflow) | none                                     |
+| Java       | `_java-release-maven-publish.yml`         | `MAVEN_CENTRAL_*`, `MAVEN_SIGNING_KEY*`  |
+| Python     | `_python-release-pypi-publish.yml`        | `PYPI_API_TOKEN`                         |
+| TypeScript | `_ts-release-npm-publish.yml`             | npm trusted publishing (OIDC), no secret |
 
 ---
 
@@ -167,11 +170,13 @@ input so the same logic can repin refs sourced from any repo, e.g. a shared
 `ci-*` repo.)
 
 Triggers:
+
 - On every **stable** release published in `.github` (skips pre-releases).
 - Weekly cron (`0 10 * * 1` — Monday 10:00 UTC).
 - Manual `workflow_dispatch`.
 
 Behavior:
+
 - Iterates all non-archived repos in the org (excluding `.github` itself).
 - For each repo: targets all supported `??.x` branches (filtered by
   `SUPPORTED_VERSIONS`). Falls back to `master` only if no supported version
@@ -200,16 +205,18 @@ time to force a refresh across all repos.
 ### `enforce-repo-settings.yml`
 
 Triggers:
+
 - Weekly cron (`0 9 * * 1` — Monday 09:00 UTC).
 - Manual `workflow_dispatch`.
 
 Behavior (via `_enforce-repo-settings.yml`):
+
 - Applies standard repository settings to all non-archived org repos:
-  - Squash merge only (`PR_TITLE` + `PR_BODY`).
-  - Auto-delete head branches on merge.
-  - No wikis, no projects.
-  - Vulnerability alerts + automated security fixes enabled.
-  - Immutable releases enabled.
+    - Squash merge only (`PR_TITLE` + `PR_BODY`).
+    - Auto-delete head branches on merge.
+    - No wikis, no projects.
+    - Vulnerability alerts + automated security fixes enabled.
+    - Immutable releases enabled.
 - Applies **all rulesets** from `rulesets/*.json` to every repo.
 - Applies **language rulesets** from `rulesets/<lang>/*.json` (`php`, `java`,
   `python`, `ts`, `go`) to repos whose name suffix matches a
@@ -233,23 +240,24 @@ The JSON structure follows the GitHub Rulesets REST API response format. The
 Stored in `rulesets/` (org-wide) and `rulesets/<lang>/` (language-specific) and
 auto-applied by enforce and create-repo.
 
-| File                                              | Scope        | Purpose                                                              |
-|---------------------------------------------------|--------------|---------------------------------------------------------------------|
-| `rulesets/Protect Against Force Pushes and Deletion.json` | All repos | Prevents force pushes and deletion on version branches (`??.x`)  |
-| `rulesets/Protect Master At All Times.json`       | All repos    | Prevents force pushes and deletion on `master`                     |
-| `rulesets/Protect Release Tags.json`              | All repos    | Prevents deletion or non-fast-forward of `*.*.*` tags              |
-| `rulesets/Require Pull Request.json`              | All repos    | Requires squash-merge PRs with code-owner review on `master`/`??.x` |
-| `rulesets/Required Default PR Checks.json`        | All repos    | Requires `Commit Message Check` and `Trailing Newline Check` to pass |
-| `rulesets/Restrict Changes to Unsupported Branches.json` | All repos | Locks backup branches (`*-backup`) against all changes           |
-| `rulesets/php/Required PHP PR Checks.json`        | PHP repos    | Requires PHP CS Fixer, PHPCS, PHPArkitect, PHPStan, PHPUnit (8.4–8.6), Psalm, Rector |
-| `rulesets/java/Required Java PR Checks.json`      | Java repos   | Requires Spotless, ArchUnit, Error Prone, SpotBugs, JUnit          |
-| `rulesets/python/Required Python PR Checks.json`  | Python repos | Requires Ruff, mypy, import-linter, Bandit, pytest                 |
-| `rulesets/ts/Required TypeScript PR Checks.json`  | TS repos     | Requires ESLint, TypeScript (`tsc`), Vitest, Prettier              |
-| `rulesets/go/Required Go PR Checks.json`          | Go repos     | Requires golangci-lint, go test                                    |
+| File                                                      | Scope        | Purpose                                                                              |
+|-----------------------------------------------------------|--------------|--------------------------------------------------------------------------------------|
+| `rulesets/Protect Against Force Pushes and Deletion.json` | All repos    | Prevents force pushes and deletion on version branches (`??.x`)                      |
+| `rulesets/Protect Master At All Times.json`               | All repos    | Prevents force pushes and deletion on `master`                                       |
+| `rulesets/Protect Release Tags.json`                      | All repos    | Prevents deletion or non-fast-forward of `*.*.*` tags                                |
+| `rulesets/Require Pull Request.json`                      | All repos    | Requires squash-merge PRs with code-owner review on `master`/`??.x`                  |
+| `rulesets/Required Default PR Checks.json`                | All repos    | Requires `Commit Message Check` and `Trailing Newline Check` to pass                 |
+| `rulesets/Restrict Changes to Unsupported Branches.json`  | All repos    | Locks backup branches (`*-backup`) against all changes                               |
+| `rulesets/php/Required PHP PR Checks.json`                | PHP repos    | Requires PHP CS Fixer, PHPCS, PHPArkitect, PHPStan, PHPUnit (8.4–8.6), Psalm, Rector |
+| `rulesets/java/Required Java PR Checks.json`              | Java repos   | Requires Spotless, ArchUnit, Error Prone, SpotBugs, JUnit                            |
+| `rulesets/python/Required Python PR Checks.json`          | Python repos | Requires Ruff, mypy, import-linter, Bandit, pytest                                   |
+| `rulesets/ts/Required TypeScript PR Checks.json`          | TS repos     | Requires ESLint, TypeScript (`tsc`), Vitest, Prettier                                |
+| `rulesets/go/Required Go PR Checks.json`                  | Go repos     | Requires golangci-lint, go test                                                      |
 
 ### Bypass actors
 
 All rulesets allow bypass for:
+
 - `OrganizationAdmin` (always)
 - Integration ID `2462900` (the Valkyrja GitHub App — always)
 
@@ -284,6 +292,7 @@ pull request targeting `master` or `*.x` (see `ci.yml` → `_commit-message-chec
 proactively repairs missing newlines across all repos via PRs.
 
 Behavior (via `_trailing-newline-check.yml`):
+
 - Always checks all tracked files in the repository (`git ls-files`).
 - Skips binary files (detected via `file --mime-encoding`).
 - Skips empty files.
@@ -299,13 +308,13 @@ implementations (this is what the language templates ship):
 
 ```yaml
 jobs:
-  trailing-newline-check:
-    if: github.event_name == 'pull_request'
-    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@<sha>
-    permissions:
-      pull-requests: write
-      contents: read
-    secrets: inherit
+    trailing-newline-check:
+        if: github.event_name == 'pull_request'
+        uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@<sha>
+        permissions:
+            pull-requests: write
+            contents: read
+        secrets: inherit
 ```
 
 ---
@@ -345,10 +354,11 @@ gate that runs before a release proceeds.
 
 To pass extra flags (e.g., ignore a platform requirement), embed them directly
 in the `command` string:
+
 ```yaml
-- name: Root
-  command: "update --ignore-platform-req=ext-openswoole"
-  directory: "."
+-   name: Root
+    command: "update --ignore-platform-req=ext-openswoole"
+    directory: "."
 ```
 
 ---
@@ -411,91 +421,91 @@ reusable workflows (leading `_`) are `workflow_call` only.
 
 ### Entry points (public)
 
-| File                                 | Trigger                   | Description                                                              |
-|--------------------------------------|---------------------------|-------------------------------------------------------------------------|
-| `ci.yml`                             | `push` / `pull_request`   | Umbrella CI. On PRs runs the commit-message and trailing-newline checks |
-| `release-new-version.yml`            | `workflow_dispatch`       | Create a new release (patch/minor/major/rc), then repin workflow refs   |
-| `create-version-branch.yml`          | `workflow_dispatch`       | Create a new major release version branch from `master`                 |
-| `create-repo.yml`                    | `workflow_dispatch`       | Create and configure a new org repository                               |
-| `enforce-repo-settings.yml`          | cron (Mon 09:00) + dispatch | Enforce settings and rulesets across all repos                        |
-| `ensure-workflows.yml`               | cron (Mon 12:00) + dispatch | Ensure required workflow files exist across all repos                 |
-| `ensure-reusable-workflow-names.yml` | cron (Mon 13:00) + dispatch | Verify reusable workflow names/filenames follow convention           |
-| `fix-trailing-newlines.yml`          | cron (Mon 11:00) + dispatch | Add missing trailing newlines across all repos via PRs               |
-| `update-github-workflow-refs.yml`    | release + cron (Mon 10:00) + dispatch | Pin workflow refs to latest `.github` release SHA         |
-| `update-php-dependencies.yml`        | `workflow_dispatch`       | Fan out PHP dependency updates across all PHP repos                     |
-| `cherry-pick-commits.yml`            | `workflow_dispatch`       | Cherry-pick a commit to a target branch                                 |
-| `rebase-to-master.yml`               | `workflow_dispatch`       | Rebase `master` onto the current (latest major) version branch          |
-| `rebase-from-master.yml`             | `workflow_dispatch`       | Rebase the current branch onto `master`                                 |
-| `restore-branch-from-backup.yml`     | `workflow_dispatch`       | Restore a branch from its `<branch>-backup` counterpart                 |
+| File                                 | Trigger                               | Description                                                             |
+|--------------------------------------|---------------------------------------|-------------------------------------------------------------------------|
+| `ci.yml`                             | `push` / `pull_request`               | Umbrella CI. On PRs runs the commit-message and trailing-newline checks |
+| `release-new-version.yml`            | `workflow_dispatch`                   | Create a new release (patch/minor/major/rc), then repin workflow refs   |
+| `create-version-branch.yml`          | `workflow_dispatch`                   | Create a new major release version branch from `master`                 |
+| `create-repo.yml`                    | `workflow_dispatch`                   | Create and configure a new org repository                               |
+| `enforce-repo-settings.yml`          | cron (Mon 09:00) + dispatch           | Enforce settings and rulesets across all repos                          |
+| `ensure-workflows.yml`               | cron (Mon 12:00) + dispatch           | Ensure required workflow files exist across all repos                   |
+| `ensure-reusable-workflow-names.yml` | cron (Mon 13:00) + dispatch           | Verify reusable workflow names/filenames follow convention              |
+| `fix-trailing-newlines.yml`          | cron (Mon 11:00) + dispatch           | Add missing trailing newlines across all repos via PRs                  |
+| `update-github-workflow-refs.yml`    | release + cron (Mon 10:00) + dispatch | Pin workflow refs to latest `.github` release SHA                       |
+| `update-php-dependencies.yml`        | `workflow_dispatch`                   | Fan out PHP dependency updates across all PHP repos                     |
+| `cherry-pick-commits.yml`            | `workflow_dispatch`                   | Cherry-pick a commit to a target branch                                 |
+| `rebase-to-master.yml`               | `workflow_dispatch`                   | Rebase `master` onto the current (latest major) version branch          |
+| `rebase-from-master.yml`             | `workflow_dispatch`                   | Rebase the current branch onto `master`                                 |
+| `restore-branch-from-backup.yml`     | `workflow_dispatch`                   | Restore a branch from its `<branch>-backup` counterpart                 |
 
 ### Release & version (reusable)
 
-| File                                 | Description                                                                        |
-|--------------------------------------|-----------------------------------------------------------------------------------|
-| `_create-release.yml`                | Orchestrate stable/RC release (version → update files → release)                  |
-| `_aggregate-release.yml`             | Like `_create-release.yml` with externally pinned SHA refs for central steps      |
-| `_release.yml`                       | Core release logic (notes, changelog, tag)                                        |
-| `_get-version-for-release.yml`       | Compute and validate the next release version                                     |
-| `_get-version.yml`                   | Compute next major version number and branch name                                 |
-| `_update-version-files.yml`          | Commit updated `VERSION.md`                                                        |
-| `_create-version-branch.yml`         | Orchestrate a new version branch (`_get-version` → `_version-branch`)             |
-| `_version-branch.yml`                | Create branch, rewrite `README`/`CHANGELOG`/`VERSION`, set default, bump `LATEST_MAJOR_VERSION` |
-| `_create-{php,java,python,ts}-release.yml` | Per-language release orchestrators (outdated check → version → info files → release). Publishing is separate. |
-| `_php-release.yml`                   | Lightweight PHP release: update info class then release                           |
-| `_java-release-maven-publish.yml`    | Publish Java artifacts to Maven Central (`MAVEN_*` secrets)                        |
-| `_python-release-pypi-publish.yml`   | Publish Python package to PyPI (`PYPI_API_TOKEN`)                                  |
-| `_ts-release-npm-publish.yml`        | Publish TypeScript package to npm (trusted publishing, no token)                  |
-| `_update-{php,java,python,ts}-info-files.yml` | Update `VERSION`/`BUILD_DATE` constants in a language's info file          |
-| `_create-{php,java,python,ts}-version-branch.yml` | Per-language new-version-branch orchestrators (run check-outdated first) |
-| `_version-branch-{python,ts}.yml`    | Python/TS branch-creation logic (PHP/Java reuse `_version-branch.yml`)             |
+| File                                              | Description                                                                                                   |
+|---------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| `_create-release.yml`                             | Orchestrate stable/RC release (version → update files → release)                                              |
+| `_aggregate-release.yml`                          | Like `_create-release.yml` with externally pinned SHA refs for central steps                                  |
+| `_release.yml`                                    | Core release logic (notes, changelog, tag)                                                                    |
+| `_get-version-for-release.yml`                    | Compute and validate the next release version                                                                 |
+| `_get-version.yml`                                | Compute next major version number and branch name                                                             |
+| `_update-version-files.yml`                       | Commit updated `VERSION.md`                                                                                   |
+| `_create-version-branch.yml`                      | Orchestrate a new version branch (`_get-version` → `_version-branch`)                                         |
+| `_version-branch.yml`                             | Create branch, rewrite `README`/`CHANGELOG`/`VERSION`, set default, bump `LATEST_MAJOR_VERSION`               |
+| `_create-{php,java,python,ts}-release.yml`        | Per-language release orchestrators (outdated check → version → info files → release). Publishing is separate. |
+| `_php-release.yml`                                | Lightweight PHP release: update info class then release                                                       |
+| `_java-release-maven-publish.yml`                 | Publish Java artifacts to Maven Central (`MAVEN_*` secrets)                                                   |
+| `_python-release-pypi-publish.yml`                | Publish Python package to PyPI (`PYPI_API_TOKEN`)                                                             |
+| `_ts-release-npm-publish.yml`                     | Publish TypeScript package to npm (trusted publishing, no token)                                              |
+| `_update-{php,java,python,ts}-info-files.yml`     | Update `VERSION`/`BUILD_DATE` constants in a language's info file                                             |
+| `_create-{php,java,python,ts}-version-branch.yml` | Per-language new-version-branch orchestrators (run check-outdated first)                                      |
+| `_version-branch-{python,ts}.yml`                 | Python/TS branch-creation logic (PHP/Java reuse `_version-branch.yml`)                                        |
 
 ### Language CI checks (reusable)
 
-| File                        | Description                                     |
-|-----------------------------|-------------------------------------------------|
-| `_commit-message-check.yml` | Commit message format check (skips Dependabot)  |
+| File                          | Description                                      |
+|-------------------------------|--------------------------------------------------|
+| `_commit-message-check.yml`   | Commit message format check (skips Dependabot)   |
 | `_trailing-newline-check.yml` | Trailing newline check; posts/removes PR comment |
-| `_spotless-java.yml`        | Java formatting (Spotless)                      |
-| `_errorprone-java.yml`      | Java static analysis (Error Prone)              |
-| `_spotbugs-java.yml`        | Java static analysis (SpotBugs)                 |
-| `_archunit-java.yml`        | Java architecture tests (ArchUnit)              |
-| `_junit-java.yml`           | Java tests (JUnit)                              |
-| `_ruff-python.yml`          | Python lint/format (Ruff)                       |
-| `_mypy-python.yml`          | Python type checking (mypy)                     |
-| `_bandit-python.yml`        | Python security scan (Bandit)                   |
-| `_import-linter-python.yml` | Python import contracts (import-linter)         |
-| `_pytest-python.yml`        | Python tests (pytest)                           |
-| `_eslint-ts.yml`            | TypeScript lint (ESLint)                        |
-| `_prettier-ts.yml`          | TypeScript formatting (Prettier)                |
-| `_typescript-ts.yml`        | TypeScript type checking (`tsc`)                |
-| `_vitest-ts.yml`            | TypeScript tests (Vitest)                       |
-| `_golangci-lint-go.yml`     | Go lint (golangci-lint)                         |
-| `_test-go.yml`              | Go tests (`go test`)                            |
+| `_spotless-java.yml`          | Java formatting (Spotless)                       |
+| `_errorprone-java.yml`        | Java static analysis (Error Prone)               |
+| `_spotbugs-java.yml`          | Java static analysis (SpotBugs)                  |
+| `_archunit-java.yml`          | Java architecture tests (ArchUnit)               |
+| `_junit-java.yml`             | Java tests (JUnit)                               |
+| `_ruff-python.yml`            | Python lint/format (Ruff)                        |
+| `_mypy-python.yml`            | Python type checking (mypy)                      |
+| `_bandit-python.yml`          | Python security scan (Bandit)                    |
+| `_import-linter-python.yml`   | Python import contracts (import-linter)          |
+| `_pytest-python.yml`          | Python tests (pytest)                            |
+| `_eslint-ts.yml`              | TypeScript lint (ESLint)                         |
+| `_prettier-ts.yml`            | TypeScript formatting (Prettier)                 |
+| `_typescript-ts.yml`          | TypeScript type checking (`tsc`)                 |
+| `_vitest-ts.yml`              | TypeScript tests (Vitest)                        |
+| `_golangci-lint-go.yml`       | Go lint (golangci-lint)                          |
+| `_test-go.yml`                | Go tests (`go test`)                             |
 
 ### Dependency management (reusable)
 
-| File                                            | Description                                                     |
-|-------------------------------------------------|-----------------------------------------------------------------|
+| File                                                    | Description                                                  |
+|---------------------------------------------------------|--------------------------------------------------------------|
 | `_check-outdated-{php,java,python,ts}-dependencies.yml` | Verify all direct dependencies are up to date before release |
-| `_update-{php,java,python,ts}-dependencies.yml` | Run the dependency updater and open/refresh a PR                |
-| `_update-php-dependencies-across-repos.yml`     | Trigger `update-dependencies` across all PHP repos              |
+| `_update-{php,java,python,ts}-dependencies.yml`         | Run the dependency updater and open/refresh a PR             |
+| `_update-php-dependencies-across-repos.yml`             | Trigger `update-dependencies` across all PHP repos           |
 
 ### Repository & workflow management (reusable)
 
-| File                                 | Description                                                       |
-|--------------------------------------|------------------------------------------------------------------|
-| `_create-repo.yml`                   | Create and configure a new org repository with rulesets          |
-| `_enforce-repo-settings.yml`         | Apply settings and rulesets to a repo                            |
-| `_ensure-workflows.yml`              | Ensure required workflow files across repos (opens PRs)          |
-| `_ensure-reusable-workflow-names.yml`| Verify reusable workflow `name:`/filename conventions            |
-| `_fix-trailing-newlines.yml`         | Add missing trailing newlines across repos (opens PRs)           |
-| `_update-workflow-refs.yml`          | Update workflow SHA pins across all repos (`source-repo` input)  |
+| File                                  | Description                                                     |
+|---------------------------------------|-----------------------------------------------------------------|
+| `_create-repo.yml`                    | Create and configure a new org repository with rulesets         |
+| `_enforce-repo-settings.yml`          | Apply settings and rulesets to a repo                           |
+| `_ensure-workflows.yml`               | Ensure required workflow files across repos (opens PRs)         |
+| `_ensure-reusable-workflow-names.yml` | Verify reusable workflow `name:`/filename conventions           |
+| `_fix-trailing-newlines.yml`          | Add missing trailing newlines across repos (opens PRs)          |
+| `_update-workflow-refs.yml`           | Update workflow SHA pins across all repos (`source-repo` input) |
 
 ### Branch utilities (reusable)
 
-| File                              | Description                                                       |
-|-----------------------------------|------------------------------------------------------------------|
-| `_cherry-pick-commits.yml`        | Cherry-pick logic with branch validation                         |
+| File                              | Description                                                        |
+|-----------------------------------|--------------------------------------------------------------------|
+| `_cherry-pick-commits.yml`        | Cherry-pick logic with branch validation                           |
 | `_rebase-to-master.yml`           | Rebase `master` onto the current branch (with backup + validation) |
-| `_rebase-from-master.yml`         | Rebase the current branch onto `master` (with backup)            |
-| `_restore-branch-from-backup.yml` | Restore branch logic using its backup counterpart                |
+| `_rebase-from-master.yml`         | Rebase the current branch onto `master` (with backup)              |
+| `_restore-branch-from-backup.yml` | Restore branch logic using its backup counterpart                  |
