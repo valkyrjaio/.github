@@ -133,4 +133,11 @@ jobs:
                 apply_or_update_ruleset "$ruleset_file"
               done
             fi
+
+            if [[ "$REPO_NAME" =~ -go$ ]]; then
+              echo "  Go repo detected, checking Go-specific rulesets..."
+              for ruleset_file in rulesets/go/*.json; do
+                apply_or_update_ruleset "$ruleset_file"
+              done
+            fi
           done <<< "$REPOS"
