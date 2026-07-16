@@ -1,0 +1,111 @@
+name: Z Reusable Go Test
+
+on:
+  workflow_call:
+    inputs:
+      ci-directory:
+        description: 'Path to the CI lint tool directory (used for the module cache key)'
+        type: string
+        default: '.github/ci/lint'
+      paths:
+        description: 'Path filters in dorny/paths-filter format (must define ci and files keys)'
+        type: string
+        required: true
+
+jobs:
+  test:
+    name: Test
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Generate a token
+        id: generate-token
+        if: github.event.pull_request.number
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Determine if workflow should run based on files changed
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: ${{ inputs.paths }}
+
+      - name: Get latest CI code from target
+        if: steps.changes.outputs.ci != 'true' && github.base_ref
+        env:
+          REF: ${{ github.base_ref }}
+          CI_DIR: ${{ inputs.ci-directory }}
+        run: |
+          echo "Using CI code from $REF"
+          git fetch origin "$REF"
+          git checkout origin/"$REF" -- "$CI_DIR" Makefile
+
+      - name: Setup Go
+        if: steps.changes.outputs.files == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            ${{ inputs.ci-directory }}/go.sum
+
+      - name: Check tidy
+        if: steps.changes.outputs.files == 'true'
+        run: make tidy-check
+
+      - name: Build
+        if: steps.changes.outputs.files == 'true'
+        run: make build
+
+      - name: Test with coverage
+        if: steps.changes.outputs.files == 'true'
+        id: test
+        run: make coverage
+
+      - name: Upload Coveralls coverage report
+        uses: coverallsapp/github-action@v2.3.6
+        if: steps.changes.outputs.files == 'true'
+        continue-on-error: true
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: coverage.out
+          format: golang
+
+      - name: Report failure in PR comment
+        if: failure() && github.event.pull_request.number
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | contains("<!-- workflow-id: go-test -->")) | .id' \
+            | head -1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+          fi
+          gh pr comment "$PR_NUMBER" --body "Go tests failed. Please run \`make test\` locally, fix all the failures, and commit the changes. <!-- workflow-id: go-test -->"
+
+      - name: Remove failure comment on success
+        if: success() && steps.changes.outputs.files == 'true' && github.event.pull_request.number
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | contains("<!-- workflow-id: go-test -->")) | .id' \
+            | head -1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+          fi
