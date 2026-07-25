@@ -27,10 +27,18 @@ conventions, 100% line-and-branch code coverage, and the per-language CI gates.
 
 ## What this repo holds & its conventions
 
-- **Reusable workflows** live in `.github/workflows/` and are **prefixed with
-  `_`** (e.g. `_commit-message-check.yml`, `_golangci-lint-go.yml`). Naming is
-  enforced by `_ensure-reusable-workflow-names.yml`; required presence by
-  `_ensure-workflows.yml`.
+- **Reusable workflows** live in `.github/workflows/`, are **prefixed with `_`**,
+  and carry a `Z Reusable <Title>` `name:` (the `Z` sorts them below the
+  user-facing caller workflows in the Actions list). **Language-specific
+  workflows put the language token first**, immediately after the `_`:
+  `_<lang>-<descriptor>.yml`, where `<lang>` is one of `php`, `ts`, `java`,
+  `python`, `go` (e.g. `_go-golangci-lint.yml`, `_java-junit.yml`,
+  `_ts-eslint.yml`, `_python-check-outdated-dependencies.yml`). The `name:` title
+  mirrors the filename, language first (e.g. `Z Reusable Go golangci-lint`), so
+  each language's workflows group together in the list. Language-agnostic
+  workflows carry no language token (e.g. `_commit-message-check.yml`,
+  `_release.yml`). Naming is enforced by `_ensure-reusable-workflow-names.yml`;
+  required presence by `_ensure-workflows.yml`.
 - **Community health files** (`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`,
   `SECURITY.md`, `LICENSE.md`, `COPYRIGHT_HEADER.md`) are inherited by every repo
   that does not override them — editing them changes every repo's defaults.
