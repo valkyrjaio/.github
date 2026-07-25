@@ -14,13 +14,13 @@ jobs:
   commit-message-check:
     name: Commit Message Check
     if: github.event_name == 'pull_request'
-    uses: valkyrjaio/.github/.github/workflows/_commit-message-check.yml@983eb086a57533c52b7ce86a29b2d537aad838ed
+    uses: valkyrjaio/.github/.github/workflows/_commit-message-check.yml@716065aae4466b95f0f80c9c5a5e2a92de620af6
     secrets: inherit
 
   trailing-newline-check:
     name: Trailing Newline Check
     if: github.event_name == 'pull_request'
-    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@983eb086a57533c52b7ce86a29b2d537aad838ed
+    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@716065aae4466b95f0f80c9c5a5e2a92de620af6
     permissions:
       pull-requests: write
       contents: read
@@ -28,7 +28,7 @@ jobs:
 
   typescript:
     name: TypeScript
-    uses: valkyrjaio/.github/.github/workflows/_typescript-ts.yml@983eb086a57533c52b7ce86a29b2d537aad838ed
+    uses: valkyrjaio/.github/.github/workflows/_ts-typescript.yml@716065aae4466b95f0f80c9c5a5e2a92de620af6
     with:
       ci-directory: .github/ci/typescript
       paths: |
@@ -45,7 +45,7 @@ jobs:
 
   eslint:
     name: ESLint
-    uses: valkyrjaio/.github/.github/workflows/_eslint-ts.yml@983eb086a57533c52b7ce86a29b2d537aad838ed
+    uses: valkyrjaio/.github/.github/workflows/_ts-eslint.yml@716065aae4466b95f0f80c9c5a5e2a92de620af6
     with:
       ci-directory: .github/ci/eslint
       additional-directory: .github/ci/typescript
@@ -65,7 +65,7 @@ jobs:
 
   prettier:
     name: Prettier
-    uses: valkyrjaio/.github/.github/workflows/_prettier-ts.yml@983eb086a57533c52b7ce86a29b2d537aad838ed
+    uses: valkyrjaio/.github/.github/workflows/_ts-prettier.yml@716065aae4466b95f0f80c9c5a5e2a92de620af6
     with:
       ci-directory: .github/ci/prettier
       paths: |
@@ -83,7 +83,7 @@ jobs:
 
   vitest:
     name: Vitest
-    uses: valkyrjaio/.github/.github/workflows/_vitest-ts.yml@983eb086a57533c52b7ce86a29b2d537aad838ed
+    uses: valkyrjaio/.github/.github/workflows/_ts-vitest.yml@716065aae4466b95f0f80c9c5a5e2a92de620af6
     with:
       ci-directory: .github/ci/vitest
       paths: |
