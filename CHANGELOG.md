@@ -1,6 +1,14 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.10.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.11.0...26.x)
+
+## [v26.11.0](https://github.com/valkyrjaio/.github/compare/v26.10.0...v26.11.0) - 2026-07-25
+
+* [GitHub] Update .github workflow refs to v26.10.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/128
+* [GitHub] Add rebase-all-to-master workflow and script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/129
+* [GitHub] Sync TypeScript and Python manifests to lock files on dependency updates by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/131
+* [GitHub] Bump TS/Python manifest versions in dedicated always-run release jobs by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/132
+* [GitHub] Prefix language-specific reusable workflows with their language by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/130
 
 ## [v26.10.0](https://github.com/valkyrjaio/.github/compare/v26.9.7...v26.10.0) - 2026-07-23
 
