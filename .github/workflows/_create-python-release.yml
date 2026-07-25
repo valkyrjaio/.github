@@ -49,8 +49,15 @@ jobs:
     with:
       version: ${{ needs.check-version.outputs.version }}
 
-  update-python-info-files:
+  update-python-pyproject:
     needs: [update-version-files, check-version]
+    uses: ./.github/workflows/_python-update-pyproject.yml
+    secrets: inherit
+    with:
+      version: ${{ needs.check-version.outputs.version }}
+
+  update-python-info-files:
+    needs: [update-python-pyproject, check-version]
     if: inputs.info-file-path != ''
     uses: ./.github/workflows/_update-python-info-files.yml
     secrets: inherit
@@ -59,11 +66,10 @@ jobs:
       build-date: ${{ needs.check-version.outputs.build-date }}
       info-file-path: ${{ inputs.info-file-path }}
       info-file-name: ${{ inputs.info-file-name }}
-      python-version: ${{ inputs.python-version }}
 
   release:
-    needs: [update-version-files, update-python-info-files, check-version]
-    if: ${{ always() && needs.check-version.result == 'success' && needs.update-version-files.result == 'success' && needs.update-python-info-files.result != 'failure' }}
+    needs: [update-version-files, update-python-pyproject, update-python-info-files, check-version]
+    if: ${{ always() && needs.check-version.result == 'success' && needs.update-version-files.result == 'success' && needs.update-python-pyproject.result == 'success' && needs.update-python-info-files.result != 'failure' }}
     uses: ./.github/workflows/_release.yml
     secrets: inherit
     with:
