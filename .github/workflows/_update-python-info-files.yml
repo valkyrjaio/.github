@@ -19,10 +19,6 @@ on:
         description: 'Simple file name for display (e.g. TemplateInfo)'
         type: string
         required: true
-      python-version:
-        description: 'Python version to use'
-        type: string
-        default: '3.14'
 
 jobs:
   update-info-file:
@@ -67,12 +63,6 @@ jobs:
         run: |
           sed -i -E "s/(VERSION: Final\[str\] = )\".*\"/\1\"$VERSION\"/" "$INFO_FILE_PATH"
           sed -i -E "s/(VERSION_BUILD_DATE_TIME: Final\[str\] = )\".*\"/\1\"$BUILD_DATE\"/" "$INFO_FILE_PATH"
-
-      - name: Update pyproject.toml version
-        env:
-          VERSION: ${{ inputs.version }}
-        run: |
-          sed -i -E "0,/^version = .*/s//version = \"$VERSION\"/" pyproject.toml
 
       - name: Commit ${{ inputs.info-file-name }} change
         uses: stefanzweifel/git-auto-commit-action@v5
