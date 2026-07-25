@@ -78,11 +78,85 @@ jobs:
         with:
           python-version: ${{ inputs.python-version }}
 
-      - name: Update dependencies
+      - name: Update dependencies and sync pyproject constraints
         env:
           DEPENDENCIES: ${{ inputs.dependencies }}
         run: |
           > /tmp/dependency_changes.txt
+
+          # Helper: rewrite a pyproject.toml's dependency lower bounds to match the
+          # versions resolved in its uv.lock, so the manifest tracks the lock file.
+          # Only directly referenced dependencies (project deps, optional-dependency
+          # extras, and dependency-groups) are touched; transitive dependencies stay
+          # lock-only. Prints one "name|>=old|>=new" line per bumped dependency.
+          cat > /tmp/sync_pyproject.py <<'PY'
+          import re
+          import sys
+          import tomllib
+
+          directory = sys.argv[1]
+          manifest_path = f"{directory}/pyproject.toml"
+          lock_path = f"{directory}/uv.lock"
+
+
+          def normalize(name):
+              # PEP 503 normalization: lowercase, runs of -_. collapse to a single -.
+              return re.sub(r"[-_.]+", "-", name).lower()
+
+
+          with open(manifest_path, "rb") as fh:
+              manifest = tomllib.load(fh)
+          with open(lock_path, "rb") as fh:
+              lock = tomllib.load(fh)
+
+          # Resolved versions, excluding the project's own local (virtual/editable) root.
+          resolved = {}
+          for package in lock.get("package", []):
+              source = package.get("source", {})
+              if "virtual" in source or "editable" in source:
+                  continue
+              resolved[normalize(package["name"])] = package["version"]
+
+          # Every directly declared requirement string.
+          requirements = []
+          project = manifest.get("project", {})
+          requirements += [r for r in project.get("dependencies", []) if isinstance(r, str)]
+          for extra in project.get("optional-dependencies", {}).values():
+              requirements += [r for r in extra if isinstance(r, str)]
+          for group in manifest.get("dependency-groups", {}).values():
+              requirements += [r for r in group if isinstance(r, str)]
+
+          with open(manifest_path, encoding="utf-8") as fh:
+              raw = fh.read()
+
+          name_re = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(\[[^\]]*\])?\s*(.*)$")
+          floor_re = re.compile(r">=\s*([0-9][^,;\s]*)")
+
+          changes = []
+          for requirement in requirements:
+              match = name_re.match(requirement)
+              if not match:
+                  continue
+              floor = floor_re.search(match.group(3))
+              if not floor:
+                  continue
+              old = floor.group(1)
+              new = resolved.get(normalize(match.group(1)))
+              if not new or new == old:
+                  continue
+              updated, count = re.subn(
+                  r"(>=\s*)" + re.escape(old), r"\g<1>" + new, requirement, count=1
+              )
+              if count and updated != requirement and requirement in raw:
+                  raw = raw.replace(requirement, updated, 1)
+                  changes.append((match.group(1), old, new))
+
+          if changes:
+              with open(manifest_path, "w", encoding="utf-8") as fh:
+                  fh.write(raw)
+          for name, old, new in changes:
+              print(f"{name}|>={old}|>={new}")
+          PY
 
           LENGTH=$(echo "$DEPENDENCIES" | jq 'length')
           for i in $(seq 0 $((LENGTH - 1))); do
@@ -92,9 +166,8 @@ jobs:
             echo "Updating $NAME ($DIR)..."
             ( cd "$DIR" && uv lock --upgrade )
 
-            if ! git diff --quiet -- "$DIR/uv.lock"; then
-              echo "$NAME|$DIR/uv.lock" >> /tmp/dependency_changes.txt
-            fi
+            echo "Syncing $NAME pyproject.toml lower bounds to uv.lock..."
+            uv run --no-project python /tmp/sync_pyproject.py "$DIR" >> /tmp/dependency_changes.txt
           done
 
       - name: Check for changes
@@ -156,13 +229,13 @@ jobs:
           BODY+="## Changes"$'\n'$'\n'
 
           if [ -s /tmp/dependency_changes.txt ]; then
-            BODY+="| Component | Lock file |"$'\n'
-            BODY+="|-----------|-----------|"$'\n'
-            while IFS='|' read -r name lock; do
-              BODY+="| $name | \`$lock\` |"$'\n'
+            BODY+="| Package | From | To |"$'\n'
+            BODY+="|---------|------|----|"$'\n'
+            while IFS='|' read -r pkg from to; do
+              BODY+="| \`$pkg\` | $from | $to |"$'\n'
             done < /tmp/dependency_changes.txt
           else
-            BODY+="_Lock file updates only._"$'\n'
+            BODY+="_No direct constraint changes detected — lock file updates only._"$'\n'
           fi
 
           REVIEWER_FLAGS=""

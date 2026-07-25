@@ -77,7 +77,7 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
 
-      - name: Update dependencies
+      - name: Update dependencies and sync package.json constraints
         env:
           DEPENDENCIES: ${{ inputs.dependencies }}
         run: |
@@ -97,6 +97,29 @@ jobs:
             echo "Updating $NAME..."
             cd "$DIR"
             npm update
+
+            # Sync package.json so the manifest matches the lock file: bump each
+            # directly referenced caret range to the version npm just installed.
+            # Transitive dependencies are left as lock-only updates.
+            for SECTION in dependencies devDependencies; do
+              SPECS=$(npm pkg get "$SECTION")
+              [ "$SPECS" = "{}" ] && continue
+              while IFS=$'\t' read -r PKG CURRENT; do
+                [ -z "$PKG" ] && continue
+                # Only sync caret ranges (the constraint style used across Valkyrja manifests).
+                case "$CURRENT" in
+                  ^*) ;;
+                  *) continue ;;
+                esac
+                INSTALLED=$(jq -r --arg p "$PKG" '.packages["node_modules/" + $p].version // empty' package-lock.json)
+                [ -z "$INSTALLED" ] && continue
+                NEW="^$INSTALLED"
+                [ "$CURRENT" = "$NEW" ] && continue
+                npm pkg set "$SECTION.$PKG=$NEW"
+                echo "  [$SECTION] $PKG: $CURRENT -> $NEW"
+              done < <(echo "$SPECS" | jq -r 'to_entries[] | "\(.key)\t\(.value)"')
+            done
+
             cd -
 
             AFTER=""
