@@ -1,0 +1,251 @@
+name: Z Reusable Python Update Dependencies
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: 'Python version to use'
+        type: string
+        default: '3.14'
+      dependencies:
+        description: >
+          JSON array of dependencies to update.
+          Each item must have a "name" (display name) and "directory" (path to the directory
+          containing a pyproject.toml and uv.lock).
+          Example: [{"name":"Ruff CI","directory":".github/ci/ruff"}]
+        type: string
+        required: true
+
+jobs:
+  update-python-dependencies:
+    name: Update Python Dependencies
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Get bot user ID
+        id: get-bot-user-id
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
+        run: |
+          BOT_USER_ID=$(gh api "/users/$APP_SLUG[bot]" --jq '.id')
+          echo "user-id=$BOT_USER_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Checkout existing PR branch if present
+        id: prep-branch
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          BASE: ${{ github.ref_name }}
+        run: |
+          EXISTING=$(gh pr list \
+            --base "$BASE" \
+            --state open \
+            --json headRefName \
+            --jq '[.[] | select(.headRefName | startswith("deps/update-dependencies-"))] | first | .headRefName // ""')
+
+          if [ -n "$EXISTING" ]; then
+            echo "Found existing PR branch: $EXISTING"
+            git fetch origin "$EXISTING"
+            git checkout "$EXISTING"
+            echo "branch=$EXISTING" >> "$GITHUB_OUTPUT"
+            echo "is-new=false" >> "$GITHUB_OUTPUT"
+          else
+            BRANCH="deps/update-dependencies-$(date +%Y-%m-%d)"
+            echo "No existing PR branch. Will create: $BRANCH"
+            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+            echo "is-new=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Update dependencies and sync pyproject constraints
+        env:
+          DEPENDENCIES: ${{ inputs.dependencies }}
+        run: |
+          > /tmp/dependency_changes.txt
+
+          # Helper: rewrite a pyproject.toml's dependency lower bounds to match the
+          # versions resolved in its uv.lock, so the manifest tracks the lock file.
+          # Only directly referenced dependencies (project deps, optional-dependency
+          # extras, and dependency-groups) are touched; transitive dependencies stay
+          # lock-only. Prints one "name|>=old|>=new" line per bumped dependency.
+          cat > /tmp/sync_pyproject.py <<'PY'
+          import re
+          import sys
+          import tomllib
+
+          directory = sys.argv[1]
+          manifest_path = f"{directory}/pyproject.toml"
+          lock_path = f"{directory}/uv.lock"
+
+
+          def normalize(name):
+              # PEP 503 normalization: lowercase, runs of -_. collapse to a single -.
+              return re.sub(r"[-_.]+", "-", name).lower()
+
+
+          with open(manifest_path, "rb") as fh:
+              manifest = tomllib.load(fh)
+          with open(lock_path, "rb") as fh:
+              lock = tomllib.load(fh)
+
+          # Resolved versions, excluding the project's own local (virtual/editable) root.
+          resolved = {}
+          for package in lock.get("package", []):
+              source = package.get("source", {})
+              if "virtual" in source or "editable" in source:
+                  continue
+              resolved[normalize(package["name"])] = package["version"]
+
+          # Every directly declared requirement string.
+          requirements = []
+          project = manifest.get("project", {})
+          requirements += [r for r in project.get("dependencies", []) if isinstance(r, str)]
+          for extra in project.get("optional-dependencies", {}).values():
+              requirements += [r for r in extra if isinstance(r, str)]
+          for group in manifest.get("dependency-groups", {}).values():
+              requirements += [r for r in group if isinstance(r, str)]
+
+          with open(manifest_path, encoding="utf-8") as fh:
+              raw = fh.read()
+
+          name_re = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(\[[^\]]*\])?\s*(.*)$")
+          floor_re = re.compile(r">=\s*([0-9][^,;\s]*)")
+
+          changes = []
+          for requirement in requirements:
+              match = name_re.match(requirement)
+              if not match:
+                  continue
+              floor = floor_re.search(match.group(3))
+              if not floor:
+                  continue
+              old = floor.group(1)
+              new = resolved.get(normalize(match.group(1)))
+              if not new or new == old:
+                  continue
+              updated, count = re.subn(
+                  r"(>=\s*)" + re.escape(old), r"\g<1>" + new, requirement, count=1
+              )
+              if count and updated != requirement and requirement in raw:
+                  raw = raw.replace(requirement, updated, 1)
+                  changes.append((match.group(1), old, new))
+
+          if changes:
+              with open(manifest_path, "w", encoding="utf-8") as fh:
+                  fh.write(raw)
+          for name, old, new in changes:
+              print(f"{name}|>={old}|>={new}")
+          PY
+
+          LENGTH=$(echo "$DEPENDENCIES" | jq 'length')
+          for i in $(seq 0 $((LENGTH - 1))); do
+            NAME=$(echo "$DEPENDENCIES" | jq -r ".[$i].name")
+            DIR=$(echo "$DEPENDENCIES" | jq -r ".[$i].directory")
+
+            echo "Updating $NAME ($DIR)..."
+            ( cd "$DIR" && uv lock --upgrade )
+
+            echo "Syncing $NAME pyproject.toml lower bounds to uv.lock..."
+            uv run --no-project python /tmp/sync_pyproject.py "$DIR" >> /tmp/dependency_changes.txt
+          done
+
+      - name: Check for changes
+        id: check-changes
+        run: |
+          if git diff --quiet; then
+            echo "No dependency updates found."
+            echo "has-changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Dependency updates found."
+            echo "has-changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure git identity
+        if: steps.check-changes.outputs.has-changes == 'true'
+        env:
+          APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
+          BOT_USER_ID: ${{ steps.get-bot-user-id.outputs.user-id }}
+        run: |
+          git config user.name "$APP_SLUG[bot]"
+          git config user.email "$BOT_USER_ID+$APP_SLUG[bot]@users.noreply.github.com"
+
+      - name: Commit and push PR branch
+        if: steps.check-changes.outputs.has-changes == 'true'
+        id: branch
+        env:
+          BRANCH: ${{ steps.prep-branch.outputs.branch }}
+          IS_NEW: ${{ steps.prep-branch.outputs.is-new }}
+          ACTOR: ${{ github.actor }}
+          ACTOR_ID: ${{ github.actor_id }}
+        run: |
+          if [ "$IS_NEW" = "true" ]; then
+            git checkout -b "$BRANCH"
+          fi
+          git add -A
+          git commit \
+            --author="$ACTOR <$ACTOR_ID+$ACTOR@users.noreply.github.com>" \
+            -m "[uv] Update Python dependencies."
+          git push --force-with-lease origin "$BRANCH"
+
+      - name: Create pull request
+        if: steps.check-changes.outputs.has-changes == 'true' && steps.prep-branch.outputs.is-new == 'true'
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          BASE: ${{ github.ref_name }}
+          BRANCH: ${{ steps.prep-branch.outputs.branch }}
+          REVIEWER: ${{ vars.VALKYRJA_REVIEWER }}
+        run: |
+          BODY=""
+          BODY+="# Description"$'\n'$'\n'
+          BODY+="Automated uv dependency updates."$'\n'$'\n'
+          BODY+="## Types of changes"$'\n'$'\n'
+          BODY+="- [X] Improvement _(non-breaking change which improves code)_"$'\n'
+          BODY+="- [ ] Bug fix _(non-breaking change which fixes an issue)_"$'\n'
+          BODY+="- [ ] New feature _(non-breaking change which adds functionality)_"$'\n'
+          BODY+="- [ ] Deprecation _(breaking change which removes functionality)_"$'\n'
+          BODY+="- [ ] Breaking change _(fix or feature that would cause existing functionality to change)_"$'\n'
+          BODY+="- [ ] Documentation improvement"$'\n'$'\n'
+          BODY+="## Changes"$'\n'$'\n'
+
+          if [ -s /tmp/dependency_changes.txt ]; then
+            BODY+="| Package | From | To |"$'\n'
+            BODY+="|---------|------|----|"$'\n'
+            while IFS='|' read -r pkg from to; do
+              BODY+="| \`$pkg\` | $from | $to |"$'\n'
+            done < /tmp/dependency_changes.txt
+          else
+            BODY+="_No direct constraint changes detected — lock file updates only._"$'\n'
+          fi
+
+          REVIEWER_FLAGS=""
+          if [ -n "$REVIEWER" ]; then
+            REVIEWER_FLAGS="--assignee $REVIEWER --reviewer $REVIEWER"
+          fi
+
+          gh pr create \
+            --title "[uv] Update Python dependencies" \
+            --body "$BODY" \
+            --base "$BASE" \
+            --head "$BRANCH" \
+            $REVIEWER_FLAGS

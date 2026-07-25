@@ -126,7 +126,7 @@ stable releases propagate the ref pin across repos.
 
 The flow above (`_create-release` → `_get-version-for-release` →
 `_update-version-files` → `_release`) drives the `.github` repo itself. Consumer
-language repos instead call `_create-{php,java,python,ts}-release.yml`, which
+language repos instead call `_{php,java,python,ts}-create-release.yml`, which
 wraps the same core steps with a pre-release outdated-dependency gate
 (`_check-outdated-<lang>-dependencies`) and a version/build-date bump in the
 language's info file (`_update-<lang>-info-files`). These orchestrators end at
@@ -337,7 +337,7 @@ checks run normally.
 Trigger: `workflow_dispatch`.
 
 Org-level fan-out entry point. Delegates to
-`_update-php-dependencies-across-repos.yml`, which iterates every non-archived
+`_php-update-dependencies-across-repos.yml`, which iterates every non-archived
 `*-php` repo and triggers that repo's own `update-dependencies` workflow across
 its supported `??.x` branches (per `SUPPORTED_VERSIONS`).
 
@@ -450,14 +450,14 @@ reusable workflows (leading `_`) are `workflow_call` only.
 | `_update-version-files.yml`                       | Commit updated `VERSION.md`                                                                                   |
 | `_create-version-branch.yml`                      | Orchestrate a new version branch (`_get-version` → `_version-branch`)                                         |
 | `_version-branch.yml`                             | Create branch, rewrite `README`/`CHANGELOG`/`VERSION`, set default, bump `LATEST_MAJOR_VERSION`               |
-| `_create-{php,java,python,ts}-release.yml`        | Per-language release orchestrators (outdated check → version → info files → release). Publishing is separate. |
+| `_{php,java,python,ts}-create-release.yml`        | Per-language release orchestrators (outdated check → version → info files → release). Publishing is separate. |
 | `_php-release.yml`                                | Lightweight PHP release: update info class then release                                                       |
 | `_java-release-maven-publish.yml`                 | Publish Java artifacts to Maven Central (`MAVEN_*` secrets)                                                   |
 | `_python-release-pypi-publish.yml`                | Publish Python package to PyPI (`PYPI_API_TOKEN`)                                                             |
 | `_ts-release-npm-publish.yml`                     | Publish TypeScript package to npm (trusted publishing, no token)                                              |
-| `_update-{php,java,python,ts}-info-files.yml`     | Update `VERSION`/`BUILD_DATE` constants in a language's info file                                             |
-| `_create-{php,java,python,ts}-version-branch.yml` | Per-language new-version-branch orchestrators (run check-outdated first)                                      |
-| `_version-branch-{python,ts}.yml`                 | Python/TS branch-creation logic (PHP/Java reuse `_version-branch.yml`)                                        |
+| `_{php,java,python,ts}-update-info-files.yml`     | Update `VERSION`/`BUILD_DATE` constants in a language's info file                                             |
+| `_{php,java,python,ts}-create-version-branch.yml` | Per-language new-version-branch orchestrators (run check-outdated first)                                      |
+| `_{python,ts}-version-branch.yml`                 | Python/TS branch-creation logic (PHP/Java reuse `_version-branch.yml`)                                        |
 
 ### Language CI checks (reusable)
 
@@ -465,30 +465,30 @@ reusable workflows (leading `_`) are `workflow_call` only.
 |-------------------------------|--------------------------------------------------|
 | `_commit-message-check.yml`   | Commit message format check (skips Dependabot)   |
 | `_trailing-newline-check.yml` | Trailing newline check; posts/removes PR comment |
-| `_spotless-java.yml`          | Java formatting (Spotless)                       |
-| `_errorprone-java.yml`        | Java static analysis (Error Prone)               |
-| `_spotbugs-java.yml`          | Java static analysis (SpotBugs)                  |
-| `_archunit-java.yml`          | Java architecture tests (ArchUnit)               |
-| `_junit-java.yml`             | Java tests (JUnit)                               |
-| `_ruff-python.yml`            | Python lint/format (Ruff)                        |
-| `_mypy-python.yml`            | Python type checking (mypy)                      |
-| `_bandit-python.yml`          | Python security scan (Bandit)                    |
-| `_import-linter-python.yml`   | Python import contracts (import-linter)          |
-| `_pytest-python.yml`          | Python tests (pytest)                            |
-| `_eslint-ts.yml`              | TypeScript lint (ESLint)                         |
-| `_prettier-ts.yml`            | TypeScript formatting (Prettier)                 |
-| `_typescript-ts.yml`          | TypeScript type checking (`tsc`)                 |
-| `_vitest-ts.yml`              | TypeScript tests (Vitest)                        |
-| `_golangci-lint-go.yml`       | Go lint (golangci-lint)                          |
-| `_test-go.yml`                | Go tests (`go test`)                             |
+| `_java-spotless.yml`          | Java formatting (Spotless)                       |
+| `_java-errorprone.yml`        | Java static analysis (Error Prone)               |
+| `_java-spotbugs.yml`          | Java static analysis (SpotBugs)                  |
+| `_java-archunit.yml`          | Java architecture tests (ArchUnit)               |
+| `_java-junit.yml`             | Java tests (JUnit)                               |
+| `_python-ruff.yml`            | Python lint/format (Ruff)                        |
+| `_python-mypy.yml`            | Python type checking (mypy)                      |
+| `_python-bandit.yml`          | Python security scan (Bandit)                    |
+| `_python-import-linter.yml`   | Python import contracts (import-linter)          |
+| `_python-pytest.yml`          | Python tests (pytest)                            |
+| `_ts-eslint.yml`              | TypeScript lint (ESLint)                         |
+| `_ts-prettier.yml`            | TypeScript formatting (Prettier)                 |
+| `_ts-typescript.yml`          | TypeScript type checking (`tsc`)                 |
+| `_ts-vitest.yml`              | TypeScript tests (Vitest)                        |
+| `_go-golangci-lint.yml`       | Go lint (golangci-lint)                          |
+| `_go-test.yml`                | Go tests (`go test`)                             |
 
 ### Dependency management (reusable)
 
 | File                                                    | Description                                                  |
 |---------------------------------------------------------|--------------------------------------------------------------|
-| `_check-outdated-{php,java,python,ts}-dependencies.yml` | Verify all direct dependencies are up to date before release |
-| `_update-{php,java,python,ts}-dependencies.yml`         | Run the dependency updater and open/refresh a PR             |
-| `_update-php-dependencies-across-repos.yml`             | Trigger `update-dependencies` across all PHP repos           |
+| `_{php,java,python,ts}-check-outdated-dependencies.yml` | Verify all direct dependencies are up to date before release |
+| `_{php,java,python,ts}-update-dependencies.yml`         | Run the dependency updater and open/refresh a PR             |
+| `_php-update-dependencies-across-repos.yml`             | Trigger `update-dependencies` across all PHP repos           |
 
 ### Repository & workflow management (reusable)
 

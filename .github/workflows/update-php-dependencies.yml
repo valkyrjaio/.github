@@ -7,5 +7,5 @@ run-name: Update PHP dependencies across all PHP repos
 
 jobs:
   update-dependencies:
-    uses: ./.github/workflows/_update-php-dependencies-across-repos.yml
+    uses: ./.github/workflows/_php-update-dependencies-across-repos.yml
     secrets: inherit
