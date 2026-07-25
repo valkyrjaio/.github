@@ -1,0 +1,45 @@
+name: Z Reusable Rebase All To Master
+
+on:
+  workflow_call:
+    inputs:
+      dry_run:
+        description: 'Preview only — list dispatches without triggering any'
+        type: boolean
+        default: false
+      repo:
+        description: 'Single repository name to target (leave empty for all repos)'
+        type: string
+        default: ''
+
+jobs:
+  rebase-all:
+    name: Rebase All To Master
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Dispatch rebase-to-master across all repositories
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          ORG: ${{ github.repository_owner }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          ONLY_REPO: ${{ inputs.repo }}
+        run: |
+          ARGS=()
+          [ "$DRY_RUN" = "true" ] && ARGS+=(--dry-run)
+          [ -n "$ONLY_REPO" ] && ARGS+=(--repo "$ONLY_REPO")
+          bash scripts/rebase-all-to-master.sh "${ARGS[@]}"

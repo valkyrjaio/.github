@@ -1,0 +1,23 @@
+name: Rebase All To Master
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview only — list dispatches without triggering any'
+        type: boolean
+        default: false
+      repo:
+        description: 'Single repository name to target (leave empty for all repos)'
+        type: string
+        default: ''
+
+run-name: "Rebase all masters to latest version branch"
+
+jobs:
+  rebase-all:
+    uses: ./.github/workflows/_rebase-all-to-master.yml
+    with:
+      dry_run: ${{ inputs.dry_run }}
+      repo: ${{ inputs.repo }}
+    secrets: inherit
