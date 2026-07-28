@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Generate a token
         id: generate-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
         with:
           app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
           private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
@@ -35,7 +35,7 @@ jobs:
           echo "user-id=$BOT_USER_ID" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           token: ${{ steps.generate-token.outputs.token }}
 
@@ -55,7 +55,7 @@ jobs:
 
       - name: Generate release notes
         id: generated-notes
-        uses: RedCrafter07/release-notes-action@main
+        uses: RedCrafter07/release-notes-action@31674bfa3a219e7c661fc0c5b7b3851c741b9965 # v1.0.1
         with:
           tag-name: v${{ inputs.version }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -101,7 +101,7 @@ jobs:
           echo "date=$(echo $FORMATED_DATE)" >> $GITHUB_OUTPUT;
 
       - name: Update Changelog
-        uses: stefanzweifel/changelog-updater-action@v1
+        uses: stefanzweifel/changelog-updater-action@a938690fad7edf25368f37e43a1ed1b34303eb36 # v1.12.0
         with:
           release-date: ${{ steps.release_date.outputs.date }}
           release-notes: ${{ steps.cleaned-notes.outputs.notes }}
@@ -110,7 +110,7 @@ jobs:
           parse-github-usernames: true
 
       - name: Commit updated CHANGELOG
-        uses: stefanzweifel/git-auto-commit-action@v7
+        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7.2.0
         with:
           branch: ${{ github.ref_name }}
           commit_message: "[Release] Update CHANGELOG for v${{ inputs.version }} release"
@@ -120,7 +120,7 @@ jobs:
           commit_author: ${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>
 
       - name: Create release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
         with:
