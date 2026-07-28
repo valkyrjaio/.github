@@ -31,6 +31,30 @@ jobs:
           REVIEWER: ${{ vars.VALKYRJA_REVIEWER }}
           SUPPORTED_VERSIONS: ${{ vars.SUPPORTED_VERSIONS }}
         run: |
+          # Fetch an API endpoint and echo the response only when it parses as
+          # JSON. An empty or non-JSON body (a network blip, or an HTML error
+          # page from the API edge) is transient, so retry a couple of times
+          # before giving up — otherwise a single bad response aborts the whole
+          # org-wide sweep. A JSON error body (404, 409, …) is returned as-is
+          # for the caller to inspect.
+          fetch_json() {
+            local response
+            local attempt
+
+            for attempt in 1 2 3; do
+              response=$(gh api "$1" 2>/dev/null || true)
+
+              if [ -n "$response" ] && echo "$response" | jq -e . >/dev/null 2>&1; then
+                printf '%s' "$response"
+                return 0
+              fi
+
+              sleep "$attempt"
+            done
+
+            return 1
+          }
+
           LATEST_TAG=$(gh api "repos/$ORG/$SOURCE_REPO/releases/latest" --jq '.tag_name')
           LATEST_SHA=$(gh api "repos/$ORG/$SOURCE_REPO/commits/$LATEST_TAG" --jq '.sha')
           echo "Latest $SOURCE_REPO release: $LATEST_TAG ($LATEST_SHA)"
@@ -90,12 +114,14 @@ jobs:
               while IFS= read -r FILE_PATH; do
                 READ_REF="$BASE_BRANCH"
                 [ -n "$BRANCH_EXISTS" ] && READ_REF="$UPDATE_BRANCH"
-                FILE_DATA=$(gh api "repos/$ORG/$REPO_NAME/contents/$FILE_PATH?ref=$READ_REF" \
-                  2>/dev/null || true)
+                FILE_DATA=$(fetch_json "repos/$ORG/$REPO_NAME/contents/$FILE_PATH?ref=$READ_REF" || true)
                 [ -z "$FILE_DATA" ] && continue
 
-                FILE_SHA=$(echo "$FILE_DATA" | jq -r '.sha')
-                CONTENT=$(echo "$FILE_DATA" | jq -r '.content' | base64 -d)
+                FILE_SHA=$(echo "$FILE_DATA" | jq -r '.sha // empty' 2>/dev/null || true)
+                [ -z "$FILE_SHA" ] && continue
+
+                CONTENT=$(echo "$FILE_DATA" | jq -r '.content // empty' 2>/dev/null | base64 -d 2>/dev/null || true)
+                [ -z "$CONTENT" ] && continue
 
                 if ! echo "$CONTENT" | grep -q "valkyrjaio/$SOURCE_REPO_ESCAPED/"; then
                   continue
@@ -199,9 +225,11 @@ jobs:
                     echo "  [$BASE_BRANCH] PR created."
                   fi
                 else
-                  PR_NUMBER=$(echo "$EXISTING_PR" | jq -r '.number')
-                  CURRENT_TITLE=$(echo "$EXISTING_PR" | jq -r '.title')
-                  if [ "$CURRENT_TITLE" != "$NEW_TITLE" ]; then
+                  PR_NUMBER=$(echo "$EXISTING_PR" | jq -r '.number // empty' 2>/dev/null || true)
+                  CURRENT_TITLE=$(echo "$EXISTING_PR" | jq -r '.title // empty' 2>/dev/null || true)
+                  if [ -z "$PR_NUMBER" ]; then
+                    echo "  [$BASE_BRANCH] Could not read the existing PR, skipping"
+                  elif [ "$CURRENT_TITLE" != "$NEW_TITLE" ]; then
                     echo "  [$BASE_BRANCH] Updating PR #$PR_NUMBER title to reflect $LATEST_TAG..."
                     gh pr edit "$PR_NUMBER" --repo "$ORG/$REPO_NAME" \
                       --title "$NEW_TITLE" --body "$BODY" 2>/dev/null || true
