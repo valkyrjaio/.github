@@ -42,7 +42,7 @@ jobs:
             local attempt
 
             for attempt in 1 2 3; do
-              response=$(gh api "$1" 2>/dev/null || true)
+              response=$(gh api "$@" 2>/dev/null || true)
 
               if [ -n "$response" ] && echo "$response" | jq -e . >/dev/null 2>&1; then
                 printf '%s' "$response"
@@ -69,18 +69,28 @@ jobs:
             echo "Checking $ORG/$REPO_NAME..."
 
             if [ "$REPO_NAME" = ".github" ]; then
-              WORKFLOW_FILES=$(gh api "repos/$ORG/$REPO_NAME/git/trees/HEAD?recursive=1" \
-                --jq '.tree[] | select(.type == "blob" and (.path | startswith("required-workflows/"))) | .path' \
-                2>/dev/null || true)
+              REPO_TREE=$(fetch_json "repos/$ORG/$REPO_NAME/git/trees/HEAD?recursive=1") || {
+                echo "  Could not read the repository tree, skipping"
+                continue
+              }
+              WORKFLOW_FILES=$(echo "$REPO_TREE" \
+                | jq -r '.tree[]? | select(.type == "blob" and (.path | startswith("required-workflows/"))) | .path')
             else
-              WORKFLOW_FILES=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows" \
-                --jq '.[].path' 2>/dev/null || true)
+              WORKFLOW_DIR=$(fetch_json "repos/$ORG/$REPO_NAME/contents/.github/workflows") || {
+                echo "  Could not read the workflow directory, skipping"
+                continue
+              }
+              WORKFLOW_FILES=$(echo "$WORKFLOW_DIR" \
+                | jq -r 'if type == "array" then .[].path else empty end')
             fi
 
             [ -z "$WORKFLOW_FILES" ] && continue
 
-            ALL_BRANCHES=$(gh api "repos/$ORG/$REPO_NAME/branches" --paginate \
-              --jq '.[].name' 2>/dev/null || true)
+            BRANCH_DATA=$(fetch_json "repos/$ORG/$REPO_NAME/branches" --paginate) || {
+              echo "  Could not read the branch list, skipping"
+              continue
+            }
+            ALL_BRANCHES=$(echo "$BRANCH_DATA" | jq -r '.[]?.name')
 
             BASE_BRANCHES=""
             while IFS= read -r b; do
@@ -178,9 +188,26 @@ jobs:
                 FILES_UPDATED=$((FILES_UPDATED + 1))
               done <<< "$WORKFLOW_FILES"
 
-              if [ "$FILES_UPDATED" -gt 0 ]; then
-                echo "  [$BASE_BRANCH] $FILES_UPDATED file(s) updated — checking for existing PR..."
+              PR_NEEDED=0
 
+              if [ "$FILES_UPDATED" -gt 0 ]; then
+                PR_NEEDED=1
+                echo "  [$BASE_BRANCH] $FILES_UPDATED file(s) updated — checking for existing PR..."
+              elif [ -n "$BRANCH_EXISTS" ]; then
+                # An earlier run may have committed to the update branch and then
+                # died before opening the PR. Its files already carry the new ref,
+                # so nothing is left to update and FILES_UPDATED stays 0 — recover
+                # the branch here rather than orphaning it forever.
+                COMPARE=$(fetch_json "repos/$ORG/$REPO_NAME/compare/$BASE_BRANCH...$UPDATE_BRANCH") || COMPARE=""
+
+                if [ -n "$COMPARE" ] && [ "$(echo "$COMPARE" | jq -r '.ahead_by // 0')" -gt 0 ]; then
+                  PR_NEEDED=1
+                  FILES_LIST=$(echo "$COMPARE" | jq -r '.files[]?.filename')
+                  echo "  [$BASE_BRANCH] $UPDATE_BRANCH is ahead of $BASE_BRANCH — checking for existing PR..."
+                fi
+              fi
+
+              if [ "$PR_NEEDED" -eq 1 ]; then
                 EXISTING_PR=$(gh pr list --repo "$ORG/$REPO_NAME" \
                   --state open \
                   --json number,headRefName,title \
