@@ -19,13 +19,13 @@ on:
         type: string
         required: true
       info-class-path:
-        description: 'Relative path to the Info class (e.g. src/OpenSwoole/Constant/OpenSwooleInfo.php)'
+        description: 'Relative path to the Info class (e.g. src/OpenSwoole/Constant/OpenSwooleInfo.php). Leave empty to skip the info class update.'
         type: string
-        required: true
+        default: ''
       info-class-name:
-        description: 'Simple class name for display (e.g. OpenSwooleInfo)'
+        description: 'Simple class name for display (e.g. OpenSwooleInfo). Leave empty to skip the info class update.'
         type: string
-        required: true
+        default: ''
 
 jobs:
   check-version:
@@ -51,6 +51,7 @@ jobs:
 
   update-php-info-files:
     needs: [update-version-files, check-version]
+    if: inputs.info-class-path != ''
     uses: ./.github/workflows/_php-update-info-files.yml
     secrets: inherit
     with:
@@ -60,7 +61,8 @@ jobs:
       info-class-name: ${{ inputs.info-class-name }}
 
   release:
-    needs: [update-php-info-files, check-version]
+    needs: [update-version-files, update-php-info-files, check-version]
+    if: ${{ always() && needs.check-version.result == 'success' && needs.update-version-files.result == 'success' && needs.update-php-info-files.result != 'failure' && needs.update-php-info-files.result != 'cancelled' }}
     uses: ./.github/workflows/_release.yml
     secrets: inherit
     with:
