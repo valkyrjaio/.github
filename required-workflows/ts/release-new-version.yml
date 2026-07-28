@@ -32,5 +32,5 @@ jobs:
           {"name": "Prettier",             "directory": ".github/ci/prettier"},
           {"name": "Vitest",               "directory": ".github/ci/vitest"}
         ]
-      info-file-path: src/Valkyrja/Application/Constant/ApplicationInfo.ts
-      info-file-name: ApplicationInfo
+      info-file-path: src/Template/Constant/TemplateInfo.ts
+      info-file-name: TemplateInfo
