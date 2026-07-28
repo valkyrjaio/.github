@@ -83,6 +83,26 @@ jobs:
         env:
           DEPENDENCIES: ${{ inputs.dependencies }}
         run: |
+          # Escape a string for literal use in a POSIX BRE. Only . [ * ^ $ \ are
+          # metacharacters there — escaping | + ? ( ) { } turns them into GNU sed
+          # operators instead (\| is alternation, which matches the empty string
+          # and rewrites the wrong span), so they are deliberately left alone.
+          escape_bre() {
+            printf '%s' "$1" | sed 's/[.[*^$\\]/\\&/g'
+          }
+
+          # Rewrite "$2" to "$3" on package "$1"'s line in $COMPOSER_FILE, then
+          # confirm the file is still valid JSON so a bad rewrite fails loudly
+          # here rather than as a cryptic jq parse error later in the loop.
+          replace_on_package_line() {
+            sed -i "\|\"$(escape_bre "$1")\"|s/\"$(escape_bre "$2")\"/\"$3\"/" "$COMPOSER_FILE"
+
+            if ! jq empty "$COMPOSER_FILE" 2>/dev/null; then
+              echo "::error::Rewriting $1 ($2 -> $3) produced invalid JSON in $COMPOSER_FILE"
+              exit 1
+            fi
+          }
+
           > /tmp/dependency_changes.txt
 
           LENGTH=$(echo "$DEPENDENCIES" | jq 'length')
@@ -114,16 +134,24 @@ jobs:
               [[ "$VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]] || continue
 
               COMPOSER_FILE="$DIR/composer.json"
-              PKG_ESC=$(printf '%s' "$PKG" | sed 's/[.+*?^${}()|[\]]/\\&/g')
+              PKG_ESC=$(escape_bre "$PKG")
 
               # require / require-dev: "^OLD" → "^NEW"
               for SECTION in require require-dev; do
                 OLD=$(jq -r --arg p "$PKG" --arg s "$SECTION" '.[$s][$p] // ""' "$COMPOSER_FILE")
                 [ -z "$OLD" ] && continue
+                # A composite constraint ("^3.5 || ^4.0") deliberately spans
+                # majors — collapsing it to the installed version would silently
+                # drop support, so leave it for a human to widen or narrow.
+                case "$OLD" in
+                  *'|'*)
+                    echo "  [$SECTION] $PKG: left composite constraint $OLD unchanged"
+                    continue
+                    ;;
+                esac
                 NEW="^$VER"
                 [ "$OLD" = "$NEW" ] && continue
-                OLD_ESC=$(printf '%s' "$OLD" | sed 's/[[\.*^$(){}+?|]/\\&/g')
-                sed -i "\|\"$PKG_ESC\"|s/\"$OLD_ESC\"/\"$NEW\"/" "$COMPOSER_FILE"
+                replace_on_package_line "$PKG" "$OLD" "$NEW"
                 echo "  [$SECTION] $PKG: $OLD -> $NEW"
               done
 
@@ -132,8 +160,7 @@ jobs:
               if [ -n "$OLD_CONFLICT" ]; then
                 NEW_CONFLICT="<$VER"
                 if [ "$OLD_CONFLICT" != "$NEW_CONFLICT" ]; then
-                  OLD_CONFLICT_ESC=$(printf '%s' "$OLD_CONFLICT" | sed 's/[[\.*^$(){}+?|]/\\&/g')
-                  sed -i "\|\"$PKG_ESC\"|s/\"$OLD_CONFLICT_ESC\"/\"$NEW_CONFLICT\"/" "$COMPOSER_FILE"
+                  replace_on_package_line "$PKG" "$OLD_CONFLICT" "$NEW_CONFLICT"
                   echo "  [conflict] $PKG: $OLD_CONFLICT -> $NEW_CONFLICT"
                 fi
               fi
