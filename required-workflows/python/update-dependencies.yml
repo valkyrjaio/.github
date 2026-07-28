@@ -1,0 +1,21 @@
+name: Update Dependencies
+
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+jobs:
+  update-dependencies:
+    uses: valkyrjaio/.github/.github/workflows/_python-update-dependencies.yml@716065aae4466b95f0f80c9c5a5e2a92de620af6
+    secrets: inherit
+    with:
+      dependencies: |
+        [
+          {"name": "Root Packages",  "directory": "."},
+          {"name": "Ruff",           "directory": ".github/ci/ruff"},
+          {"name": "mypy",           "directory": ".github/ci/mypy"},
+          {"name": "Bandit",         "directory": ".github/ci/bandit"},
+          {"name": "import-linter",  "directory": ".github/ci/importlinter"},
+          {"name": "pytest",         "directory": ".github/ci/pytest"}
+        ]
