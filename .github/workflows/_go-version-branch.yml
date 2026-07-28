@@ -1,0 +1,142 @@
+name: Z Reusable Go Version Branch
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'The new major version number (e.g. 27)'
+        type: string
+        required: true
+      branch:
+        description: 'The new branch name (e.g. 27.x)'
+        type: string
+        required: true
+
+jobs:
+  create-version-branch:
+    name: "Creating branch ${{ inputs.branch }} (v${{ inputs.version }}) from ${{ github.ref_name }}"
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Get bot user ID
+        id: get-bot-user-id
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
+        run: |
+          BOT_USER_ID=$(gh api "/users/$APP_SLUG[bot]" --jq '.id')
+          echo "user-id=$BOT_USER_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Create branch ${{ inputs.branch }} from ${{ github.ref_name }}
+        env:
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          git checkout -b "$BRANCH"
+          git push origin "$BRANCH"
+
+      - name: Update README.md
+        env:
+          BRANCH: ${{ inputs.branch }}
+          SOURCE_BRANCH: ${{ github.ref_name }}
+        run: |
+          sed -i "/valkyrjaio\/art/! s/$SOURCE_BRANCH/$BRANCH/g" README.md
+
+      - name: Update go.mod module path and imports
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # Go's semantic import versioning requires any major version >= 2 to
+          # encode the major in the module path. Tagging v$VERSION.0.0 while the
+          # module still declares /v<previous> is rejected at `go get` time, so the
+          # module directive and every import of it move together here.
+          OLD_PATH=$(awk '/^module /{print $2; exit}' go.mod)
+          BASE_PATH=$(printf '%s' "$OLD_PATH" | sed -E 's|/v[0-9]+$||')
+          NEW_PATH="$BASE_PATH/v$VERSION"
+
+          if [ "$OLD_PATH" = "$NEW_PATH" ]; then
+            echo "Module path is already $NEW_PATH; nothing to rewrite."
+            exit 0
+          fi
+
+          # Escape dots so the path matches literally rather than as a regex.
+          OLD_ESC=$(printf '%s' "$OLD_PATH" | sed 's|\.|\\.|g')
+
+          sed -i -E "s|^module .*|module $NEW_PATH|" go.mod
+
+          FILES=$(grep -rl --include='*.go' -- "$OLD_PATH" . || true)
+          if [ -n "$FILES" ]; then
+            echo "$FILES" | xargs sed -i "s|$OLD_ESC|$NEW_PATH|g"
+            echo "Rewrote imports in:"
+            echo "$FILES"
+          else
+            echo "No Go files import the module path."
+          fi
+
+          echo "Module path: $OLD_PATH -> $NEW_PATH"
+
+      - name: Verify the module still builds
+        run: |
+          go mod tidy
+          if find . -name '*.go' -not -path '*/vendor/*' | head -1 | grep -q .; then
+            go build ./...
+          else
+            echo "No Go packages to build."
+          fi
+
+      - name: Update CHANGELOG.md
+        env:
+          BRANCH: ${{ inputs.branch }}
+          VERSION: ${{ inputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo -e "# Release Notes for $BRANCH\n## [Unreleased](https://github.com/$REPO/compare/$VERSION.0.0...$BRANCH)" > CHANGELOG.md
+
+      - name: Update VERSION.md
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          echo "v${VERSION}.0.0" > VERSION.md
+
+      - name: Commit version branch updates
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "[${{ inputs.branch }}] Update references for v${{ inputs.version }}"
+          branch: ${{ inputs.branch }}
+          push_options: '--set-upstream'
+          commit_user_name: ${{ steps.generate-token.outputs.app-slug }}[bot]
+          commit_user_email: ${{ steps.get-bot-user-id.outputs.user-id }}+${{ steps.generate-token.outputs.app-slug }}[bot]@users.noreply.github.com
+          commit_author: ${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>
+
+      - name: Set default branch to ${{ inputs.branch }}
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        run: |
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY" --field default_branch="${{ inputs.branch }}"
+
+      - name: Update LATEST_MAJOR_VERSION variable
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh variable set LATEST_MAJOR_VERSION --body "$VERSION"
