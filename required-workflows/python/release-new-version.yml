@@ -1,0 +1,36 @@
+name: Create a New Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version component to bump'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - rc
+
+run-name: "Release ${{ inputs.bump }} bump on ${{ github.ref_name }}"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    uses: valkyrjaio/.github/.github/workflows/_python-create-release.yml@716065aae4466b95f0f80c9c5a5e2a92de620af6
+    secrets: inherit
+    with:
+      bump: ${{ inputs.bump }}
+      dependencies: |
+        [
+          {"name": "Ruff",           "directory": ".github/ci/ruff"},
+          {"name": "mypy",           "directory": ".github/ci/mypy"},
+          {"name": "Bandit",         "directory": ".github/ci/bandit"},
+          {"name": "import-linter",  "directory": ".github/ci/importlinter"},
+          {"name": "pytest",         "directory": ".github/ci/pytest"}
+        ]
+      info-file-path: src/valkyrja/template/constant/template_info.py
+      info-file-name: TemplateInfo

@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [ 'master', '*.x' ]
+  pull_request:
+    branches: [ 'master', '*.x' ]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  commit-message-check:
+    name: Commit Message Check
+    if: github.event_name == 'pull_request'
+    uses: valkyrjaio/.github/.github/workflows/_commit-message-check.yml@716065aae4466b95f0f80c9c5a5e2a92de620af6
+    secrets: inherit
+
+  trailing-newline-check:
+    name: Trailing Newline Check
+    if: github.event_name == 'pull_request'
+    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@716065aae4466b95f0f80c9c5a5e2a92de620af6
+    permissions:
+      pull-requests: write
+      contents: read
+    secrets: inherit
+
+  ruff:
+    name: Ruff
+    uses: valkyrjaio/.github/.github/workflows/_python-ruff.yml@716065aae4466b95f0f80c9c5a5e2a92de620af6
+    with:
+      ci-directory: .github/ci/ruff
+      paths: |
+        ci:
+          - '.github/ci/ruff/**'
+          - '.github/workflows/ci.yml'
+        files:
+          - '.github/ci/ruff/**'
+          - '.github/workflows/ci.yml'
+          - 'src/**/*.py'
+          - 'tests/**/*.py'
+          - 'pyproject.toml'
+    secrets: inherit
+
+  mypy:
+    name: mypy
+    uses: valkyrjaio/.github/.github/workflows/_python-mypy.yml@716065aae4466b95f0f80c9c5a5e2a92de620af6
+    with:
+      ci-directory: .github/ci/mypy
+      paths: |
+        ci:
+          - '.github/ci/mypy/**'
+          - '.github/workflows/ci.yml'
+        files:
+          - '.github/ci/mypy/**'
+          - '.github/workflows/ci.yml'
+          - 'src/**/*.py'
+          - 'tests/**/*.py'
+          - 'pyproject.toml'
+    secrets: inherit
+
+  import-linter:
+    name: import-linter
+    uses: valkyrjaio/.github/.github/workflows/_python-import-linter.yml@716065aae4466b95f0f80c9c5a5e2a92de620af6
+    with:
+      ci-directory: .github/ci/importlinter
+      paths: |
+        ci:
+          - '.github/ci/importlinter/**'
+          - '.github/workflows/ci.yml'
+        files:
+          - '.github/ci/importlinter/**'
+          - '.github/workflows/ci.yml'
+          - 'src/**/*.py'
+          - 'pyproject.toml'
+    secrets: inherit
+
+  bandit:
+    name: Bandit
+    uses: valkyrjaio/.github/.github/workflows/_python-bandit.yml@716065aae4466b95f0f80c9c5a5e2a92de620af6
+    with:
+      ci-directory: .github/ci/bandit
+      paths: |
+        ci:
+          - '.github/ci/bandit/**'
+          - '.github/workflows/ci.yml'
+        files:
+          - '.github/ci/bandit/**'
+          - '.github/workflows/ci.yml'
+          - 'src/**/*.py'
+    secrets: inherit
+
+  pytest:
+    name: pytest
+    uses: valkyrjaio/.github/.github/workflows/_python-pytest.yml@716065aae4466b95f0f80c9c5a5e2a92de620af6
+    with:
+      ci-directory: .github/ci/pytest
+      paths: |
+        ci:
+          - '.github/ci/pytest/**'
+          - '.github/workflows/ci.yml'
+        files:
+          - '.github/ci/pytest/**'
+          - '.github/workflows/ci.yml'
+          - 'src/**/*.py'
+          - 'tests/**/*.py'
+          - 'pyproject.toml'
+    secrets: inherit
