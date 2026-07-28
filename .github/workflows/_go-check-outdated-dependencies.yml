@@ -1,0 +1,67 @@
+name: Z Reusable Go Check Outdated Dependencies
+
+on:
+  workflow_call:
+    inputs:
+      dependencies:
+        description: >
+          JSON array of dependencies to check.
+          Each item must have a "name" (display name) and "directory" (path to the directory
+          containing a go.mod).
+          Example: [{"name":"golangci-lint","directory":".github/ci/lint"}]
+        type: string
+        required: true
+
+jobs:
+  check-outdated-go-dependencies:
+    strategy:
+      fail-fast: false
+      matrix:
+        dependency: ${{ fromJson(inputs.dependencies) }}
+
+    name: "Check ${{ matrix.dependency.name }} For Outdated Dependencies"
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Check ${{ matrix.dependency.name }} for outdated dependencies
+        working-directory: ${{ matrix.dependency.directory }}
+        env:
+          NAME: ${{ matrix.dependency.name }}
+        run: |
+          # Rather than interpreting `go list -u -m` output, this performs the very
+          # same upgrade `_go-update-dependencies.yml` would perform and then asks
+          # git whether anything moved. The check therefore can never disagree with
+          # the workflow that does the updating. Nothing is committed — this runs on
+          # a throwaway CI checkout.
+          if grep -qE '^tool[ (]' go.mod; then
+            # Tool module: it declares no packages of its own, so ./... matches
+            # nothing. The `tool` meta-pattern upgrades every declared tool instead.
+            go get -u tool
+          elif find . -name '*.go' -not -path '*/vendor/*' | head -1 | grep -q .; then
+            go get -u ./...
+          else
+            echo "$NAME has no Go packages and no tool directive; checking tidiness only."
+          fi
+
+          go mod tidy
+
+          # Scoped to this dependency's own directory so a matrix leg only ever
+          # reports on the module it was asked to check.
+          if ! git diff --quiet -- .; then
+            echo ""
+            echo "Outdated dependencies found in $NAME! Update all dependencies before releasing."
+            echo ""
+            git --no-pager diff -- go.mod
+            exit 1
+          fi
+
+          echo "All $NAME dependencies are up to date."
