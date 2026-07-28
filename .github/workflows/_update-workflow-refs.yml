@@ -188,9 +188,26 @@ jobs:
                 FILES_UPDATED=$((FILES_UPDATED + 1))
               done <<< "$WORKFLOW_FILES"
 
-              if [ "$FILES_UPDATED" -gt 0 ]; then
-                echo "  [$BASE_BRANCH] $FILES_UPDATED file(s) updated — checking for existing PR..."
+              PR_NEEDED=0
 
+              if [ "$FILES_UPDATED" -gt 0 ]; then
+                PR_NEEDED=1
+                echo "  [$BASE_BRANCH] $FILES_UPDATED file(s) updated — checking for existing PR..."
+              elif [ -n "$BRANCH_EXISTS" ]; then
+                # An earlier run may have committed to the update branch and then
+                # died before opening the PR. Its files already carry the new ref,
+                # so nothing is left to update and FILES_UPDATED stays 0 — recover
+                # the branch here rather than orphaning it forever.
+                COMPARE=$(fetch_json "repos/$ORG/$REPO_NAME/compare/$BASE_BRANCH...$UPDATE_BRANCH") || COMPARE=""
+
+                if [ -n "$COMPARE" ] && [ "$(echo "$COMPARE" | jq -r '.ahead_by // 0')" -gt 0 ]; then
+                  PR_NEEDED=1
+                  FILES_LIST=$(echo "$COMPARE" | jq -r '.files[]?.filename')
+                  echo "  [$BASE_BRANCH] $UPDATE_BRANCH is ahead of $BASE_BRANCH — checking for existing PR..."
+                fi
+              fi
+
+              if [ "$PR_NEEDED" -eq 1 ]; then
                 EXISTING_PR=$(gh pr list --repo "$ORG/$REPO_NAME" \
                   --state open \
                   --json number,headRefName,title \
