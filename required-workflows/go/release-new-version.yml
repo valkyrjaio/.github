@@ -1,0 +1,33 @@
+name: Create a New Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version component to bump'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - rc
+
+run-name: "Release ${{ inputs.bump }} bump on ${{ github.ref_name }}"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    uses: valkyrjaio/.github/.github/workflows/_go-create-release.yml@b5baed3ba0fa4133cd7157dd2f4249ae85252c1b
+    secrets: inherit
+    with:
+      bump: ${{ inputs.bump }}
+      info-file-path: template/constant/info.go
+      info-file-name: Info
+      dependencies: |
+        [
+          {"name": "Root Module",   "directory": "."},
+          {"name": "golangci-lint", "directory": ".github/ci/lint"}
+        ]

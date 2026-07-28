@@ -1,0 +1,17 @@
+name: Update Dependencies
+
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+jobs:
+  update-dependencies:
+    uses: valkyrjaio/.github/.github/workflows/_go-update-dependencies.yml@b5baed3ba0fa4133cd7157dd2f4249ae85252c1b
+    secrets: inherit
+    with:
+      dependencies: |
+        [
+          {"name": "Root Module",   "directory": "."},
+          {"name": "golangci-lint", "directory": ".github/ci/lint"}
+        ]

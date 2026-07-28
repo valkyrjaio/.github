@@ -1,0 +1,16 @@
+name: Create Major Release Version Branch
+
+on: workflow_dispatch
+
+run-name: Create new version for upcoming major release
+
+jobs:
+  create:
+    uses: valkyrjaio/.github/.github/workflows/_go-create-version-branch.yml@b5baed3ba0fa4133cd7157dd2f4249ae85252c1b
+    secrets: inherit
+    with:
+      dependencies: |
+        [
+          {"name": "Root Module",   "directory": "."},
+          {"name": "golangci-lint", "directory": ".github/ci/lint"}
+        ]

@@ -43,7 +43,9 @@ jobs:
             "restore-branch-from-backup.yml"
           )
 
-          PHP_WORKFLOWS=(
+          # Workflows that only exist in a language-specific flavor, so they are
+          # sourced from required-workflows/<lang>/ rather than the root.
+          LANG_WORKFLOWS=(
             "update-dependencies.yml"
           )
 
@@ -285,13 +287,17 @@ jobs:
               BASE_BRANCHES="master"
             fi
 
-            IS_PHP=false
-            IS_PHP_EXCLUDED=false
+            # Which required-workflows/<lang>/ directory this repo draws from.
+            # Empty means the repo has no language-specific flavor (or is excluded
+            # from one), and the language-agnostic root templates are used instead.
+            LANG_DIR=""
             if [[ "$REPO_NAME" == *-php ]]; then
-              IS_PHP=true
+              LANG_DIR="php"
               if [[ " $PHP_EXCLUDED_REPOS " == *" $REPO_NAME "* ]]; then
-                IS_PHP_EXCLUDED=true
+                LANG_DIR=""
               fi
+            elif [[ "$REPO_NAME" == *-go ]]; then
+              LANG_DIR="go"
             fi
 
             while IFS= read -r BASE_BRANCH; do
@@ -315,18 +321,18 @@ jobs:
                   { [ $? -eq 2 ] && break; }
               done
 
-              if [ "$IS_PHP" = "true" ] && [ "$IS_PHP_EXCLUDED" = "false" ]; then
-                for WORKFLOW in "${PHP_WORKFLOWS[@]}"; do
-                  ensure_workflow "$WORKFLOW" "$TEMPLATE_DIR/php/$WORKFLOW" \
+              if [ -n "$LANG_DIR" ]; then
+                for WORKFLOW in "${LANG_WORKFLOWS[@]}"; do
+                  ensure_workflow "$WORKFLOW" "$TEMPLATE_DIR/$LANG_DIR/$WORKFLOW" \
                     "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || \
                     { [ $? -eq 2 ] && break; }
                 done
-                ensure_workflow "create-version-branch.yml" "$TEMPLATE_DIR/php/create-version-branch.yml" \
+                ensure_workflow "create-version-branch.yml" "$TEMPLATE_DIR/$LANG_DIR/create-version-branch.yml" \
                   "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
-                ensure_workflow "release-new-version.yml" "$TEMPLATE_DIR/php/release-new-version.yml" \
+                ensure_workflow "release-new-version.yml" "$TEMPLATE_DIR/$LANG_DIR/release-new-version.yml" \
                   "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
                 ensure_ci_jobs "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
-                  "$TEMPLATE_DIR/php/ci.yml" || true
+                  "$TEMPLATE_DIR/$LANG_DIR/ci.yml" || true
               else
                 ensure_workflow "create-version-branch.yml" "$TEMPLATE_DIR/create-version-branch.yml" \
                   "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
