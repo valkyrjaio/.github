@@ -39,7 +39,6 @@ jobs:
           - '.github/ci/typescript/**'
           - '.github/workflows/ci.yml'
           - 'src/**/*.ts'
-          - 'bin/**/*.ts'
           - 'tsconfig.json'
     secrets: inherit
 
@@ -59,7 +58,7 @@ jobs:
           - '.github/ci/eslint/**'
           - '.github/workflows/ci.yml'
           - 'src/**/*.ts'
-          - 'bin/**/*.ts'
+          - 'tests/**/*.ts'
           - 'tsconfig.json'
     secrets: inherit
 
@@ -76,7 +75,7 @@ jobs:
           - '.github/ci/prettier/**'
           - '.github/workflows/ci.yml'
           - 'src/**/*.ts'
-          - 'bin/**/*.ts'
+          - 'tests/**/*.ts'
           - '*.json'
           - '*.md'
     secrets: inherit
