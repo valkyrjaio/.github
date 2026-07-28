@@ -1,0 +1,32 @@
+name: Z Reusable Go Create Version Branch
+
+on:
+  workflow_call:
+    inputs:
+      dependencies:
+        description: >
+          JSON array of dependencies to check for outdated versions.
+          Each item must have a "name" and "directory".
+          Example: [{"name":"golangci-lint","directory":".github/ci/lint"}]
+        type: string
+        required: true
+
+jobs:
+  check-outdated-dependencies:
+    uses: ./.github/workflows/_go-check-outdated-dependencies.yml
+    secrets: inherit
+    with:
+      dependencies: ${{ inputs.dependencies }}
+
+  get-version:
+    needs: check-outdated-dependencies
+    uses: ./.github/workflows/_get-version.yml
+    secrets: inherit
+
+  create-version-branch:
+    needs: get-version
+    uses: ./.github/workflows/_go-version-branch.yml
+    secrets: inherit
+    with:
+      version: ${{ needs.get-version.outputs.version }}
+      branch: ${{ needs.get-version.outputs.branch }}
