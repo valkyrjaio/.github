@@ -1,6 +1,23 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.11.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.12.0...26.x)
+
+## [v26.12.0](https://github.com/valkyrjaio/.github/compare/v26.11.0...v26.12.0) - 2026-07-27
+
+* [GitHub] Update .github workflow refs to v26.11.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/133
+* [GitHub] Update ci-phpcsfixer-php workflow refs to v26.1.14 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/134
+* [GitHub] Scan the root build in the Java update-dependencies template by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/135
+* [GitHub] Update ci-phpstan-php workflow refs to v26.1.11 by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/138
+* [GitHub] Skip non-JSON API responses when updating workflow refs by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/136
+* [GitHub] Fix composer constraint sync corrupting composer.json by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/137
+* [GitHub] Add the Go update-dependencies reusable workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/139
+* [GitHub] Retry repository listings and recover orphaned update branches in the workflow-refs sweep by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/140
+* [GitHub] Add the Go create-release and create-version-branch reusable workflows by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/141
+* [GitHub] Add the Go required workflow templates and wire per-language sourcing by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/142
+* [GitHub] Add the Python required workflow templates and wire Python sourcing by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/143
+* [GitHub] Resync the Java required workflow templates and wire Java sourcing by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/144
+* [GitHub] Resync the TypeScript required workflow templates and wire TypeScript sourcing by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/145
+* [GitHub] Make the info class inputs optional in the PHP and Java release workflows by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/146
 
 ## [v26.11.0](https://github.com/valkyrjaio/.github/compare/v26.10.0...v26.11.0) - 2026-07-25
 
