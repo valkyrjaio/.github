@@ -298,6 +298,8 @@ jobs:
               fi
             elif [[ "$REPO_NAME" == *-go ]]; then
               LANG_DIR="go"
+            elif [[ "$REPO_NAME" == *-python ]]; then
+              LANG_DIR="python"
             fi
 
             while IFS= read -r BASE_BRANCH; do
