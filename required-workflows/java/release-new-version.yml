@@ -20,7 +20,17 @@ permissions:
 
 jobs:
   release:
-    uses: valkyrjaio/.github/.github/workflows/_create-release.yml@716065aae4466b95f0f80c9c5a5e2a92de620af6
+    uses: valkyrjaio/.github/.github/workflows/_java-create-release.yml@716065aae4466b95f0f80c9c5a5e2a92de620af6
     secrets: inherit
     with:
       bump: ${{ inputs.bump }}
+      dependencies: |
+        [
+          {"name": "Spotless",    "directory": ".github/ci/spotless"},
+          {"name": "ArchUnit",    "directory": ".github/ci/archunit"},
+          {"name": "ErrorProne",  "directory": ".github/ci/errorprone"},
+          {"name": "SpotBugs",    "directory": ".github/ci/spotbugs"},
+          {"name": "JUnit",       "directory": ".github/ci/junit"}
+        ]
+      info-class-path: src/main/java/io/valkyrja/template/constant/TemplateInfo.java
+      info-class-name: TemplateInfo
