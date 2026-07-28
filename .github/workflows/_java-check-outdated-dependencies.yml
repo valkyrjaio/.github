@@ -42,7 +42,11 @@ jobs:
       - name: Check ${{ matrix.dependency.name }} for outdated dependencies
         working-directory: ${{ matrix.dependency.directory }}
         run: |
-          output=$(gradle dependencyUpdates 2>&1)
+          # --refresh-dependencies is required: Gradle caches resolved dynamic versions for 24
+          # hours by default, and the versions plugin does not override that. Without it a release
+          # published since the last re-resolution stays invisible and this check passes while the
+          # dependencies are in fact outdated.
+          output=$(gradle dependencyUpdates --refresh-dependencies 2>&1)
           echo "$output"
           if echo "$output" | grep -q "The following dependencies have later release versions"; then
             echo ""
