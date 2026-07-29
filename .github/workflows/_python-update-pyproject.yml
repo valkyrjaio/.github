@@ -50,7 +50,7 @@ jobs:
           sed -i -E "0,/^version = .*/s//version = \"$VERSION\"/" pyproject.toml
 
       - name: Commit pyproject.toml change
-        uses: stefanzweifel/git-auto-commit-action@b863ae1933cb653a53c021fe36dbb774e1fb9403 # v5.2.0
+        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7.2.0
         with:
           commit_message: "[Release] Update pyproject.toml for v${{ inputs.version }} release"
           commit_user_name: ${{ steps.generate-token.outputs.app-slug }}[bot]
