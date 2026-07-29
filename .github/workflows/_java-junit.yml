@@ -20,6 +20,11 @@ on:
         type: boolean
         default: false
         required: false
+      upload-coverage:
+        description: 'Upload the JaCoCo report to Coveralls. Turn off for a job whose report does not describe the repo''s test coverage (e.g. one that compiles the whole app but only asserts generated code)'
+        type: boolean
+        default: true
+        required: false
 
 jobs:
   junit:
@@ -86,7 +91,7 @@ jobs:
 
       - name: Upload Coveralls coverage report
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
-        if: steps.changes.outputs.files == 'true'
+        if: steps.changes.outputs.files == 'true' && inputs.upload-coverage
         continue-on-error: true
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
