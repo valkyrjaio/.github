@@ -8,7 +8,7 @@ on:
           JSON array of dependencies to update.
           Each item must have a "name" (display name) and "directory" (path to the directory
           containing a go.mod).
-          Directories whose go.mod declares a `tool` directive are updated with `go get -u tool`;
+          Directories whose go.mod declares a `tool` directive are updated with `go get tool`;
           all others with `go get -u ./...`.
           Example: [{"name":"golangci-lint","directory":".github/ci/lint"}]
         type: string
@@ -116,7 +116,17 @@ jobs:
               # Tool module (e.g. a pinned golangci-lint): it declares no packages of
               # its own, so ./... would match nothing. The `tool` meta-pattern updates
               # every tool listed in the go.mod instead.
-              ( cd "$DIR" && go get -u tool )
+              #
+              # Deliberately no `-u`: the tool itself still moves to its latest
+              # release, but its dependencies are then resolved by MVS from that
+              # release's own go.mod. `-u` would instead drag the whole transitive
+              # graph to latest, including modules whose newest release is
+              # API-incompatible with the tool — a build that the tool's authors
+              # never sanctioned. That is not hypothetical: go-header v1.0.0 rewrote
+              # its API under the same module path (no /v2), and `-u` pulled it into
+              # a golangci-lint v2.12.2 that requires v0.5.0, so the pinned linter no
+              # longer compiled and every consumer's lint job failed.
+              ( cd "$DIR" && go get tool )
             elif find "$DIR" -name '*.go' -not -path '*/vendor/*' | head -1 | grep -q .; then
               ( cd "$DIR" && go get -u ./... )
             else

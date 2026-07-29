@@ -45,7 +45,11 @@ jobs:
           if grep -qE '^tool[ (]' go.mod; then
             # Tool module: it declares no packages of its own, so ./... matches
             # nothing. The `tool` meta-pattern upgrades every declared tool instead.
-            go get -u tool
+            # No `-u` here, matching `_go-update-dependencies.yml` — the tool moves
+            # to its latest release and MVS resolves its dependencies from that
+            # release's go.mod, so this check can never report a tool module as
+            # outdated in a way the updater would not actually produce.
+            go get tool
           elif find . -name '*.go' -not -path '*/vendor/*' | head -1 | grep -q .; then
             go get -u ./...
           else
