@@ -24,19 +24,19 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Generate a token
         id: generate-token
         if: github.event.pull_request.number
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
         with:
           app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
           private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
       - name: Determine if workflow should run based on files changed
         id: changes
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
         with:
           filters: ${{ inputs.paths }}
 
@@ -52,7 +52,7 @@ jobs:
 
       - name: Setup Go
         if: steps.changes.outputs.files == 'true'
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
           cache-dependency-path: |
@@ -73,7 +73,7 @@ jobs:
         run: make coverage
 
       - name: Upload Coveralls coverage report
-        uses: coverallsapp/github-action@v2.3.6
+        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
         if: steps.changes.outputs.files == 'true'
         continue-on-error: true
         with:

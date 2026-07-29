@@ -32,7 +32,7 @@ jobs:
     steps:
       - name: Generate a token
         id: generate-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
         with:
           app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
           private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
@@ -47,7 +47,7 @@ jobs:
           echo "user-id=$BOT_USER_ID" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           token: ${{ steps.generate-token.outputs.token }}
           ref: ${{ github.ref_name }}
@@ -70,7 +70,7 @@ jobs:
           grep -E '^[[:space:]]*Version(BuildDateTime)? = ' "$INFO_FILE_PATH"
 
       - name: Commit ${{ inputs.info-file-name }} change
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@b863ae1933cb653a53c021fe36dbb774e1fb9403 # v5.2.0
         with:
           commit_message: "[Release] Update ${{ inputs.info-file-name }} for v${{ inputs.version }} release"
           commit_user_name: ${{ steps.generate-token.outputs.app-slug }}[bot]

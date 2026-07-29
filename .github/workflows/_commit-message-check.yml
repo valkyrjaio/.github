@@ -20,12 +20,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Generate a token
         id: generate-token
         if: github.event.pull_request.number && inputs.post-pr-comment
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
         with:
           app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
           private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
@@ -34,7 +34,7 @@ jobs:
         id: check-commit-type
         if: github.actor != 'dependabot[bot]'
         continue-on-error: true
-        uses: gsactions/commit-message-checker@v2
+        uses: gsactions/commit-message-checker@16fa2d5de096ae0d35626443bcd24f1e756cafee # v2.0.0
         with:
           pattern: '\[[^\]]+\] .+$'
           error: 'Your first line has to contain a commit type like "[Documentation]".'
@@ -44,7 +44,7 @@ jobs:
         id: check-no-trailing-period-title
         if: github.actor != 'dependabot[bot]'
         continue-on-error: true
-        uses: gsactions/commit-message-checker@v2
+        uses: gsactions/commit-message-checker@16fa2d5de096ae0d35626443bcd24f1e756cafee # v2.0.0
         with:
           pattern: '.*[^.]$'
           error: 'PR title must not end with a period.'
@@ -71,7 +71,7 @@ jobs:
         id: check-period-at-end
         if: github.actor != 'dependabot[bot]'
         continue-on-error: true
-        uses: gsactions/commit-message-checker@v2
+        uses: gsactions/commit-message-checker@16fa2d5de096ae0d35626443bcd24f1e756cafee # v2.0.0
         with:
           pattern: '.*\.$'
           error: 'Your first line has to end in a period.'
