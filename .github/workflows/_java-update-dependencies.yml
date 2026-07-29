@@ -54,6 +54,9 @@ jobs:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           BASE: ${{ github.ref_name }}
         run: |
+          # Captured while still on the base branch, before any checkout switches away from it.
+          BASE_SHA=$(git rev-parse HEAD)
+
           EXISTING=$(gh pr list \
             --base "$BASE" \
             --state open \
@@ -64,6 +67,14 @@ jobs:
             echo "Found existing PR branch: $EXISTING"
             git fetch origin "$EXISTING"
             git checkout "$EXISTING"
+            # Reuse the branch name, but never its content: useLatestVersions only ever upgrades,
+            # so a version this branch already declares is one it can never walk back. Building on
+            # the previous run's tree makes a bad bump permanent — re-running reports the declared
+            # version as merely "exceeding" the latest and changes nothing. Resetting to the base
+            # means every run recomputes the full set of updates from scratch, so the branch always
+            # holds exactly base + today's updates and a bad bump disappears on the next run.
+            # The tradeoff: any commit pushed onto this branch by hand is discarded.
+            git reset --hard "$BASE_SHA"
             echo "branch=$EXISTING" >> "$GITHUB_OUTPUT"
             echo "is-new=false" >> "$GITHUB_OUTPUT"
           else
