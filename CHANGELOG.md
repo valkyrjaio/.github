@@ -1,6 +1,14 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.12.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.12.1...26.x)
+
+## [v26.12.1](https://github.com/valkyrjaio/.github/compare/v26.12.0...v26.12.1) - 2026-07-28
+
+* [GitHub] Update .github workflow refs to v26.12.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/147
+* [CI] Pin GitHub Actions to commit SHAs in all reusable workflows by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/148
+* [GitHub] Refresh dependency metadata in the Java Gradle dependency workflows by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/149
+* [CI] Converge git-auto-commit-action on v7.2.0 across all reusable workflows by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/150
+* [GitHub] Reset the reused deps branch to base in the Java update-dependencies workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/151
 
 ## [v26.12.0](https://github.com/valkyrjaio/.github/compare/v26.11.0...v26.12.0) - 2026-07-27
 
