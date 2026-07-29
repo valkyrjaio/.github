@@ -1,6 +1,11 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.12.1...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.12.2...26.x)
+
+## [v26.12.2](https://github.com/valkyrjaio/.github/compare/v26.12.1...v26.12.2) - 2026-07-28
+
+* [GitHub] Update .github workflow refs to v26.12.1 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/152
+* [GitHub] Stop upgrading tool-module dependencies transitively in the Go workflows by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/153
 
 ## [v26.12.1](https://github.com/valkyrjaio/.github/compare/v26.12.0...v26.12.1) - 2026-07-28
 
