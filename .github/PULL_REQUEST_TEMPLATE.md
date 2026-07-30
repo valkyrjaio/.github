@@ -3,10 +3,14 @@
 BEFORE YOU SUBMIT
 =============================================================================
 
-Title format: [Component] Description of change
-- Commit messages end with a period: [Container] Add contextual bindings.
-- PR titles do NOT end with a period: [Container] Add contextual bindings
-- See CONTRIBUTING.md for the full list of component tags and examples.
+Title format: [Root] type: Description of change
+- A root says what the change is about; a type says what kind of change it is.
+- Types: feat, fix, deprecate, docs, test, refactor, perf, style, build, ci,
+  chore, revert. Add ! before the colon for a breaking change.
+- Commits end with a period:  [Container] feat: Add contextual bindings.
+- PR titles do NOT:           [Container] feat(#123): Add contextual bindings
+- Put (#123) in the PR title when an issue tracks the work.
+- See CONTRIBUTING.md for the root rules and worked examples.
 
 Branch targeting (see CONTRIBUTING.md for the full table):
 - Improvements / Bug fixes → lowest major affected ??.x branch
@@ -20,7 +24,7 @@ Before submitting, please confirm:
 - You've targeted the correct base branch
 - You've added tests proving your fix or feature works
 - All CI checks pass locally
-- Commits follow the [Component] Message. format
+- Commits follow the [Root] type: Message. format
 - A PR doesn't already exist covering this change
 
 Writing your description:
@@ -30,7 +34,8 @@ Writing your description:
 - Describe your changes in detail.
 
 If relevant, explain which choices you have made and why.
-If this fixes an open issue, link it here in the description.
+If an issue tracks the work, write "Closes #123" in the description — this body
+becomes the squash commit's body, so that is what closes the issue on merge.
 
 Writing your changes list:
 - One bullet per file or logical change.

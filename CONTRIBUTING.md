@@ -143,41 +143,93 @@ verify you aren't reducing coverage (100% line and branch).
 
 ### Commit and PR Titles
 
-Use the format `[Component] Message.` for commits and `[Component] Message` for
-PR titles (no trailing period on PR titles).
+Every subject line carries a **root** saying what the change is about and a
+**type** saying what kind of change it is:
 
-**Component tags:**
+```
+[Root] type: Message.
+[Root] type(#123): Message for an issue.
+[Root] type!: Message for a breaking change.
+[Root] type(#123)!: Message for a breaking change with an issue.
+```
 
-| Tag               | Use for                                                    |
-|-------------------|------------------------------------------------------------|
-| `[Documentation]` | Any documentation changes                                  |
-| `[CI]`            | CI-related changes                                         |
-| `[GitHub]`        | GitHub-specific changes (workflows, templates, etc.)       |
-| `[Git]`           | Git-related changes (`.gitignore`, `.gitattributes`, etc.) |
-| `[Composer]`      | Composer-related changes                                   |
-| `[Functions]`     | Helper function changes                                    |
-| `[Deprecation]`   | Any deprecations                                           |
-| `[ModuleName]`    | Module changes — e.g. `[Container]`, `[Http]`, `[Cli]`     |
-| `[VERSION.x]`     | Version-specific changes — e.g. `[25.x]`                   |
-| `[Release]`       | Reserved for releases                                      |
+|                                       | Ends with | Issue reference          |
+|---------------------------------------|-----------|--------------------------|
+| **Working-branch commit**             | a period  | permitted, not required  |
+| **PR title**                          | no period | required when one exists |
+| **Direct push to a protected branch** | no period | —                        |
+
+A working-branch commit is a ledger entry — a sentence recording what that commit
+did — so it takes a period. Anything that becomes a permanent subject line is a
+title instead, and takes none: we squash-merge, so the PR title becomes the commit
+subject and the PR description becomes its body.
+
+**Types:**
+
+| Type        | Use for                                                     |
+|-------------|-------------------------------------------------------------|
+| `feat`      | A new capability or an addition to the public API           |
+| `fix`       | Corrects behavior that was broken                           |
+| `deprecate` | Marks API as deprecated without removing it yet             |
+| `docs`      | Documentation only                                          |
+| `test`      | Adds or changes tests only                                  |
+| `refactor`  | Internal restructuring with no behavior change              |
+| `perf`      | Performance improvement with no behavior change             |
+| `style`     | Formatting only — whitespace, import order, no behavior     |
+| `build`     | Build scripts, dependency manifests, packaging              |
+| `ci`        | CI workflows, tooling configuration, automated runs         |
+| `chore`     | Routine maintenance that fits nothing else                  |
+| `revert`    | Reverts an earlier change                                   |
+
+`!` before the colon is **required** on any change that breaks a public contract.
+`feat`, `deprecate`, and `!` drive the middle version component; everything else is
+a patch. See [VERSIONING.md][versioning url].
+
+**Roots** are an open vocabulary, not a fixed list. A root may be anything that
+describes the thing being worked on, subject to two rules:
+
+1. **A root names a thing** — never a kind of change, and never whatever performed
+   the change. Git already records the author.
+2. **A root is never the repo's own identity** — `[PhpCsFixer]` says nothing inside
+   the phpcsfixer repo and everything inside a framework repo.
+
+Common roots: a module (`[Http]`, `[Cli]`, `[Container]`), a concept spanning
+modules (`[Middleware]`, `[Routing]`, `[Provider]`), `[Dependency]`, an external
+tool (`[Composer]`, `[npm]`, `[PhpCsFixer]`), a port (`[PHP]`, `[Java]`), a project
+surface (`[Git]`, `[Workflow]`, `[GitHub]`, `[Process]`), a version line (`[26.x]`),
+or a release version (`[v26.6.1]`). Module roots take their source directory's
+spelling — `[Orm]`, not `[ORM]`.
+
+Prefer **one root**. A change that looks like it spans modules is usually about
+something they share: middleware across HTTP and CLI is `[Middleware]`, not
+`[Http][Cli]`. Breadth is never a root — renaming every component throwable is
+`[Throwable]`. If no single root fits, the change is doing too much.
 
 **Good examples:**
 
-- `[Container] Add support for contextual bindings.`
-- `[Http] Fix header normalization on HTTP/2 requests.`
-- `[Documentation] Document the new RC release process.`
-- `[25.x] Backport routing regression fix.`
-- `[CI] Split lint and test jobs into parallel workflows.`
+- `[Container] feat(#123): Add support for contextual bindings`
+- `[Http] fix: Fix header normalization on HTTP/2 requests`
+- `[Http] feat(#88)!: Remove the deprecated request attribute accessors`
+- `[Middleware] refactor: Rename terminal stages to ResponseSent and ProcessExiting`
+- `[Cli] test: Cover the bare double dash operand case`
+- `[Workflow] ci: Update .github workflow refs to v26.12.1`
+- `[Process] docs: Document the new RC release process`
+- `[26.x] fix: Backport the routing regression fix`
 
 **Bad examples:**
 
-- `fix bug` — no component, no detail, no period
-- `[http] fix stuff.` — lowercase tag, vague message
-- `Add caching.` — missing component tag
-- `[Container] Add support for contextual bindings` — missing period (commit
-  message)
-- `[Container] Add support for contextual bindings.` — trailing period (PR
-  title)
+- `fix bug` — no root, no type, no detail
+- `[http] fix: stuff` — lowercase root, vague message
+- `Add caching.` — missing root and type
+- `[Container] Add contextual bindings` — missing type
+- `[Documentation] docs: Fix a typo` — retired root, and it restates the type
+- `[All] refactor: Rename the providers.` — breadth is not a root; use `[Provider]`
+- `[Http/Cli] fix: Align the stages.` — never slash roots; find the shared one
+- `[Http] fix(#123): Fix normalization.` — trailing period on a PR title
+- `[Http] fix: Fix normalization` — missing period on a commit
+
+Full reference, including the retired roots and the locked forms automation emits:
+[COMMIT_CONVENTION.md][commit convention url].
 
 ### Writing Your PR Description
 
@@ -193,8 +245,15 @@ A prose summary of what the PR does and why. Aim to answer:
 - What problem does this PR solve?
 
 Include relevant context — design choices you made and why, tradeoffs you
-considered, alternatives you rejected. If the PR fixes an open issue, link it
-here.
+considered, alternatives you rejected. If an issue tracks the work, put
+`Closes #123` here: the description becomes the squash commit's body, so this is
+both what closes the issue on merge and where the link durably lives.
+
+Because the description becomes that body, it is also where any explanation that
+would otherwise go in a code comment about a temporary condition belongs — a
+version pinned pending a release, a workaround awaiting a fix. Automation rewrites
+values but not the prose around them, so such a comment outlives what it described;
+in the description it stays reachable from `git log` and `git blame` forever.
 
 #### Types of changes
 
@@ -260,3 +319,5 @@ If you need help contributing code, open an [issue][issues url] with a title
 like `[Help] Title for what you need help with`.
 
 [issues url]: https://github.com/valkyrjaio/valkyrja/issues
+[commit convention url]: https://github.com/valkyrjaio/architecture/blob/master/COMMIT_CONVENTION.md
+[versioning url]: https://github.com/valkyrjaio/architecture/blob/master/VERSIONING.md
