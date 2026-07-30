@@ -26,13 +26,13 @@ jobs:
   commit-message-check:
     name: Commit Message Check
     if: github.event_name == 'pull_request'
-    uses: valkyrjaio/.github/.github/workflows/_commit-message-check.yml@e3e801bdc0d696988d6fc331b6cf0d806b653abd
+    uses: valkyrjaio/.github/.github/workflows/_commit-message-check.yml@ddea291816127b905f6e00006e998f4a6851c1e8
     secrets: inherit
 
   trailing-newline-check:
     name: Trailing Newline Check
     if: github.event_name == 'pull_request'
-    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@e3e801bdc0d696988d6fc331b6cf0d806b653abd
+    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@ddea291816127b905f6e00006e998f4a6851c1e8
     permissions:
       pull-requests: write
       contents: read
@@ -40,7 +40,7 @@ jobs:
 
   typescript:
     name: TypeScript
-    uses: valkyrjaio/.github/.github/workflows/_ts-ci-tool.yml@1fdc1ccfcbd2305908853fa401ee04135be8e184
+    uses: valkyrjaio/.github/.github/workflows/_ts-ci-tool.yml@ddea291816127b905f6e00006e998f4a6851c1e8
     with:
       tool: 'typescript'
       ci-directory: .github/ci/typescript
@@ -57,7 +57,7 @@ jobs:
 
   eslint:
     name: ESLint
-    uses: valkyrjaio/.github/.github/workflows/_ts-ci-tool.yml@1fdc1ccfcbd2305908853fa401ee04135be8e184
+    uses: valkyrjaio/.github/.github/workflows/_ts-ci-tool.yml@ddea291816127b905f6e00006e998f4a6851c1e8
     with:
       tool: 'eslint'
       ci-directory: .github/ci/eslint
@@ -78,7 +78,7 @@ jobs:
 
   prettier:
     name: Prettier
-    uses: valkyrjaio/.github/.github/workflows/_ts-ci-tool.yml@1fdc1ccfcbd2305908853fa401ee04135be8e184
+    uses: valkyrjaio/.github/.github/workflows/_ts-ci-tool.yml@ddea291816127b905f6e00006e998f4a6851c1e8
     with:
       tool: 'prettier'
       ci-directory: .github/ci/prettier
@@ -97,7 +97,7 @@ jobs:
 
   vitest:
     name: Vitest
-    uses: valkyrjaio/.github/.github/workflows/_ts-vitest.yml@e3e801bdc0d696988d6fc331b6cf0d806b653abd
+    uses: valkyrjaio/.github/.github/workflows/_ts-vitest.yml@ddea291816127b905f6e00006e998f4a6851c1e8
     with:
       ci-directory: .github/ci/vitest
       paths: |

@@ -26,13 +26,13 @@ jobs:
   commit-message-check:
     name: Commit Message Check
     if: github.event_name == 'pull_request'
-    uses: valkyrjaio/.github/.github/workflows/_commit-message-check.yml@e3e801bdc0d696988d6fc331b6cf0d806b653abd
+    uses: valkyrjaio/.github/.github/workflows/_commit-message-check.yml@ddea291816127b905f6e00006e998f4a6851c1e8
     secrets: inherit
 
   trailing-newline-check:
     name: Trailing Newline Check
     if: github.event_name == 'pull_request'
-    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@e3e801bdc0d696988d6fc331b6cf0d806b653abd
+    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@ddea291816127b905f6e00006e998f4a6851c1e8
     permissions:
       pull-requests: write
       contents: read
@@ -40,7 +40,7 @@ jobs:
 
   ruff:
     name: Ruff
-    uses: valkyrjaio/.github/.github/workflows/_python-ci-tool.yml@1fdc1ccfcbd2305908853fa401ee04135be8e184
+    uses: valkyrjaio/.github/.github/workflows/_python-ci-tool.yml@ddea291816127b905f6e00006e998f4a6851c1e8
     with:
       tool: 'ruff'
       ci-directory: .github/ci/ruff
@@ -58,7 +58,7 @@ jobs:
 
   mypy:
     name: mypy
-    uses: valkyrjaio/.github/.github/workflows/_python-ci-tool.yml@1fdc1ccfcbd2305908853fa401ee04135be8e184
+    uses: valkyrjaio/.github/.github/workflows/_python-ci-tool.yml@ddea291816127b905f6e00006e998f4a6851c1e8
     with:
       tool: 'mypy'
       ci-directory: .github/ci/mypy
@@ -76,7 +76,7 @@ jobs:
 
   import-linter:
     name: import-linter
-    uses: valkyrjaio/.github/.github/workflows/_python-ci-tool.yml@1fdc1ccfcbd2305908853fa401ee04135be8e184
+    uses: valkyrjaio/.github/.github/workflows/_python-ci-tool.yml@ddea291816127b905f6e00006e998f4a6851c1e8
     with:
       tool: 'import-linter'
       ci-directory: .github/ci/importlinter
@@ -93,7 +93,7 @@ jobs:
 
   bandit:
     name: Bandit
-    uses: valkyrjaio/.github/.github/workflows/_python-ci-tool.yml@1fdc1ccfcbd2305908853fa401ee04135be8e184
+    uses: valkyrjaio/.github/.github/workflows/_python-ci-tool.yml@ddea291816127b905f6e00006e998f4a6851c1e8
     with:
       tool: 'bandit'
       ci-directory: .github/ci/bandit
@@ -109,7 +109,7 @@ jobs:
 
   pytest:
     name: pytest
-    uses: valkyrjaio/.github/.github/workflows/_python-pytest.yml@e3e801bdc0d696988d6fc331b6cf0d806b653abd
+    uses: valkyrjaio/.github/.github/workflows/_python-pytest.yml@ddea291816127b905f6e00006e998f4a6851c1e8
     with:
       ci-directory: .github/ci/pytest
       paths: |
