@@ -125,6 +125,11 @@ than the reverse.
 - Must be triggered from `master`.
 - Always targets the **next unreleased major** (highest existing version branch
   major + 1). If the highest branch is `26.x`, the RC is for `v27.0.0`.
+- That target must be in `SUPPORTED_VERSIONS` **and** its `??.x` branch must not
+  exist yet. Both are checked before anything is published, and an unset
+  `SUPPORTED_VERSIONS` aborts rather than skipping the gate — the standard
+  validation step returns early for RC-shaped versions, so this is the only place
+  an RC's year is checked. Widen `SUPPORTED_VERSIONS` before opening a new year.
 - RC number is **auto-incremented** by scanning existing pre-release tags
   (`v27.0.0-RC1` → `v27.0.0-RC2`).
 - An RC is **never promoted to stable**. When the major version is ready, a
