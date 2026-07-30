@@ -40,8 +40,9 @@ jobs:
 
   typescript:
     name: TypeScript
-    uses: valkyrjaio/.github/.github/workflows/_ts-typescript.yml@e3e801bdc0d696988d6fc331b6cf0d806b653abd
+    uses: valkyrjaio/.github/.github/workflows/_ts-ci-tool.yml@904c3d45d0ae9d2568f92ac19a670d37d058d176
     with:
+      tool: 'typescript'
       ci-directory: .github/ci/typescript
       paths: |
         ci:
@@ -56,8 +57,9 @@ jobs:
 
   eslint:
     name: ESLint
-    uses: valkyrjaio/.github/.github/workflows/_ts-eslint.yml@e3e801bdc0d696988d6fc331b6cf0d806b653abd
+    uses: valkyrjaio/.github/.github/workflows/_ts-ci-tool.yml@904c3d45d0ae9d2568f92ac19a670d37d058d176
     with:
+      tool: 'eslint'
       ci-directory: .github/ci/eslint
       additional-directory: .github/ci/typescript
       paths: |
@@ -76,8 +78,9 @@ jobs:
 
   prettier:
     name: Prettier
-    uses: valkyrjaio/.github/.github/workflows/_ts-prettier.yml@e3e801bdc0d696988d6fc331b6cf0d806b653abd
+    uses: valkyrjaio/.github/.github/workflows/_ts-ci-tool.yml@904c3d45d0ae9d2568f92ac19a670d37d058d176
     with:
+      tool: 'prettier'
       ci-directory: .github/ci/prettier
       paths: |
         ci:
