@@ -1,0 +1,177 @@
+name: Z Reusable TypeScript CI Tool
+
+on:
+  workflow_call:
+    inputs:
+      tool:
+        description: >
+          Which CI tool to run: eslint, prettier, or typescript. Selects the job's
+          defaults — the CI directory, the npm script, whether root dependencies
+          are installed, and the remediation text in the PR comment.
+        type: string
+        required: true
+      node-version:
+        description: 'Node.js version to use'
+        type: string
+        default: '24'
+      ci-directory:
+        description: >
+          Path to the CI directory (containing package.json and the tool config).
+          Leave empty to use `.github/ci/<tool>`.
+        type: string
+        default: ''
+      additional-directory:
+        description: 'Path to an additional CI dependencies directory (optional). Leave empty to skip.'
+        type: string
+        default: ''
+      paths:
+        description: 'Path filters in dorny/paths-filter format (must define ci and files keys)'
+        type: string
+        required: true
+
+jobs:
+  ci-tool:
+    name: >-
+      ${{ inputs.tool == 'eslint' && 'ESLint'
+       || inputs.tool == 'prettier' && 'Prettier'
+       || inputs.tool == 'typescript' && 'TypeScript'
+       || inputs.tool }}
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Resolve tool defaults
+        id: tool
+        env:
+          TOOL: ${{ inputs.tool }}
+          CI_DIRECTORY: ${{ inputs.ci-directory }}
+        run: |
+          # SCRIPT is the npm script CI runs, ROOT_DEPS whether the repository's
+          # own dependencies are needed to run it, and COMMENT the PR comment
+          # posted when the tool fails.
+          case "$TOOL" in
+            eslint)
+              SCRIPT='eslint'; ROOT_DEPS=1
+              COMMENT='ESLint failed. Please run `npm run eslint` locally, fix all the issues, and commit the changes.'
+              ;;
+            prettier)
+              SCRIPT='prettier-check'; ROOT_DEPS=0
+              COMMENT='Prettier check failed. Please run `npm run prettier` locally, fix all the issues, and commit the changes.'
+              ;;
+            typescript)
+              SCRIPT='typescript'; ROOT_DEPS=1
+              COMMENT='TypeScript check failed. Please run `npm run typescript` locally, fix all the issues, and commit the changes.'
+              ;;
+            *)
+              echo "Unknown tool '$TOOL'."
+              echo "Expected one of: eslint, prettier, typescript."
+              exit 1
+              ;;
+          esac
+
+          {
+            echo "ci-directory=${CI_DIRECTORY:-.github/ci/$TOOL}"
+            echo "script=$SCRIPT"
+            echo "root-deps=$ROOT_DEPS"
+            echo "marker=<!-- workflow-id: $TOOL -->"
+            echo "comment=$COMMENT <!-- workflow-id: $TOOL -->"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Generate a token
+        id: generate-token
+        if: github.event.pull_request.number
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Determine if workflow should run based on files changed
+        id: changes
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
+        with:
+          filters: ${{ inputs.paths }}
+
+      - name: Get latest CI code from target
+        if: steps.changes.outputs.ci != 'true' && github.base_ref
+        env:
+          REF: ${{ github.base_ref }}
+          CI_DIR: ${{ steps.tool.outputs.ci-directory }}
+        run: |
+          echo "Using CI code from $REF"
+          git fetch origin "$REF"
+          git checkout origin/"$REF" -- "$CI_DIR"
+
+      - name: Get latest additional CI code from target
+        if: inputs.additional-directory != '' && steps.changes.outputs.ci != 'true' && github.base_ref
+        env:
+          REF: ${{ github.base_ref }}
+          ADDITIONAL_DIR: ${{ inputs.additional-directory }}
+        run: |
+          git checkout origin/"$REF" -- "$ADDITIONAL_DIR"
+
+      - name: Setup Node.js
+        if: steps.changes.outputs.files == 'true'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+          cache-dependency-path: ${{ steps.tool.outputs.ci-directory }}/package-lock.json
+
+      - name: Install CI dependencies
+        if: steps.changes.outputs.files == 'true'
+        working-directory: ${{ steps.tool.outputs.ci-directory }}
+        run: npm ci
+
+      - name: Install additional CI dependencies
+        if: inputs.additional-directory != '' && steps.changes.outputs.files == 'true'
+        working-directory: ${{ inputs.additional-directory }}
+        run: npm ci
+
+      - name: Install root dependencies
+        if: steps.changes.outputs.files == 'true' && steps.tool.outputs.root-deps == '1' && hashFiles('package-lock.json') != ''
+        run: npm ci
+
+      - name: Run ${{ inputs.tool }}
+        if: steps.changes.outputs.files == 'true'
+        env:
+          SCRIPT: ${{ steps.tool.outputs.script }}
+        run: npm run "$SCRIPT"
+
+      - name: Report failure in PR comment
+        if: failure() && github.event.pull_request.number
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MARKER: ${{ steps.tool.outputs.marker }}
+          COMMENT: ${{ steps.tool.outputs.comment }}
+        run: |
+          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            | jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id' \
+            | head -1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+          fi
+          gh pr comment "$PR_NUMBER" --body "$COMMENT"
+
+      - name: Remove failure comment on success
+        if: success() && steps.changes.outputs.files == 'true' && github.event.pull_request.number
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MARKER: ${{ steps.tool.outputs.marker }}
+        run: |
+          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            | jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id' \
+            | head -1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+          fi
