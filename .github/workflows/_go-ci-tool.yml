@@ -1,0 +1,144 @@
+name: Z Reusable Go CI Tool
+
+on:
+  workflow_call:
+    inputs:
+      tool:
+        description: >
+          Which CI tool to run: golangci-lint. Selects the job's defaults — the CI
+          directory, the Make targets to run, the extra base-branch paths to
+          restore, and the remediation text in the PR comment.
+        type: string
+        required: true
+      ci-directory:
+        description: >
+          Path to the CI lint tool directory (containing the pinned tool's go.mod).
+          Leave empty to use the tool's own directory.
+        type: string
+        default: ''
+      paths:
+        description: 'Path filters in dorny/paths-filter format (must define ci and files keys)'
+        type: string
+        required: true
+
+jobs:
+  ci-tool:
+    name: >-
+      ${{ inputs.tool == 'golangci-lint' && 'golangci-lint'
+       || inputs.tool }}
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Resolve tool defaults
+        id: tool
+        env:
+          TOOL: ${{ inputs.tool }}
+          CI_DIRECTORY: ${{ inputs.ci-directory }}
+        run: |
+          # DIR is the tool's CI directory, TARGETS the Make targets to run in
+          # order, EXTRA_PATHS the config files that must be restored from the
+          # base branch alongside DIR, and COMMENT the PR comment on failure.
+          case "$TOOL" in
+            golangci-lint)
+              DIR='lint'; TARGETS='fmt-check lint'; EXTRA_PATHS='.golangci.yml Makefile'
+              COMMENT='golangci-lint failed. Please run `make fmt` and `make lint` locally, fix all the issues, and commit the changes.'
+              ;;
+            *)
+              echo "Unknown tool '$TOOL'."
+              echo "Expected one of: golangci-lint."
+              exit 1
+              ;;
+          esac
+
+          {
+            echo "ci-directory=${CI_DIRECTORY:-.github/ci/$DIR}"
+            echo "targets=$TARGETS"
+            echo "extra-paths=$EXTRA_PATHS"
+            echo "marker=<!-- workflow-id: $TOOL -->"
+            echo "comment=$COMMENT <!-- workflow-id: $TOOL -->"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Generate a token
+        id: generate-token
+        if: github.event.pull_request.number
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Determine if workflow should run based on files changed
+        id: changes
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
+        with:
+          filters: ${{ inputs.paths }}
+
+      - name: Get latest CI code from target
+        if: steps.changes.outputs.ci != 'true' && github.base_ref
+        env:
+          REF: ${{ github.base_ref }}
+          CI_DIR: ${{ steps.tool.outputs.ci-directory }}
+          EXTRA_PATHS: ${{ steps.tool.outputs.extra-paths }}
+        run: |
+          echo "Using CI code from $REF"
+          git fetch origin "$REF"
+          # EXTRA_PATHS is an intentionally word-split list of pathspecs.
+          # shellcheck disable=SC2086
+          git checkout origin/"$REF" -- "$CI_DIR" $EXTRA_PATHS
+
+      - name: Setup Go
+        if: steps.changes.outputs.files == 'true'
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            ${{ steps.tool.outputs.ci-directory }}/go.sum
+
+      - name: Run ${{ inputs.tool }}
+        if: steps.changes.outputs.files == 'true'
+        env:
+          TARGETS: ${{ steps.tool.outputs.targets }}
+        run: |
+          for target in $TARGETS; do
+            make "$target"
+          done
+
+      - name: Report failure in PR comment
+        if: failure() && github.event.pull_request.number
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MARKER: ${{ steps.tool.outputs.marker }}
+          COMMENT: ${{ steps.tool.outputs.comment }}
+        run: |
+          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            | jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id' \
+            | head -1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+          fi
+          gh pr comment "$PR_NUMBER" --body "$COMMENT"
+
+      - name: Remove failure comment on success
+        if: success() && steps.changes.outputs.files == 'true' && github.event.pull_request.number
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MARKER: ${{ steps.tool.outputs.marker }}
+        run: |
+          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            | jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id' \
+            | head -1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+          fi
