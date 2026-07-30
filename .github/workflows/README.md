@@ -458,7 +458,6 @@ reusable workflows (leading `_`) are `workflow_call` only.
 | File                                              | Description                                                                                                   |
 |---------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
 | `_create-release.yml`                             | Orchestrate stable/RC release (version → update files → release)                                              |
-| `_aggregate-release.yml`                          | Like `_create-release.yml` with externally pinned SHA refs for central steps                                  |
 | `_release.yml`                                    | Core release logic (notes, changelog, tag)                                                                    |
 | `_get-version-for-release.yml`                    | Compute and validate the next release version                                                                 |
 | `_get-version.yml`                                | Compute next major version number and branch name                                                             |
@@ -466,7 +465,6 @@ reusable workflows (leading `_`) are `workflow_call` only.
 | `_create-version-branch.yml`                      | Orchestrate a new version branch (`_get-version` → `_version-branch`)                                         |
 | `_version-branch.yml`                             | Create branch, rewrite `README`/`CHANGELOG`/`VERSION`, set default, bump `LATEST_MAJOR_VERSION`               |
 | `_{php,java,python,ts}-create-release.yml`        | Per-language release orchestrators (outdated check → version → info files → release). Publishing is separate. |
-| `_php-release.yml`                                | Lightweight PHP release: update info class then release                                                       |
 | `_java-release-maven-publish.yml`                 | Publish Java artifacts to Maven Central (`MAVEN_*` secrets)                                                   |
 | `_python-release-pypi-publish.yml`                | Publish Python package to PyPI (`PYPI_API_TOKEN`)                                                             |
 | `_ts-release-npm-publish.yml`                     | Publish TypeScript package to npm (trusted publishing, no token)                                              |
