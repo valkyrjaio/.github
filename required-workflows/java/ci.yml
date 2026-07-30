@@ -40,7 +40,7 @@ jobs:
 
   spotless:
     name: Spotless
-    uses: valkyrjaio/.github/.github/workflows/_java-ci-tool.yml@904c3d45d0ae9d2568f92ac19a670d37d058d176
+    uses: valkyrjaio/.github/.github/workflows/_java-ci-tool.yml@1fdc1ccfcbd2305908853fa401ee04135be8e184
     with:
       tool: 'spotless'
       ci-directory: .github/ci/spotless
@@ -57,7 +57,7 @@ jobs:
 
   archunit:
     name: ArchUnit
-    uses: valkyrjaio/.github/.github/workflows/_java-ci-tool.yml@904c3d45d0ae9d2568f92ac19a670d37d058d176
+    uses: valkyrjaio/.github/.github/workflows/_java-ci-tool.yml@1fdc1ccfcbd2305908853fa401ee04135be8e184
     with:
       tool: 'archunit'
       ci-directory: .github/ci/archunit
@@ -74,7 +74,7 @@ jobs:
 
   errorprone:
     name: ErrorProne
-    uses: valkyrjaio/.github/.github/workflows/_java-ci-tool.yml@904c3d45d0ae9d2568f92ac19a670d37d058d176
+    uses: valkyrjaio/.github/.github/workflows/_java-ci-tool.yml@1fdc1ccfcbd2305908853fa401ee04135be8e184
     with:
       tool: 'errorprone'
       ci-directory: .github/ci/errorprone
@@ -91,7 +91,7 @@ jobs:
 
   spotbugs:
     name: SpotBugs
-    uses: valkyrjaio/.github/.github/workflows/_java-ci-tool.yml@904c3d45d0ae9d2568f92ac19a670d37d058d176
+    uses: valkyrjaio/.github/.github/workflows/_java-ci-tool.yml@1fdc1ccfcbd2305908853fa401ee04135be8e184
     with:
       tool: 'spotbugs'
       ci-directory: .github/ci/spotbugs

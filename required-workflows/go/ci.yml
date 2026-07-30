@@ -40,7 +40,7 @@ jobs:
 
   golangci-lint:
     name: golangci-lint
-    uses: valkyrjaio/.github/.github/workflows/_go-ci-tool.yml@904c3d45d0ae9d2568f92ac19a670d37d058d176
+    uses: valkyrjaio/.github/.github/workflows/_go-ci-tool.yml@1fdc1ccfcbd2305908853fa401ee04135be8e184
     with:
       tool: 'golangci-lint'
       paths: |
