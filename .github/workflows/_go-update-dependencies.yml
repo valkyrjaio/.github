@@ -177,7 +177,7 @@ jobs:
           git add -A
           git commit \
             --author="$ACTOR <$ACTOR_ID+$ACTOR@users.noreply.github.com>" \
-            -m "[Go] Update Go dependencies."
+            -m "[Dependency] build: Update Go dependencies."
           git push --force-with-lease origin "$BRANCH"
 
       - name: Create pull request
@@ -216,7 +216,7 @@ jobs:
           fi
 
           gh pr create \
-            --title "[Go] Update Go dependencies" \
+            --title "[Dependency] build: Update Go dependencies" \
             --body "$BODY" \
             --base "$BASE" \
             --head "$BRANCH" \

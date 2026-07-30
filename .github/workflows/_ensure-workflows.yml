@@ -171,7 +171,7 @@ jobs:
 
             local PUT_BODY
             PUT_BODY=$(jq -cn \
-              --arg message "[GitHub] Add missing $WORKFLOW workflow." \
+              --arg message "[Workflow] ci: Add the missing $WORKFLOW workflow." \
               --arg content "$CONTENT_B64" \
               --arg branch "$UPDATE_BRANCH" \
               '{message: $message, content: $content, branch: $branch}')
@@ -214,7 +214,7 @@ jobs:
               CONTENT_B64=$(printf '%s\n' "$TMPL_WITH_SHA" | base64 | tr -d '\n')
               local PUT_BODY
               PUT_BODY=$(jq -cn \
-                --arg message "[GitHub] Add missing ci.yml workflow." \
+                --arg message "[Workflow] ci: Add the missing ci.yml workflow." \
                 --arg content "$CONTENT_B64" \
                 --arg branch "$UPDATE_BRANCH" \
                 '{message: $message, content: $content, branch: $branch}')
@@ -250,7 +250,7 @@ jobs:
             NEW_CONTENT_B64=$(printf '%s\n' "$UPDATED_CONTENT" | base64 | tr -d '\n')
             local PUT_BODY
             PUT_BODY=$(jq -cn \
-              --arg message "[GitHub] Add missing required jobs to ci.yml." \
+              --arg message "[Workflow] ci: Add the missing required jobs to ci.yml." \
               --arg content "$NEW_CONTENT_B64" \
               --arg sha "$FILE_SHA" \
               --arg branch "$UPDATE_BRANCH" \
@@ -384,7 +384,7 @@ jobs:
 
                   if ! gh pr create \
                     --repo "$ORG/$REPO_NAME" \
-                    --title "[GitHub] Ensure required workflow files" \
+                    --title "[Workflow] ci: Ensure required workflow files" \
                     --body "$BODY" \
                     --base "$BASE_BRANCH" \
                     --head "$UPDATE_BRANCH" \

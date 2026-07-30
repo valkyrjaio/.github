@@ -113,7 +113,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7.2.0
         with:
           branch: ${{ github.ref_name }}
-          commit_message: "[Release] Update CHANGELOG for v${{ inputs.version }} release"
+          commit_message: "[v${{ inputs.version }}] chore: Update CHANGELOG for the release"
           file_pattern: CHANGELOG.md
           commit_user_name: ${{ steps.generate-token.outputs.app-slug }}[bot]
           commit_user_email: ${{ steps.get-bot-user-id.outputs.user-id }}+${{ steps.generate-token.outputs.app-slug }}[bot]@users.noreply.github.com

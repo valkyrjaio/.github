@@ -52,7 +52,7 @@ jobs:
       - name: Commit pyproject.toml change
         uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7.2.0
         with:
-          commit_message: "[Release] Update pyproject.toml for v${{ inputs.version }} release"
+          commit_message: "[v${{ inputs.version }}] chore: Update pyproject.toml for the release"
           commit_user_name: ${{ steps.generate-token.outputs.app-slug }}[bot]
           commit_user_email: ${{ steps.get-bot-user-id.outputs.user-id }}+${{ steps.generate-token.outputs.app-slug }}[bot]@users.noreply.github.com
           commit_author: ${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>

@@ -214,7 +214,7 @@ jobs:
           git add -A
           git commit \
             --author="$ACTOR <$ACTOR_ID+$ACTOR@users.noreply.github.com>" \
-            -m "[Composer] Update composer dependencies."
+            -m "[Dependency] build: Update composer dependencies."
           git push --force-with-lease origin "$BRANCH"
 
       - name: Create pull request
@@ -254,7 +254,7 @@ jobs:
           fi
 
           gh pr create \
-            --title "[Composer] Update composer dependencies" \
+            --title "[Dependency] build: Update composer dependencies" \
             --body "$BODY" \
             --base "$BASE" \
             --head "$BRANCH" \

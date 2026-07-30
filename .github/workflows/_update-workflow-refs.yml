@@ -189,7 +189,7 @@ jobs:
                 NEW_CONTENT_B64=$(printf '%s\n' "$NEW_CONTENT" | base64 | tr -d '\n')
 
                 PUT_BODY=$(jq -cn \
-                  --arg message "[GitHub] Update $SOURCE_REPO workflow refs to $LATEST_TAG." \
+                  --arg message "[Workflow] ci: Update $SOURCE_REPO workflow refs to $LATEST_TAG." \
                   --arg content "$NEW_CONTENT_B64" \
                   --arg sha "$FILE_SHA" \
                   --arg branch "$UPDATE_BRANCH" \
@@ -254,7 +254,7 @@ jobs:
                   BODY+="| \`$file\` | \`$LATEST_TAG\` |"$'\n'
                 done <<< "$FILES_LIST"
 
-                NEW_TITLE="[GitHub] Update $SOURCE_REPO workflow refs to $LATEST_TAG"
+                NEW_TITLE="[Workflow] ci: Update $SOURCE_REPO workflow refs to $LATEST_TAG"
 
                 if [ -z "$EXISTING_PR" ]; then
                   REVIEWER_FLAGS=""

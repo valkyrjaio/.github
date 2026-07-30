@@ -147,7 +147,7 @@ jobs:
           git add -A
           git commit \
             --author="$ACTOR <$ACTOR_ID+$ACTOR@users.noreply.github.com>" \
-            -m "[Gradle] Update Gradle dependencies."
+            -m "[Dependency] build: Update Gradle dependencies."
           git push --force-with-lease origin "$BRANCH"
 
       - name: Create pull request
@@ -177,7 +177,7 @@ jobs:
           fi
 
           gh pr create \
-            --title "[Gradle] Update Gradle dependencies" \
+            --title "[Dependency] build: Update Gradle dependencies" \
             --body "$BODY" \
             --base "$BASE" \
             --head "$BRANCH" \
