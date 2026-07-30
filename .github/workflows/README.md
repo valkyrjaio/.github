@@ -436,10 +436,12 @@ concrete, with no praise or restatement of the diff.
 
 ### Adding to a consumer repo
 
-Copy [`required-workflows/claude-review.yml`](../../required-workflows/claude-review.yml)
-into the repo's `.github/workflows/`. It is a standalone entry point rather than
-a `ci.yml` job: a review that comments is not a pass/fail gate and should not sit
-among the required status checks that gate merges.
+[`required-workflows/claude-review.yml`](../../required-workflows/claude-review.yml)
+is a required workflow, so `ensure-workflows.yml` adds it to every repo that is
+missing it via a PR, pinned to the latest `.github` release. A repo that already
+has the file is left alone. It is a standalone entry point rather than a `ci.yml`
+job: a review that comments is not a pass/fail gate and should not sit among the
+required status checks that gate merges.
 
 Both conditions are in the reusable workflow, not in the caller. Every caller
 gets them, and a repo cannot spend Claude usage by accident when it wires the
