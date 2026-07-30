@@ -1,0 +1,61 @@
+name: Z Reusable Python CI
+
+on:
+  workflow_call:
+    inputs:
+      source-paths:
+        description: >
+          The repository's own source globs, one per line and unquoted. Each tool's filter
+          spec is derived from these plus its own CI directory, so the repository declares
+          its sources once for the whole suite.
+        type: string
+        required: true
+      python-version:
+        description: 'Python version to use'
+        type: string
+        default: '3.14'
+
+jobs:
+  ruff:
+    name: Ruff
+    uses: ./.github/workflows/_python-ci-tool.yml
+    with:
+      tool: 'ruff'
+      python-version: ${{ inputs.python-version }}
+      source-paths: ${{ inputs.source-paths }}
+    secrets: inherit
+
+  mypy:
+    name: mypy
+    uses: ./.github/workflows/_python-ci-tool.yml
+    with:
+      tool: 'mypy'
+      python-version: ${{ inputs.python-version }}
+      source-paths: ${{ inputs.source-paths }}
+    secrets: inherit
+
+  import-linter:
+    name: import-linter
+    uses: ./.github/workflows/_python-ci-tool.yml
+    with:
+      tool: 'import-linter'
+      python-version: ${{ inputs.python-version }}
+      source-paths: ${{ inputs.source-paths }}
+    secrets: inherit
+
+  bandit:
+    name: Bandit
+    uses: ./.github/workflows/_python-ci-tool.yml
+    with:
+      tool: 'bandit'
+      python-version: ${{ inputs.python-version }}
+      source-paths: ${{ inputs.source-paths }}
+    secrets: inherit
+
+  pytest:
+    name: pytest
+    uses: ./.github/workflows/_python-pytest.yml
+    with:
+      python-version: ${{ inputs.python-version }}
+      source-paths: ${{ inputs.source-paths }}
+    secrets: inherit

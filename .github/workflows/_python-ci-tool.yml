@@ -20,10 +20,17 @@ on:
           Leave empty to use the tool's own directory.
         type: string
         default: ''
+      source-paths:
+        description: >
+          The repository's own source globs, one per line and unquoted. The filter spec is derived
+          from these plus the CI directory, so a caller declares its sources once. Ignored when
+          `paths` is given.
+        type: string
+        default: ''
       paths:
         description: 'Path filters in dorny/paths-filter format (must define ci and files keys)'
         type: string
-        required: true
+        default: ''
 
 jobs:
   ci-tool:
@@ -46,6 +53,8 @@ jobs:
         env:
           TOOL: ${{ inputs.tool }}
           CI_DIRECTORY: ${{ inputs.ci-directory }}
+          PATHS: ${{ inputs.paths }}
+          SOURCE_PATHS: ${{ inputs.source-paths }}
         run: |
           # DIR is the tool's CI directory, TASKS the poe tasks to run in order,
           # and COMMENT the PR comment posted when the tool fails.
@@ -73,6 +82,11 @@ jobs:
               ;;
           esac
 
+          if [ -z "$PATHS" ] && [ -z "$SOURCE_PATHS" ]; then
+            echo 'One of `paths` or `source-paths` is required.'
+            exit 1
+          fi
+
           {
             echo "ci-directory=${CI_DIRECTORY:-.github/ci/$DIR}"
             echo "tasks=$TASKS"
@@ -91,11 +105,39 @@ jobs:
           app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
           private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
+      - name: Derive the path filters
+        id: filters
+        if: inputs.paths == ''
+        env:
+          CI_DIR: ${{ steps.tool.outputs.ci-directory }}
+          SOURCE_PATHS: ${{ inputs.source-paths }}
+        run: |
+          # Both keys share the CI config that decides this tool's behavior; `files` adds the
+          # repository's own sources on top. `ci` controls whether the base-branch CI directory is
+          # restored, `files` whether the expensive steps run at all.
+          CONFIG=$(
+            printf "  - '%s/**'\n" "$CI_DIR"
+            printf "  - '.github/workflows/ci.yml'\n"
+          )
+
+          {
+            echo 'spec<<PATH_FILTERS_EOF'
+            echo 'ci:'
+            printf '%s\n' "$CONFIG"
+            echo 'files:'
+            printf '%s\n' "$CONFIG"
+            printf '%s\n' "$SOURCE_PATHS" | while IFS= read -r glob; do
+              glob=$(printf '%s' "$glob" | tr -d "\"' " )
+              [ -n "$glob" ] && printf "  - '%s'\n" "$glob"
+            done
+            echo 'PATH_FILTERS_EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Determine if workflow should run based on files changed
         id: changes
         uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
         with:
-          filters: ${{ inputs.paths }}
+          filters: ${{ inputs.paths != '' && inputs.paths || steps.filters.outputs.spec }}
 
       - name: Get latest CI code from target
         if: steps.changes.outputs.ci != 'true' && github.base_ref
