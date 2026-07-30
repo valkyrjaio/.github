@@ -1,0 +1,182 @@
+name: Z Reusable PHP PHPUnit
+
+on:
+  workflow_call:
+    inputs:
+      post-pr-comment:
+        description: 'Whether to post a PR comment on failure (and delete it on success)'
+        type: boolean
+        default: true
+      composer-options:
+        description: 'Additional options to pass to all Composer install steps (e.g. --ignore-platform-req=ext-openswoole)'
+        type: string
+        default: ''
+      php-versions:
+        description: 'JSON array of PHP versions to test against'
+        type: string
+        default: '["8.4"]'
+      php-version-bleeding-edge:
+        description: 'PHP version treated as bleeding edge (continue-on-error, --ignore-platform-req=php+). Leave empty to disable.'
+        type: string
+        default: ''
+      ci-directory:
+        description: 'Path to the CI directory (containing composer.json and the phpunit config)'
+        type: string
+        default: '.github/ci/phpunit'
+      additional-directory:
+        description: 'Path to an additional Composer dependencies directory (optional). Leave empty to skip.'
+        type: string
+        default: ''
+      extensions:
+        description: 'PHP extensions to install'
+        type: string
+        default: 'mbstring, intl'
+      coverage-php-version:
+        description: 'PHP version that runs with coverage (all others run plain phpunit)'
+        type: string
+        default: '8.4'
+      paths:
+        description: >
+          YAML filter spec for dorny/paths-filter.
+          Must define two keys: "ci" (the CI config files) and "files" (all files that should
+          trigger the check). The "ci" key controls whether the base-branch CI directory is
+          fetched; "files" controls whether the expensive steps run at all.
+        type: string
+        required: true
+
+jobs:
+  phpunit:
+    name: PHP ${{ matrix.php }}
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: true
+      matrix:
+        php: ${{ fromJson(inputs.php-versions) }}
+
+    continue-on-error: ${{ inputs.php-version-bleeding-edge != '' && matrix.php == inputs.php-version-bleeding-edge }}
+
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Generate a token
+        id: generate-token
+        if: github.event.pull_request.number && inputs.post-pr-comment
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Determine if workflow should run based on files changed
+        id: changes
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
+        with:
+          filters: ${{ inputs.paths }}
+
+      - name: Get latest CI code from target
+        if: steps.changes.outputs.ci != 'true' && github.base_ref
+        env:
+          REF: ${{ github.base_ref }}
+        run: |
+          echo "Using CI code from $REF"
+          git fetch origin "$REF"
+          git checkout origin/"$REF" -- ${{ inputs.ci-directory }}
+
+      - name: Get latest additional CI code from target
+        if: inputs.additional-directory != '' && steps.changes.outputs.ci != 'true' && github.base_ref
+        env:
+          REF: ${{ github.base_ref }}
+        run: |
+          git checkout origin/"$REF" -- ${{ inputs.additional-directory }}
+
+      - name: Setup PHP
+        if: steps.changes.outputs.files == 'true'
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: ${{ inputs.extensions }}
+          ini-values: zend.assertions=1
+
+      - name: Install Composer dependencies
+        if: steps.changes.outputs.files == 'true'
+        uses: ramsey/composer-install@a8d0d959dab41457692a5e2041bd9b757a119e3f # v3.2.1
+        with:
+          composer-options: ${{ (inputs.php-version-bleeding-edge != '' && matrix.php == inputs.php-version-bleeding-edge) && '--ignore-platform-req=php+' || '' }} ${{ inputs.composer-options }} --prefer-dist --no-progress
+          custom-cache-suffix: $(date -u "+%Y-%m")
+
+      - name: Install PHPUnit Composer dependencies
+        if: steps.changes.outputs.files == 'true'
+        uses: ramsey/composer-install@a8d0d959dab41457692a5e2041bd9b757a119e3f # v3.2.1
+        with:
+          composer-options: ${{ (inputs.php-version-bleeding-edge != '' && matrix.php == inputs.php-version-bleeding-edge) && '--ignore-platform-req=php+' || '' }} ${{ inputs.composer-options }} --prefer-dist --no-progress
+          custom-cache-suffix: $(date -u "+%Y-%m")
+          working-directory: ${{ inputs.ci-directory }}
+
+      - name: Install Additional Composer dependencies
+        if: inputs.additional-directory != '' && steps.changes.outputs.files == 'true'
+        uses: ramsey/composer-install@a8d0d959dab41457692a5e2041bd9b757a119e3f # v3.2.1
+        with:
+          composer-options: ${{ (inputs.php-version-bleeding-edge != '' && matrix.php == inputs.php-version-bleeding-edge) && '--ignore-platform-req=php+' || '' }} ${{ inputs.composer-options }} --prefer-dist --no-progress
+          custom-cache-suffix: $(date -u "+%Y-%m")
+          working-directory: ${{ inputs.additional-directory }}
+
+      - name: Make build logs dir
+        if: steps.changes.outputs.files == 'true'
+        run: mkdir -p ${{ inputs.ci-directory }}/build/logs
+
+      - name: Run PHPUnit tests
+        if: matrix.php != inputs.coverage-php-version && steps.changes.outputs.files == 'true'
+        id: phpunit
+        run: composer phpunit
+
+      - name: Run PHPUnit tests with full coverage
+        if: matrix.php == inputs.coverage-php-version && steps.changes.outputs.files == 'true'
+        id: phpunit-coverage
+        run: composer phpunit-coverage
+
+      - name: Upload Coveralls coverage report
+        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
+        if: matrix.php == inputs.coverage-php-version && steps.changes.outputs.files == 'true'
+        continue-on-error: true
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: "${{ inputs.ci-directory }}/build/logs/clover.xml"
+          format: "clover"
+
+      - name: Report failure in PR comment
+        if: failure() && github.event.pull_request.number && inputs.post-pr-comment
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PHP_VERSION: ${{ matrix.php }}
+          MARKER: "<!-- workflow-id: phpunit-${{ matrix.php }} -->"
+        run: |
+          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" | \
+            jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id' | \
+            head -1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+          fi
+          gh pr comment "$PR_NUMBER" --body "PHPUnit failed for PHP $PHP_VERSION. Please run \`composer phpunit\` locally, fix all the issues, and commit the changes. $MARKER"
+
+      - name: Remove failure comment on success
+        if: success() && steps.changes.outputs.files == 'true' && github.event.pull_request.number && inputs.post-pr-comment
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MARKER: "<!-- workflow-id: phpunit-${{ matrix.php }} -->"
+        run: |
+          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" | \
+            jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id' | \
+            head -1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+          fi
