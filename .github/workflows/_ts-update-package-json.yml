@@ -1,4 +1,4 @@
-name: Z Reusable Update TypeScript package.json
+name: Z Reusable TypeScript Update package.json
 
 on:
   workflow_call:

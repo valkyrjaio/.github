@@ -1,4 +1,4 @@
-name: Z Reusable Update Python pyproject.toml
+name: Z Reusable Python Update pyproject.toml
 
 on:
   workflow_call:
