@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       bump:
-        description: 'Version component to bump (major, minor, or patch)'
+        description: 'Version component to bump (auto, patch, feature, yearly, or rc)'
         type: string
         required: true
     outputs:
@@ -17,6 +17,9 @@ on:
       build-date:
         description: 'The build date in MST (e.g. April 16 2026 12:00:00 MST)'
         value: ${{ jobs.get-version-for-release.outputs.build-date }}
+      should-release:
+        description: 'Whether there is anything to release. "auto" sets this to false when nothing is pending; every explicit bump sets it to true.'
+        value: ${{ jobs.get-version-for-release.outputs.should-release }}
 
 jobs:
   get-version-for-release:
@@ -28,6 +31,7 @@ jobs:
       version: ${{ steps.compute-version.outputs.version }}
       major-version: ${{ steps.compute-version.outputs.major-version }}
       build-date: ${{ steps.build-date.outputs.date }}
+      should-release: ${{ steps.compute-version.outputs.should-release }}
 
     steps:
       - name: Generate a token
@@ -45,6 +49,9 @@ jobs:
           BRANCH: ${{ github.ref_name }}
           LATEST_MAJOR_VERSION: ${{ vars.LATEST_MAJOR_VERSION }}
         run: |
+          # Every explicit bump releases. Only "auto" can decide there is nothing to do.
+          echo "should-release=true" >> "$GITHUB_OUTPUT"
+
           # Release candidates must come from master and target the next unreleased major
           if [ "$BUMP" = "rc" ]; then
             if [ "$BRANCH" != "master" ]; then
@@ -98,15 +105,15 @@ jobs:
             exit 1
           fi
 
-          # For a major bump, the version is always BRANCH_MAJOR.0.0
-          if [ "$BUMP" = "major" ]; then
-            echo "Major bump on $BRANCH: releasing v${BRANCH_MAJOR}.0.0"
+          # A yearly bump is the first release on a version branch: always BRANCH_MAJOR.0.0
+          if [ "$BUMP" = "yearly" ]; then
+            echo "Yearly bump on $BRANCH: releasing v${BRANCH_MAJOR}.0.0"
             echo "version=${BRANCH_MAJOR}.0.0" >> "$GITHUB_OUTPUT"
             echo "major-version=${BRANCH_MAJOR}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # For minor/patch: only look at this major's releases
+          # For auto/feature/patch: only look at this major's releases
           FILTER_PATTERN="^v${BRANCH_MAJOR}\.[0-9]+\.[0-9]+$"
 
           LATEST_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '.[].tagName' 2>/dev/null \
@@ -116,7 +123,7 @@ jobs:
             || echo "")
 
           if [ -z "$LATEST_TAG" ]; then
-            echo "No existing releases found for v${BRANCH_MAJOR}.x. Forcing major bump to v${BRANCH_MAJOR}.0.0"
+            echo "No existing releases found for v${BRANCH_MAJOR}.x. Releasing v${BRANCH_MAJOR}.0.0"
             echo "version=${BRANCH_MAJOR}.0.0" >> "$GITHUB_OUTPUT"
             echo "major-version=${BRANCH_MAJOR}" >> "$GITHUB_OUTPUT"
             exit 0
@@ -128,14 +135,50 @@ jobs:
             echo "Latest release: $LATEST_TAG"
           fi
 
+          # Resolve "auto" from the conventional types merged since the last tag.
+          # Subjects are read rather than bodies: squash merges take their subject from
+          # the PR title, so the subject *is* the conventional line.
+          if [ "$BUMP" = "auto" ]; then
+            COMPARE=$(gh api "repos/$GITHUB_REPOSITORY/compare/${LATEST_TAG}...${BRANCH}" 2>/dev/null || echo "")
+            if [ -z "$COMPARE" ]; then
+              echo "Could not compare $LATEST_TAG...$BRANCH. Aborting rather than guessing a bump."
+              exit 1
+            fi
+
+            TOTAL=$(echo "$COMPARE" | jq -r '.total_commits // 0')
+            SUBJECTS=$(echo "$COMPARE" | jq -r '.commits[]?.commit.message | split("\n")[0]')
+            RETURNED=$(printf '%s\n' "$SUBJECTS" | grep -cE '\S' || true)
+
+            # Release bookkeeping carries a release-version root ([v26.6.1]) and never
+            # triggers a release — that root, not the type, is the non-triggering signal.
+            CANDIDATES=$(printf '%s\n' "$SUBJECTS" | grep -vE '^\[v[0-9]' | grep -E '\S' || true)
+
+            TYPES='feat|fix|deprecate|docs|test|refactor|perf|style|build|ci|chore|revert'
+
+            if [ "$TOTAL" -gt "$RETURNED" ]; then
+              # The compare API caps its commit list. Round up rather than under-bump:
+              # a missed feat must never ship as a patch.
+              echo "Window holds $TOTAL commits but the API returned $RETURNED; assuming a feature bump."
+              BUMP="feature"
+            elif [ -z "$CANDIDATES" ]; then
+              echo "Nothing pending since $LATEST_TAG — no release."
+              echo "should-release=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif printf '%s\n' "$CANDIDATES" | grep -qE "^(\[[^]]+\])+ (feat|deprecate)(\(#[0-9]+\))?!?: " \
+              || printf '%s\n' "$CANDIDATES" | grep -qE "^(\[[^]]+\])+ ($TYPES)(\(#[0-9]+\))?!: "; then
+              echo "Found a feat, deprecate, or breaking change since $LATEST_TAG."
+              BUMP="feature"
+            else
+              echo "Only patch-level types since $LATEST_TAG."
+              BUMP="patch"
+            fi
+
+            echo "Resolved auto to a $BUMP bump."
+          fi
+
           # Calculate new version
           case "$BUMP" in
-            major)
-              NEW_MAJOR=$((LATEST_MAJOR + 1))
-              NEW_MINOR=0
-              NEW_PATCH=0
-              ;;
-            minor)
+            feature)
               NEW_MAJOR="$LATEST_MAJOR"
               NEW_MINOR=$((LATEST_MINOR + 1))
               NEW_PATCH=0
@@ -146,7 +189,7 @@ jobs:
               NEW_PATCH=$((LATEST_PATCH + 1))
               ;;
             *)
-              echo "Invalid bump type: $BUMP. Must be major, minor, or patch."
+              echo "Invalid bump type: $BUMP. Must be auto, patch, feature, yearly, or rc."
               exit 1
               ;;
           esac
@@ -157,6 +200,7 @@ jobs:
           echo "major-version=$NEW_MAJOR" >> "$GITHUB_OUTPUT"
 
       - name: Validate computed version
+        if: steps.compute-version.outputs.should-release == 'true'
         env:
           VERSION: ${{ steps.compute-version.outputs.version }}
           BUMP: ${{ inputs.bump }}
@@ -188,17 +232,19 @@ jobs:
             echo "Major version $MAJOR matches supported versions ($SUPPORTED_VERSIONS)."
           fi
 
-          # Verify the correct component is non-zero for the bump type
+          # Verify the correct component is non-zero for the bump type. "auto" is
+          # excluded: it resolves to feature or patch inside the compute step, so the
+          # input no longer describes the shape by the time we get here.
           case "$BUMP" in
-            major)
+            yearly)
               if [ "$MINOR" -ne 0 ] || [ "$PATCH" -ne 0 ]; then
-                echo "Major bump should produce X.0.0 but got $VERSION. Aborting."
+                echo "Yearly bump should produce X.0.0 but got $VERSION. Aborting."
                 exit 1
               fi
               ;;
-            minor)
+            feature)
               if [ "$PATCH" -ne 0 ]; then
-                echo "Minor bump should produce X.Y.0 but got $VERSION. Aborting."
+                echo "Feature bump should produce X.Y.0 but got $VERSION. Aborting."
                 exit 1
               fi
               ;;
@@ -207,6 +253,7 @@ jobs:
           echo "Version v$VERSION passed all sanity checks."
 
       - name: Check if version tag already exists
+        if: steps.compute-version.outputs.should-release == 'true'
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           VERSION: v${{ steps.compute-version.outputs.version }}

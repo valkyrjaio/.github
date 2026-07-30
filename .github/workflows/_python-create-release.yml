@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       bump:
-        description: 'Version component to bump'
+        description: 'Version component to bump (auto, patch, feature, yearly, or rc)'
         type: string
         required: true
       python-version:
@@ -36,6 +36,7 @@ jobs:
 
   check-outdated-dependencies:
     needs: check-version
+    if: needs.check-version.outputs.should-release == 'true'
     uses: ./.github/workflows/_python-check-outdated-dependencies.yml
     secrets: inherit
     with:
@@ -44,6 +45,7 @@ jobs:
 
   update-version-files:
     needs: [check-outdated-dependencies, check-version]
+    if: needs.check-version.outputs.should-release == 'true'
     uses: ./.github/workflows/_update-version-files.yml
     secrets: inherit
     with:
@@ -51,6 +53,7 @@ jobs:
 
   update-python-pyproject:
     needs: [update-version-files, check-version]
+    if: needs.check-version.outputs.should-release == 'true'
     uses: ./.github/workflows/_python-update-pyproject.yml
     secrets: inherit
     with:
@@ -58,7 +61,7 @@ jobs:
 
   update-python-info-files:
     needs: [update-python-pyproject, check-version]
-    if: inputs.info-file-path != ''
+    if: needs.check-version.outputs.should-release == 'true' && inputs.info-file-path != ''
     uses: ./.github/workflows/_python-update-info-files.yml
     secrets: inherit
     with:
@@ -69,7 +72,7 @@ jobs:
 
   release:
     needs: [update-version-files, update-python-pyproject, update-python-info-files, check-version]
-    if: ${{ always() && needs.check-version.result == 'success' && needs.update-version-files.result == 'success' && needs.update-python-pyproject.result == 'success' && needs.update-python-info-files.result != 'failure' }}
+    if: ${{ needs.check-version.outputs.should-release == 'true' && always() && needs.check-version.result == 'success' && needs.update-version-files.result == 'success' && needs.update-python-pyproject.result == 'success' && needs.update-python-info-files.result != 'failure' }}
     uses: ./.github/workflows/_release.yml
     secrets: inherit
     with:

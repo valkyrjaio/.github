@@ -70,14 +70,46 @@ workflow_dispatch** with a `bump` input.
 
 ### Bump types
 
-| Bump    | Source branch | Tag format    | Notes                                   |
-|---------|---------------|---------------|-----------------------------------------|
-| `patch` | `??.x`        | `v26.0.1`     | Increments patch from latest stable tag |
-| `minor` | `??.x`        | `v26.1.0`     | Increments minor, resets patch          |
-| `major` | `??.x`        | `v26.0.0`     | Always `BRANCH_MAJOR.0.0`               |
-| `rc`    | `master` only | `v27.0.0-RC1` | Pre-release for next unreleased major   |
+The version format is `YY.FEATURE.PATCH` — `YY` is the two-digit year and moves
+only once a year, so the middle component carries both new features and breaking
+changes. See
+[VERSIONING.md](https://github.com/valkyrjaio/architecture/blob/master/VERSIONING.md).
 
-### Stable release flow (`patch` / `minor` / `major`)
+| Bump      | Source branch | Tag format    | Notes                                        |
+|-----------|---------------|---------------|----------------------------------------------|
+| `auto`    | `??.x`        | either        | **Default.** Resolves from the commits merged since the last tag |
+| `patch`   | `??.x`        | `v26.0.1`     | Increments patch from latest stable tag      |
+| `feature` | `??.x`        | `v26.1.0`     | Increments the feature component, resets patch |
+| `yearly`  | `??.x`        | `v26.0.0`     | Always `BRANCH_MAJOR.0.0`                    |
+| `rc`      | `master` only | `v27.0.0-RC1` | Pre-release for next unreleased major        |
+
+`yearly` and `rc` are **manual only** — a year boundary is a decision, not
+something the commit log can express, and the scheduled sweep never dispatches to
+`master`.
+
+### How `auto` resolves
+
+`_get-version-for-release` compares the last stable tag for the branch's major
+against the branch head and reads the **subject** of each commit. Squash merges
+take their subject from the PR title, so the subject is the conventional line.
+
+| Found in the window                                | Result       |
+|----------------------------------------------------|--------------|
+| any `feat`, any `deprecate`, or any type with `!`  | `feature`    |
+| any other type                                     | `patch`      |
+| nothing, or only release-version roots             | no release   |
+
+Release bookkeeping is recognised by its release-version root (`[v26.6.1]`), not
+by its type — the release run's own commits ship inside the tag they describe, so
+a quiet branch has an empty window and the run exits without releasing. When
+that happens `should-release` is `false` and every downstream job is skipped;
+the workflow still reports success.
+
+If the compare API returns fewer commits than it reports in total, `auto` rounds
+**up** to `feature`. Under-bumping would ship a `feat` as a patch, which is worse
+than the reverse.
+
+### Stable release flow (`auto` / `patch` / `feature` / `yearly`)
 
 1. `_get-version-for-release` — validates branch is a `??.x` version branch,
    computes next version from existing tags.
@@ -96,7 +128,7 @@ workflow_dispatch** with a `bump` input.
 - RC number is **auto-incremented** by scanning existing pre-release tags
   (`v27.0.0-RC1` → `v27.0.0-RC2`).
 - An RC is **never promoted to stable**. When the major version is ready, a
-  `major` bump from the newly created version branch produces the stable
+  `yearly` bump from the newly created version branch produces the stable
   release.
 
 **RC flow:**
@@ -118,7 +150,8 @@ stable releases propagate the ref pin across repos.
 
 - Branch must be `master` for `rc`; must be `??.x` for all other bump types.
 - Computed version must match expected semver structure for the bump type
-  (`major` → `X.0.0`, `minor` → `X.Y.0`).
+  (`yearly` → `X.0.0`, `feature` → `X.Y.0`). `auto` is exempt because it has
+  already resolved to `feature` or `patch` by then.
 - Tag must not already exist.
 - For stable releases, major version must match `SUPPORTED_VERSIONS`.
 
@@ -149,7 +182,8 @@ workflow (typically triggered on release publish):
 ## Version Branches
 
 Version branches follow the pattern `??.x` (e.g., `26.x`, `27.x`). All stable
-releases (`patch`, `minor`, `major`) must be triggered from a version branch.
+releases (`auto`, `patch`, `feature`, `yearly`) must be triggered from a version
+branch.
 
 The **default branch** of the `.github` repo is always the current active
 version branch. Crons run on the default branch, so they automatically use the

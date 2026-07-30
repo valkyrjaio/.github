@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       bump:
-        description: 'Version component to bump'
+        description: 'Version component to bump (auto, patch, feature, yearly, or rc)'
         type: string
         required: true
       php-version:
@@ -36,6 +36,7 @@ jobs:
 
   check-outdated-dependencies:
     needs: check-version
+    if: needs.check-version.outputs.should-release == 'true'
     uses: ./.github/workflows/_php-check-outdated-dependencies.yml
     secrets: inherit
     with:
@@ -44,6 +45,7 @@ jobs:
 
   update-version-files:
     needs: [check-outdated-dependencies, check-version]
+    if: needs.check-version.outputs.should-release == 'true'
     uses: ./.github/workflows/_update-version-files.yml
     secrets: inherit
     with:
@@ -51,7 +53,7 @@ jobs:
 
   update-php-info-files:
     needs: [update-version-files, check-version]
-    if: inputs.info-class-path != ''
+    if: needs.check-version.outputs.should-release == 'true' && inputs.info-class-path != ''
     uses: ./.github/workflows/_php-update-info-files.yml
     secrets: inherit
     with:
@@ -62,7 +64,7 @@ jobs:
 
   release:
     needs: [update-version-files, update-php-info-files, check-version]
-    if: ${{ always() && needs.check-version.result == 'success' && needs.update-version-files.result == 'success' && needs.update-php-info-files.result != 'failure' && needs.update-php-info-files.result != 'cancelled' }}
+    if: ${{ needs.check-version.outputs.should-release == 'true' && always() && needs.check-version.result == 'success' && needs.update-version-files.result == 'success' && needs.update-php-info-files.result != 'failure' && needs.update-php-info-files.result != 'cancelled' }}
     uses: ./.github/workflows/_release.yml
     secrets: inherit
     with:
