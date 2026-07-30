@@ -1,4 +1,4 @@
-name: Z Reusable Java CI
+name: Z Reusable Java CI Tools
 
 on:
   workflow_call:
