@@ -65,32 +65,51 @@ jobs:
           REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
             --jq '.[] | select(.isArchived == false) | .name')
 
+          # Repositories the sweep could not finish. A single unreadable API
+          # response must never abort the loop and strand every repository after
+          # it on the previous release, so each failure is recorded here and
+          # reported once at the end, which fails the job while still leaving
+          # every other repository updated.
+          SKIPPED_REPOS=""
+
+          skip_repo() {
+            echo "  $2, skipping"
+            SKIPPED_REPOS="$SKIPPED_REPOS"$'\n'"  - $1: $2"
+          }
+
           while IFS= read -r REPO_NAME; do
             echo "Checking $ORG/$REPO_NAME..."
 
             if [ "$REPO_NAME" = ".github" ]; then
               REPO_TREE=$(fetch_json "repos/$ORG/$REPO_NAME/git/trees/HEAD?recursive=1") || {
-                echo "  Could not read the repository tree, skipping"
+                skip_repo "$REPO_NAME" "Could not read the repository tree"
                 continue
               }
               WORKFLOW_FILES=$(echo "$REPO_TREE" \
-                | jq -r '.tree[]? | select(.type == "blob" and (.path | startswith("required-workflows/"))) | .path')
+                | jq -r '.tree[]? | select(.type == "blob" and (.path | startswith("required-workflows/"))) | .path' \
+                2>/dev/null || true)
             else
               WORKFLOW_DIR=$(fetch_json "repos/$ORG/$REPO_NAME/contents/.github/workflows") || {
-                echo "  Could not read the workflow directory, skipping"
+                skip_repo "$REPO_NAME" "Could not read the workflow directory"
                 continue
               }
               WORKFLOW_FILES=$(echo "$WORKFLOW_DIR" \
-                | jq -r 'if type == "array" then .[].path else empty end')
+                | jq -r 'if type == "array" then .[].path else empty end' \
+                2>/dev/null || true)
             fi
 
             [ -z "$WORKFLOW_FILES" ] && continue
 
             BRANCH_DATA=$(fetch_json "repos/$ORG/$REPO_NAME/branches" --paginate) || {
-              echo "  Could not read the branch list, skipping"
+              skip_repo "$REPO_NAME" "Could not read the branch list"
               continue
             }
-            ALL_BRANCHES=$(echo "$BRANCH_DATA" | jq -r '.[]?.name')
+            ALL_BRANCHES=$(echo "$BRANCH_DATA" | jq -r '.[]?.name' 2>/dev/null || true)
+
+            if [ -z "$ALL_BRANCHES" ]; then
+              skip_repo "$REPO_NAME" "Could not parse the branch list"
+              continue
+            fi
 
             BASE_BRANCHES=""
             while IFS= read -r b; do
@@ -200,9 +219,12 @@ jobs:
                 # the branch here rather than orphaning it forever.
                 COMPARE=$(fetch_json "repos/$ORG/$REPO_NAME/compare/$BASE_BRANCH...$UPDATE_BRANCH") || COMPARE=""
 
-                if [ -n "$COMPARE" ] && [ "$(echo "$COMPARE" | jq -r '.ahead_by // 0')" -gt 0 ]; then
+                AHEAD_BY=$(echo "$COMPARE" | jq -r '.ahead_by // 0' 2>/dev/null || echo 0)
+                case "$AHEAD_BY" in ''|*[!0-9]*) AHEAD_BY=0 ;; esac
+
+                if [ -n "$COMPARE" ] && [ "$AHEAD_BY" -gt 0 ]; then
                   PR_NEEDED=1
-                  FILES_LIST=$(echo "$COMPARE" | jq -r '.files[]?.filename')
+                  FILES_LIST=$(echo "$COMPARE" | jq -r '.files[]?.filename' 2>/dev/null || true)
                   echo "  [$BASE_BRANCH] $UPDATE_BRANCH is ahead of $BASE_BRANCH — checking for existing PR..."
                 fi
               fi
@@ -267,3 +289,10 @@ jobs:
               fi
             done <<< "$BASE_BRANCHES"
           done <<< "$REPOS"
+
+          if [ -n "$SKIPPED_REPOS" ]; then
+            echo "::error::Some repositories were not updated to $LATEST_TAG:$SKIPPED_REPOS"
+            exit 1
+          fi
+
+          echo "All repositories processed for $LATEST_TAG."
