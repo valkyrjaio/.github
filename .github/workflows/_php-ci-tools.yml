@@ -1,4 +1,4 @@
-name: Z Reusable PHP CI
+name: Z Reusable PHP CI Tools
 
 on:
   workflow_call:
