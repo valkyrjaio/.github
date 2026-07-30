@@ -1,0 +1,155 @@
+name: Z Reusable Java CI Tool
+
+on:
+  workflow_call:
+    inputs:
+      tool:
+        description: >
+          Which CI tool to run: archunit, errorprone, spotbugs, or spotless.
+          Selects the job's defaults — the CI directory, the Gradle task, and the
+          remediation text in the PR comment.
+        type: string
+        required: true
+      java-version:
+        description: 'Java version to use'
+        type: string
+        default: '21'
+      ci-directory:
+        description: >
+          Path to the CI directory (e.g. .github/ci/archunit).
+          Leave empty to use `.github/ci/<tool>`.
+        type: string
+        default: ''
+      copy-example-sources:
+        description: 'Copy *.example.java templates to their .java target (when missing) before building'
+        type: boolean
+        default: false
+        required: false
+      paths:
+        description: 'Path filters in dorny/paths-filter format (must define ci and files keys)'
+        type: string
+        required: true
+
+jobs:
+  ci-tool:
+    name: >-
+      ${{ inputs.tool == 'archunit' && 'ArchUnit'
+       || inputs.tool == 'errorprone' && 'ErrorProne'
+       || inputs.tool == 'spotbugs' && 'SpotBugs'
+       || inputs.tool == 'spotless' && 'Spotless'
+       || inputs.tool }}
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Resolve tool defaults
+        id: tool
+        env:
+          TOOL: ${{ inputs.tool }}
+          CI_DIRECTORY: ${{ inputs.ci-directory }}
+        run: |
+          # TASK is the Gradle task to run and COMMENT the PR comment posted when
+          # the tool fails. CI_DIR is resolved first so a comment can name it.
+          CI_DIR="${CI_DIRECTORY:-.github/ci/$TOOL}"
+
+          case "$TOOL" in
+            archunit)
+              TASK='test'
+              COMMENT='ArchUnit failed. Please fix the architecture violations locally and commit the changes.'
+              ;;
+            errorprone)
+              TASK='compileJava'
+              COMMENT='ErrorProne failed. Please fix all the issues locally and commit the changes.'
+              ;;
+            spotbugs)
+              TASK='spotbugsMain'
+              COMMENT="SpotBugs failed. Please fix all the issues locally and commit the changes. To suppress a known false positive, add a \`<Match>\` entry to \`$CI_DIR/spotbugs-exclude.xml\`."
+              ;;
+            spotless)
+              TASK='spotlessCheck'
+              COMMENT="Spotless check failed. Please run \`gradle spotlessApply\` locally in \`$CI_DIR\` and commit the changes."
+              ;;
+            *)
+              echo "Unknown tool '$TOOL'."
+              echo "Expected one of: archunit, errorprone, spotbugs, spotless."
+              exit 1
+              ;;
+          esac
+
+          {
+            echo "ci-directory=$CI_DIR"
+            echo "task=$TASK"
+            echo "comment=$COMMENT"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Generate a token
+        id: generate-token
+        if: github.event.pull_request.number
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Determine if workflow should run based on files changed
+        id: changes
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
+        with:
+          filters: ${{ inputs.paths }}
+
+      - name: Get latest CI code from target
+        if: steps.changes.outputs.ci != 'true' && github.base_ref
+        env:
+          REF: ${{ github.base_ref }}
+          CI_DIR: ${{ steps.tool.outputs.ci-directory }}
+        run: |
+          echo "Using CI code from $REF"
+          git fetch origin "$REF"
+          git checkout origin/"$REF" -- "$CI_DIR"
+
+      - name: Setup Java
+        if: steps.changes.outputs.files == 'true'
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
+        with:
+          java-version: ${{ inputs.java-version }}
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        if: steps.changes.outputs.files == 'true'
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
+
+      - name: Copy example sources
+        if: steps.changes.outputs.files == 'true' && inputs.copy-example-sources
+        run: |
+          find . -name '*.example.java' | while read -r f; do
+            target="${f%.example.java}.java"
+            [ -e "$target" ] || cp "$f" "$target"
+          done
+
+      - name: Run ${{ inputs.tool }}
+        if: steps.changes.outputs.files == 'true'
+        id: build_step
+        working-directory: ${{ steps.tool.outputs.ci-directory }}
+        env:
+          TASK: ${{ steps.tool.outputs.task }}
+        run: gradle "$TASK"
+
+      - name: Report failure in PR comment
+        if: steps.build_step.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          COMMENT: ${{ steps.tool.outputs.comment }}
+        run: |
+          if [ -z "$PR_URL" ]; then
+            echo "Not a pull request, skipping comment."
+            exit 0
+          fi
+
+          gh pr comment "$PR_URL" --body "$COMMENT"
