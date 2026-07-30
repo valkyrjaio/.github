@@ -48,6 +48,7 @@ jobs:
           BUMP: ${{ inputs.bump }}
           BRANCH: ${{ github.ref_name }}
           LATEST_MAJOR_VERSION: ${{ vars.LATEST_MAJOR_VERSION }}
+          SUPPORTED_VERSIONS: ${{ vars.SUPPORTED_VERSIONS }}
         run: |
           # Every explicit bump releases. Only "auto" can decide there is nothing to do.
           echo "should-release=true" >> "$GITHUB_OUTPUT"
@@ -73,6 +74,29 @@ jobs:
             fi
 
             NEXT_MAJOR=$((HIGHEST_MAJOR + 1))
+
+            # An RC targets a year that has not opened yet, so gate it on both facts
+            # that make that true. Without these the RC path publishes whatever
+            # "highest branch + 1" happens to be, with nothing confirming the year is
+            # real — the standard semver validation later in this workflow returns
+            # early for RC-shaped versions and never reaches its SUPPORTED_VERSIONS
+            # check.
+            if [ -z "$SUPPORTED_VERSIONS" ]; then
+              echo "SUPPORTED_VERSIONS is not set. Refusing to publish an RC with no year gate."
+              exit 1
+            elif ! [[ "$NEXT_MAJOR" =~ $SUPPORTED_VERSIONS ]]; then
+              echo "An RC here would target v${NEXT_MAJOR}.0.0, but $NEXT_MAJOR is not in the supported versions ($SUPPORTED_VERSIONS)."
+              echo "Widen SUPPORTED_VERSIONS before opening the next year. Aborting."
+              exit 1
+            fi
+
+            if gh api "repos/$GITHUB_REPOSITORY/branches/${NEXT_MAJOR}.x" --silent 2>/dev/null; then
+              echo "Branch ${NEXT_MAJOR}.x already exists, so v${NEXT_MAJOR} is no longer unreleased."
+              echo "Release from that branch with a yearly bump instead of an RC. Aborting."
+              exit 1
+            fi
+
+            echo "v${NEXT_MAJOR} is supported and ${NEXT_MAJOR}.x does not exist yet. Proceeding."
 
             # Find the highest existing RC number for this next major
             LATEST_RC=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 \
