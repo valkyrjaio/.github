@@ -1,4 +1,4 @@
-name: Z Reusable TypeScript CI
+name: Z Reusable TypeScript CI Tools
 
 on:
   workflow_call:
