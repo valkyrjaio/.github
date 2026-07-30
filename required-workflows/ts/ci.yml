@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [ 'master', '*.x' ]
+
   pull_request:
     # `edited` is included so a pull request that GitHub auto-retargets — which happens to a stacked
     # pull request the moment its parent merges — re-runs its checks against the new base. A
@@ -23,6 +24,7 @@ permissions:
   contents: read
 
 jobs:
+
   commit-message-check:
     name: Commit Message Check
     if: github.event_name == 'pull_request'
@@ -38,75 +40,17 @@ jobs:
       contents: read
     secrets: inherit
 
-  typescript:
-    name: TypeScript
-    uses: valkyrjaio/.github/.github/workflows/_ts-ci-tool.yml@ddea291816127b905f6e00006e998f4a6851c1e8
+  # Named `CI` because a check's name is built from every job name down the call chain, so
+  # this composes as `CI / Tools / <Tool> / <version>`.
+  tools:
+    name: Tools
+    uses: valkyrjaio/.github/.github/workflows/_ts-ci-tools.yml@ddea291816127b905f6e00006e998f4a6851c1e8
     with:
-      tool: 'typescript'
-      ci-directory: .github/ci/typescript
-      paths: |
-        ci:
-          - '.github/ci/typescript/**'
-          - '.github/workflows/ci.yml'
-        files:
-          - '.github/ci/typescript/**'
-          - '.github/workflows/ci.yml'
-          - 'src/**/*.ts'
-          - 'tsconfig.json'
-    secrets: inherit
-
-  eslint:
-    name: ESLint
-    uses: valkyrjaio/.github/.github/workflows/_ts-ci-tool.yml@ddea291816127b905f6e00006e998f4a6851c1e8
-    with:
-      tool: 'eslint'
-      ci-directory: .github/ci/eslint
-      additional-directory: .github/ci/typescript
-      paths: |
-        ci:
-          - '.github/ci/typescript/**'
-          - '.github/ci/eslint/**'
-          - '.github/workflows/ci.yml'
-        files:
-          - '.github/ci/typescript/**'
-          - '.github/ci/eslint/**'
-          - '.github/workflows/ci.yml'
-          - 'src/**/*.ts'
-          - 'tests/**/*.ts'
-          - 'tsconfig.json'
-    secrets: inherit
-
-  prettier:
-    name: Prettier
-    uses: valkyrjaio/.github/.github/workflows/_ts-ci-tool.yml@ddea291816127b905f6e00006e998f4a6851c1e8
-    with:
-      tool: 'prettier'
-      ci-directory: .github/ci/prettier
-      paths: |
-        ci:
-          - '.github/ci/prettier/**'
-          - '.github/workflows/ci.yml'
-        files:
-          - '.github/ci/prettier/**'
-          - '.github/workflows/ci.yml'
-          - 'src/**/*.ts'
-          - 'tests/**/*.ts'
-          - '*.json'
-          - '*.md'
-    secrets: inherit
-
-  vitest:
-    name: Vitest
-    uses: valkyrjaio/.github/.github/workflows/_ts-vitest.yml@ddea291816127b905f6e00006e998f4a6851c1e8
-    with:
-      ci-directory: .github/ci/vitest
-      paths: |
-        ci:
-          - '.github/ci/vitest/**'
-          - '.github/workflows/ci.yml'
-        files:
-          - '.github/ci/vitest/**'
-          - '.github/workflows/ci.yml'
-          - 'src/**/*.ts'
-          - 'tests/**/*.ts'
+      node-version: '22'
+      source-paths: |
+        src/**/*.ts
+        tests/**/*.ts
+        tsconfig.json
+        *.json
+        *.md
     secrets: inherit
