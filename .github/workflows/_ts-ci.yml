@@ -1,0 +1,58 @@
+name: Z Reusable TypeScript CI
+
+on:
+  workflow_call:
+    inputs:
+      source-paths:
+        description: >
+          The repository's own source globs, one per line and unquoted. Each tool's filter
+          spec is derived from these plus its own CI directory, so the repository declares
+          its sources once for the whole suite.
+        type: string
+        required: true
+      node-version:
+        description: 'Node.js version to use'
+        type: string
+        default: '22'
+      eslint-additional-directory:
+        description: >
+          Additional CI dependencies directory ESLint needs, since its config imports the TypeScript setup. Leave empty to skip.
+        type: string
+        default: '.github/ci/typescript'
+
+jobs:
+  typescript:
+    name: TypeScript
+    uses: ./.github/workflows/_ts-ci-tool.yml
+    with:
+      tool: 'typescript'
+      node-version: ${{ inputs.node-version }}
+      source-paths: ${{ inputs.source-paths }}
+    secrets: inherit
+
+  eslint:
+    name: ESLint
+    uses: ./.github/workflows/_ts-ci-tool.yml
+    with:
+      tool: 'eslint'
+      node-version: ${{ inputs.node-version }}
+      additional-directory: ${{ inputs.eslint-additional-directory }}
+      source-paths: ${{ inputs.source-paths }}
+    secrets: inherit
+
+  prettier:
+    name: Prettier
+    uses: ./.github/workflows/_ts-ci-tool.yml
+    with:
+      tool: 'prettier'
+      node-version: ${{ inputs.node-version }}
+      source-paths: ${{ inputs.source-paths }}
+    secrets: inherit
+
+  vitest:
+    name: Vitest
+    uses: ./.github/workflows/_ts-vitest.yml
+    with:
+      node-version: ${{ inputs.node-version }}
+      source-paths: ${{ inputs.source-paths }}
+    secrets: inherit
