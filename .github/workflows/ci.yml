@@ -4,6 +4,13 @@ on:
   push:
     branches: [ 'master', '*.x' ]
   pull_request:
+    # `edited` is included so a pull request that GitHub auto-retargets — which happens to a stacked
+    # pull request the moment its parent merges — re-runs its checks. A base-branch change has no
+    # activity type of its own; GitHub reports it as `edited` with a `changes.base` payload, and
+    # `edited` is not one of the default types, so such a pull request otherwise sits with no checks
+    # at all. `edited` also fires for title and description edits, so the tool jobs below additionally
+    # require `changes.base` rather than replaying a whole matrix for a reworded description.
+    types: [ opened, synchronize, reopened, edited ]
     branches: [ 'master', '*.x' ]
 
 permissions:
