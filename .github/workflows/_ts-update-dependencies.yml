@@ -173,7 +173,7 @@ jobs:
           git add -A
           git commit \
             --author="$ACTOR <$ACTOR_ID+$ACTOR@users.noreply.github.com>" \
-            -m "[npm] Update npm dependencies."
+            -m "[Dependency] build: Update npm dependencies."
           git push --force-with-lease origin "$BRANCH"
 
       - name: Create pull request
@@ -212,7 +212,7 @@ jobs:
           fi
 
           gh pr create \
-            --title "[npm] Update npm dependencies" \
+            --title "[Dependency] build: Update npm dependencies" \
             --body "$BODY" \
             --base "$BASE" \
             --head "$BRANCH" \

@@ -74,7 +74,7 @@ jobs:
       - name: Commit version branch updates
         uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7.2.0
         with:
-          commit_message: "[${{ inputs.branch }}] Update references for v${{ inputs.version }}"
+          commit_message: "[${{ inputs.branch }}] chore: Update references for v${{ inputs.version }}"
           branch: ${{ inputs.branch }}
           push_options: '--set-upstream'
           commit_user_name: ${{ steps.generate-token.outputs.app-slug }}[bot]

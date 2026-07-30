@@ -131,7 +131,7 @@ jobs:
                   echo "  [$BASE_BRANCH] Committing $FILE_PATH to $UPDATE_BRANCH..."
                   NEW_CONTENT_B64=$(printf '%s\n' "$NEW_CONTENT" | base64 | tr -d '\n')
                   PUT_BODY=$(jq -cn \
-                    --arg message "[GitHub] Add Z Reusable prefix to workflow name." \
+                    --arg message "[Workflow] ci: Add the Z Reusable prefix to the workflow name." \
                     --arg content "$NEW_CONTENT_B64" \
                     --arg sha "$FILE_SHA" \
                     --arg branch "$UPDATE_BRANCH" \
@@ -167,7 +167,7 @@ jobs:
                   echo "  [$BASE_BRANCH] Creating $NEW_FILE_PATH..."
                   NEW_CONTENT_B64=$(printf '%s\n' "$NEW_CONTENT" | base64 | tr -d '\n')
                   PUT_BODY=$(jq -cn \
-                    --arg message "[GitHub] Rename $FILE_BASENAME to _$FILE_BASENAME." \
+                    --arg message "[Workflow] ci: Rename $FILE_BASENAME to _$FILE_BASENAME." \
                     --arg content "$NEW_CONTENT_B64" \
                     --arg branch "$UPDATE_BRANCH" \
                     '{message: $message, content: $content, branch: $branch}')
@@ -181,7 +181,7 @@ jobs:
                   # Delete old file
                   echo "  [$BASE_BRANCH] Deleting $FILE_PATH..."
                   DEL_BODY=$(jq -cn \
-                    --arg message "[GitHub] Remove $FILE_BASENAME (renamed to _$FILE_BASENAME)." \
+                    --arg message "[Workflow] ci: Remove $FILE_BASENAME (renamed to _$FILE_BASENAME)." \
                     --arg sha "$FILE_SHA" \
                     --arg branch "$UPDATE_BRANCH" \
                     '{message: $message, sha: $sha, branch: $branch}')
@@ -231,7 +231,7 @@ jobs:
 
                   if ! gh pr create \
                     --repo "$ORG/$REPO_NAME" \
-                    --title "[GitHub] Ensure reusable workflow naming conventions" \
+                    --title "[Workflow] ci: Ensure reusable workflow naming conventions" \
                     --body "$BODY" \
                     --base "$BASE_BRANCH" \
                     --head "$UPDATE_BRANCH" \

@@ -122,7 +122,7 @@ jobs:
                 NEW_CONTENT_B64=$(base64 < "$TMPFILE" | tr -d '\n')
 
                 PUT_BODY=$(jq -cn \
-                  --arg message "[GitHub] Add missing trailing newline to $FILE_PATH." \
+                  --arg message "[Git] style: Add the missing trailing newline to $FILE_PATH." \
                   --arg content "$NEW_CONTENT_B64" \
                   --arg sha "$FILE_SHA" \
                   --arg branch "$UPDATE_BRANCH" \
@@ -176,7 +176,7 @@ jobs:
 
                   if ! gh pr create \
                     --repo "$ORG/$REPO_NAME" \
-                    --title "[GitHub] Add missing trailing newlines" \
+                    --title "[Git] style: Add missing trailing newlines" \
                     --body "$BODY" \
                     --base "$BASE_BRANCH" \
                     --head "$UPDATE_BRANCH" \
