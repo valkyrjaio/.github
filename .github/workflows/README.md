@@ -268,19 +268,34 @@ All rulesets allow bypass for:
 ### Format
 
 ```
-[Type] Short description.
+[Root] type: Short description.
 ```
 
-- Must start with `[` and a category in brackets.
-- Must end with a period.
-- Types are enforced by the `Commit Message Check / Check Commit Message`
-  required check.
+A **root** in brackets says what the change is about; a **type** says what kind of
+change it is. `!` before the colon marks a breaking change, and `(#123)` carries an
+issue reference. Full reference:
+[COMMIT_CONVENTION.md](https://github.com/valkyrjaio/architecture/blob/master/COMMIT_CONVENTION.md).
 
-### Dependabot exemption
+- Must start with `[` and a root in brackets, followed by a type and a colon.
+- **Working-branch commits end with a period.** PR titles and direct pushes to a
+  protected branch do not — those are permanent subject lines, not sentences.
+- No line may exceed 120 characters.
+- Enforced by the `Commit Message Check / Check Commit Message` required check.
 
-Dependabot PRs (actor `dependabot[bot]`) automatically skip both the type and
-period checks. The job still runs and reports success so it satisfies the
-required status check.
+The check inspects commits *in a pull request*, which are working-branch commits, and
+never sees a direct push to a protected branch — which is why the release run's own
+commits carry no period.
+
+Only the shape is machine-checked. The root vocabulary is open by design, so no
+pattern can validate it: `[http]` passes. Root choice and casing are review's job.
+
+### Exemptions
+
+- **Dependabot** PRs (actor `dependabot[bot]`) skip the type and period checks. The
+  job still runs and reports success so it satisfies the required status check.
+- **Reverts.** GitHub's revert button generates `Revert "<original title>"`, which
+  cannot match the pattern, and a revert is usually being made under time pressure —
+  the check must not stand in the way.
 
 ---
 

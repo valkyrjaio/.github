@@ -13,7 +13,7 @@ applies.
 
 **Cross-language canonical** — <https://github.com/valkyrjaio/architecture/blob/master/AGENTS.md>
 
-It governs the parts that **do** apply here: the `[Component]` commit / PR-title
+It governs the parts that **do** apply here: the `[Root] type:` commit / PR-title
 format, the branch → commit → push → open-PR workflow (with confirmation before
 each write action), the current-working-branch policy (`.github` uses `26.x`),
 trailing newlines, and American English.
@@ -48,12 +48,20 @@ conventions, 100% line-and-branch code coverage, and the per-language CI gates.
 - **Conventions** — `REPOSITORY_NAMING.md` (how repos are named) and
   `VOCABULARY.md` (shared terms) are authoritative for the whole project.
 - The org enforces **trailing newlines** (`_fix-trailing-newlines.yml`) and the
-  **`[Component]` commit-message format** (`_commit-message-check.yml`) — this
+  **`[Root] type:` commit-message format** (`_commit-message-check.yml`) — this
   repo documents those standards and is held to them.
 
 ## Extra care
 
 A change here can affect **every repo in the organization**. Keep PRs small and
 scoped, and when a workflow, ruleset, or health-file change has cross-repo impact,
-call it out in the PR description. Most relevant component tags: `[GitHub]`,
-`[CI]`, `[Git]`, `[Documentation]`.
+call it out in the PR description.
+
+Most relevant roots here: `[Workflow]` (reusable and required workflows),
+`[Ruleset]`, `[Template]` (issue and PR templates), `[Process]` (conventions such as
+`REPOSITORY_NAMING.md` and `VOCABULARY.md`), and `[Git]`.
+
+**`[GitHub]` is not a root in this repo.** A root is never the repo's own identity,
+and this repo *is* the org's GitHub configuration — so the name says nothing here.
+Name the thing instead. `[GitHub]` stays correct in any other repo, where a
+GitHub-specific file genuinely stands out.
