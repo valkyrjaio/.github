@@ -1,0 +1,148 @@
+name: Z Reusable PHP CI
+
+on:
+  workflow_call:
+    inputs:
+      source-paths:
+        description: >
+          The repository's own source globs, one per line and unquoted — for example
+          `src/**/*.php`. Each tool's filter spec is derived from these plus its own CI directory,
+          so the repository declares its sources once for the whole suite.
+        type: string
+        required: true
+      php-version:
+        description: 'PHP version the analysis and formatting tools run on'
+        type: string
+        default: '8.4'
+      extensions:
+        description: 'PHP extensions to install for the analysis and formatting tools'
+        type: string
+        default: 'mbstring, intl'
+      composer-options:
+        description: 'Additional options to pass to all Composer install steps'
+        type: string
+        default: ''
+      additional-directory:
+        description: 'Path to an additional Composer dependencies directory. Leave empty to skip.'
+        type: string
+        default: ''
+      psalm-run-script:
+        description: 'Composer script Psalm runs (e.g. psalm-shepherd-with-stats)'
+        type: string
+        default: 'psalm'
+      php-versions:
+        description: 'JSON array of PHP versions PHPUnit runs against'
+        type: string
+        default: '["8.4"]'
+      php-version-bleeding-edge:
+        description: 'PHP version treated as bleeding edge by PHPUnit. Leave empty for none.'
+        type: string
+        default: ''
+      phpunit-extensions:
+        description: >
+          PHP extensions to install for PHPUnit, which usually needs more than the analysis tools
+          (drivers, xdebug). Leave empty to reuse `extensions`.
+        type: string
+        default: ''
+      coverage-php-version:
+        description: 'PHP version PHPUnit measures coverage on'
+        type: string
+        default: '8.4'
+      post-pr-comment:
+        description: 'Whether to post a PR comment on failure (and delete it on success)'
+        type: boolean
+        default: true
+
+jobs:
+  phparkitect:
+    name: PHPArkitect
+    uses: ./.github/workflows/_php-ci-tool.yml
+    with:
+      tool: 'phparkitect'
+      php-version: ${{ inputs.php-version }}
+      extensions: ${{ inputs.extensions }}
+      composer-options: ${{ inputs.composer-options }}
+      additional-directory: ${{ inputs.additional-directory }}
+      source-paths: ${{ inputs.source-paths }}
+      post-pr-comment: ${{ inputs.post-pr-comment }}
+    secrets: inherit
+
+  phpcodesniffer:
+    name: PHP Code Sniffer
+    uses: ./.github/workflows/_php-ci-tool.yml
+    with:
+      tool: 'phpcodesniffer'
+      php-version: ${{ inputs.php-version }}
+      extensions: ${{ inputs.extensions }}
+      composer-options: ${{ inputs.composer-options }}
+      additional-directory: ${{ inputs.additional-directory }}
+      source-paths: ${{ inputs.source-paths }}
+      post-pr-comment: ${{ inputs.post-pr-comment }}
+    secrets: inherit
+
+  phpcsfixer:
+    name: PHP CS Fixer
+    uses: ./.github/workflows/_php-ci-tool.yml
+    with:
+      tool: 'phpcsfixer'
+      php-version: ${{ inputs.php-version }}
+      extensions: ${{ inputs.extensions }}
+      composer-options: ${{ inputs.composer-options }}
+      additional-directory: ${{ inputs.additional-directory }}
+      source-paths: ${{ inputs.source-paths }}
+      post-pr-comment: ${{ inputs.post-pr-comment }}
+    secrets: inherit
+
+  phpstan:
+    name: PHPStan
+    uses: ./.github/workflows/_php-ci-tool.yml
+    with:
+      tool: 'phpstan'
+      php-version: ${{ inputs.php-version }}
+      extensions: ${{ inputs.extensions }}
+      composer-options: ${{ inputs.composer-options }}
+      additional-directory: ${{ inputs.additional-directory }}
+      source-paths: ${{ inputs.source-paths }}
+      post-pr-comment: ${{ inputs.post-pr-comment }}
+    secrets: inherit
+
+  psalm:
+    name: Psalm
+    uses: ./.github/workflows/_php-ci-tool.yml
+    with:
+      tool: 'psalm'
+      php-version: ${{ inputs.php-version }}
+      extensions: ${{ inputs.extensions }}
+      composer-options: ${{ inputs.composer-options }}
+      additional-directory: ${{ inputs.additional-directory }}
+      run-script: ${{ inputs.psalm-run-script }}
+      source-paths: ${{ inputs.source-paths }}
+      post-pr-comment: ${{ inputs.post-pr-comment }}
+    secrets: inherit
+
+  rector:
+    name: Rector
+    uses: ./.github/workflows/_php-ci-tool.yml
+    with:
+      tool: 'rector'
+      php-version: ${{ inputs.php-version }}
+      extensions: ${{ inputs.extensions }}
+      composer-options: ${{ inputs.composer-options }}
+      additional-directory: ${{ inputs.additional-directory }}
+      source-paths: ${{ inputs.source-paths }}
+      post-pr-comment: ${{ inputs.post-pr-comment }}
+    secrets: inherit
+
+  phpunit:
+    name: PHPUnit
+    uses: ./.github/workflows/_php-phpunit.yml
+    with:
+      php-versions: ${{ inputs.php-versions }}
+      php-version-bleeding-edge: ${{ inputs.php-version-bleeding-edge }}
+      extensions: ${{ inputs.phpunit-extensions != '' && inputs.phpunit-extensions || inputs.extensions }}
+      composer-options: ${{ inputs.composer-options }}
+      additional-directory: ${{ inputs.additional-directory }}
+      coverage-php-version: ${{ inputs.coverage-php-version }}
+      source-paths: ${{ inputs.source-paths }}
+      post-pr-comment: ${{ inputs.post-pr-comment }}
+    secrets: inherit
