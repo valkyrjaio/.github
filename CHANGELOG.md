@@ -1,6 +1,30 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.12.2...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.13.0...26.x)
+
+## [v26.13.0](https://github.com/valkyrjaio/.github/compare/v26.12.2...v26.13.0) - 2026-07-29
+
+* [GitHub] Update .github workflow refs to v26.12.2 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/154
+* [GitHub] Add an upload-coverage input to the reusable Java JUnit workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/155
+* [GitHub] Add a consolidated reusable PHP CI tool workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/157
+* [Process] docs: Adopt conventional commit roots and types across the contributor docs by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/163
+* [GitHub] Keep the workflow-ref sweep going when a repository cannot be read by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/159
+* [GitHub] Trigger the Java analysis jobs on test-tree changes in the template by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/160
+* [GitHub] Put the language token first in two reusable workflow titles by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/161
+* [GitHub] Remove the superseded aggregate-release and php-release workflows by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/162
+* [Java] feat: Add a consolidated reusable CI tool workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/164
+* [TypeScript] feat: Add a consolidated reusable CI tool workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/165
+* [Python] feat: Add a consolidated reusable CI tool workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/166
+* [Workflow] ci: Emit the locked conventional commit forms from every automated job by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/167
+* [Go] feat: Add a consolidated reusable CI tool workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/168
+* [Workflow] ci: Rerun checks when a pull request is edited or retargeted by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/170
+* [Workflow] ci: Require a conventional type in the commit message check by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/169
+* [Workflow] feat: Resolve the release bump from conventional commit types by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/173
+* [Workflow] ci: Run the full suite on pull request edits by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/172
+* [Workflow] fix: Gate release candidates on the supported versions by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/174
+* [Workflow] ci: Migrate the required-workflow templates to the consolidated CI tools by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/171
+* [Workflow] ci: Remove the superseded per-tool reusable workflows by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/178
+* [PhpUnit] feat: Add the PHPUnit reusable workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/179
 
 ## [v26.12.2](https://github.com/valkyrjaio/.github/compare/v26.12.1...v26.12.2) - 2026-07-28
 
