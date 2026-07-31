@@ -40,7 +40,7 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 | `MAVEN_SIGNING_KEY`          | In-memory PGP signing key for Java release artifacts                    |
 | `MAVEN_SIGNING_KEY_PASSWORD` | Passphrase for the PGP signing key                                      |
 | `PYPI_API_TOKEN`             | PyPI API token for Python releases (`uv publish`)                       |
-| `ANTHROPIC_API_KEY`          | Anthropic API key used by the Claude pull-request review workflow       |
+| `CLAUDE_CODE_OAUTH_TOKEN`    | Claude Code OAuth token used by the pull-request review workflow        |
 
 All reusable workflows receive secrets via `secrets: inherit` from their
 callers. `VALKYRJA_GHA_APP_ID` and `VALKYRJA_GHA_PRIVATE_KEY` must also be
@@ -48,7 +48,7 @@ registered as **Dependabot secrets** in org settings so Dependabot PRs can
 access them.
 
 The `MAVEN_*` and `PYPI_API_TOKEN` secrets are consumed only by the Java and
-Python publish workflows respectively, and `ANTHROPIC_API_KEY` only by
+Python publish workflows respectively, and `CLAUDE_CODE_OAUTH_TOKEN` only by
 `_claude-review.yml`. TypeScript/npm releases use npm
 [trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC), so no npm
 token secret is required.
@@ -339,7 +339,8 @@ Behavior:
   per-language guide, not just the repo's own thin `AGENTS.md`. The
   `architecture-ref` input selects the ref (default `master`).
 - Uses a sticky comment, so re-runs update one comment instead of accumulating.
-- Reads `ANTHROPIC_API_KEY` (org secret).
+- Authenticates to Claude with `CLAUDE_CODE_OAUTH_TOKEN` (org secret), billing
+  the Claude subscription rather than API credits.
 
 The `prompt` input overrides the review instructions wholesale; the default asks
 for an independent, defect-hunting review against the guides, inline and
@@ -355,8 +356,8 @@ among the required status checks that gate merges.
 Two constraints are worth knowing before wiring it up:
 
 - **Fork pull requests are skipped.** A `pull_request` event from a fork gets no
-  access to secrets, so neither the app token nor the API key is available. The
-  caller's `if:` guard skips those runs rather than failing them.
+  access to secrets, so neither the app token nor the Claude token is available.
+  The caller's `if:` guard skips those runs rather than failing them.
 - **Bot-authored pull requests are skipped** unless the action's `allowed_bots`
   input names them, so Dependabot PRs are not reviewed by default.
 
