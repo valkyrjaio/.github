@@ -168,6 +168,15 @@ jobs:
 
             echo "Syncing $NAME pyproject.toml lower bounds to uv.lock..."
             uv run --no-project python /tmp/sync_pyproject.py "$DIR" >> /tmp/dependency_changes.txt
+
+            # uv.lock records the manifest's constraint in [package.metadata]
+            # requires-dist, so rewriting pyproject.toml above leaves that line
+            # describing the pre-update constraint. Re-lock to bring it back in
+            # step. Without this the outdated check — which fails when
+            # `uv lock --upgrade` produces any diff — reports the dependency as
+            # outdated forever, because every update run recreates the mismatch.
+            echo "Re-locking $NAME so uv.lock records the new constraint..."
+            ( cd "$DIR" && uv lock --quiet )
           done
 
       - name: Check for changes
