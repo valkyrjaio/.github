@@ -109,6 +109,29 @@ If the compare API returns fewer commits than it reports in total, `auto` rounds
 **up** to `feature`. Under-bumping would ship a `feat` as a patch, which is worse
 than the reverse.
 
+### Scheduled auto releases
+
+`auto-release-supported-versions.yml` runs daily and dispatches each repo's own
+`release-new-version.yml` with `bump: auto` on every `??.x` branch whose major matches
+`SUPPORTED_VERSIONS`. Supports `dry_run` and a single-`repo` target on manual
+dispatch.
+
+It **never dispatches to `master`.** The sibling cross-repo sweeps fall back to
+`master` when a repo has no version branch; this one skips the repo instead, because a
+release must never be cut from `master` — that is where the next year is prepared, and
+`rc` is the only release type that comes from there. Keeping `master` out of reach here
+is what makes the RC path unreachable from automation by construction rather than by a
+conditional.
+
+A dispatched run still decides for itself whether to release: `auto` exits without
+releasing when nothing is pending, so quiet branches cost a workflow run and produce
+nothing.
+
+Two mechanical constraints shape it: scheduled workflows only run from the default
+branch (the current-year `??.x` for these repos, not `master`), and a
+`workflow_dispatch` triggered with `GITHUB_TOKEN` does not create a run — so the sweep
+authenticates as the GitHub App.
+
 ### Stable release flow (`auto` / `patch` / `feature` / `yearly`)
 
 1. `_get-version-for-release` — validates branch is a `??.x` version branch,

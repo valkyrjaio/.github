@@ -1,0 +1,140 @@
+name: Z Reusable Auto Release Supported Versions
+
+on:
+  workflow_call:
+    inputs:
+      dry_run:
+        description: 'Preview only — list dispatches without triggering any'
+        type: boolean
+        default: false
+      repo:
+        description: 'Single repository name to target (leave empty for all repos)'
+        type: string
+        default: ''
+
+jobs:
+  auto-release:
+    name: Auto Release Supported Versions
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Dispatch auto releases across supported version branches
+        env:
+          # A workflow_dispatch triggered with GITHUB_TOKEN does not create a run, so
+          # this has to authenticate as the app.
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          ORG: ${{ github.repository_owner }}
+          SUPPORTED_VERSIONS: ${{ vars.SUPPORTED_VERSIONS }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          SINGLE_REPO: ${{ inputs.repo }}
+        run: |
+          if [ -z "$SUPPORTED_VERSIONS" ]; then
+            echo "SUPPORTED_VERSIONS is not set. Refusing to sweep without a version filter."
+            exit 1
+          fi
+
+          if [ -n "$SINGLE_REPO" ]; then
+            REPOS="$SINGLE_REPO"
+          else
+            REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
+              --jq '.[] | select(.isArchived == false) | .name')
+          fi
+
+          DISPATCHED=0
+          SKIPPED_NO_WORKFLOW=0
+          SKIPPED_NO_BRANCH=0
+          FAILED=0
+
+          while IFS= read -r REPO_NAME; do
+            [ -z "$REPO_NAME" ] && continue
+
+            WORKFLOW_EXISTS=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows/release-new-version.yml" \
+              --jq '.name' 2>/dev/null || true)
+
+            if [ -z "$WORKFLOW_EXISTS" ]; then
+              SKIPPED_NO_WORKFLOW=$((SKIPPED_NO_WORKFLOW + 1))
+              continue
+            fi
+
+            echo "$ORG/$REPO_NAME:"
+
+            ALL_BRANCHES=$(gh api "repos/$ORG/$REPO_NAME/branches" --paginate \
+              --jq '.[].name' 2>/dev/null || true)
+
+            RELEASE_BRANCHES=""
+            while IFS= read -r b; do
+              if [[ "$b" =~ ^([0-9]+)\.x$ ]]; then
+                MAJOR="${BASH_REMATCH[1]}"
+                if [[ "$MAJOR" =~ $SUPPORTED_VERSIONS ]]; then
+                  RELEASE_BRANCHES="$RELEASE_BRANCHES"$'\n'"$b"
+                fi
+              fi
+            done <<< "$ALL_BRANCHES"
+
+            # Deliberately no fallback to master. The sibling sweeps fall back to it
+            # when a repo has no version branch, but a release must never be cut from
+            # master: master is where the next year is prepared, and `rc` is the only
+            # release type that comes from there. Keeping master out of reach here is
+            # what makes the RC path unreachable from automation by construction
+            # rather than by a conditional someone could get wrong.
+            if [ -z "$(printf '%s' "$RELEASE_BRANCHES" | tr -d '[:space:]')" ]; then
+              echo "  No supported version branch, skipping."
+              SKIPPED_NO_BRANCH=$((SKIPPED_NO_BRANCH + 1))
+              continue
+            fi
+
+            while IFS= read -r BRANCH; do
+              [ -z "$BRANCH" ] && continue
+
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "  [dry run] would dispatch bump=auto on $BRANCH"
+                DISPATCHED=$((DISPATCHED + 1))
+                continue
+              fi
+
+              TRIGGER_ERR=$(gh workflow run release-new-version.yml \
+                --repo "$ORG/$REPO_NAME" \
+                --ref "$BRANCH" \
+                -f bump=auto 2>&1 >/dev/null || true)
+
+              if [ -n "$TRIGGER_ERR" ]; then
+                echo "  Failed to dispatch on $BRANCH: $TRIGGER_ERR"
+                FAILED=$((FAILED + 1))
+              else
+                echo "  Dispatched bump=auto on $BRANCH."
+                DISPATCHED=$((DISPATCHED + 1))
+              fi
+            done <<< "$RELEASE_BRANCHES"
+          done <<< "$REPOS"
+
+          {
+            echo "### Auto release sweep"
+            echo
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "Dry run — nothing was dispatched."
+              echo
+            fi
+            echo "| Result | Count |"
+            echo "|--------|-------|"
+            echo "| Dispatched | $DISPATCHED |"
+            echo "| Skipped (no release workflow) | $SKIPPED_NO_WORKFLOW |"
+            echo "| Skipped (no supported version branch) | $SKIPPED_NO_BRANCH |"
+            echo "| Failed to dispatch | $FAILED |"
+            echo
+            echo "A dispatched run releases only if commits are pending — see"
+            echo "\`_get-version-for-release.yml\`. Quiet branches produce nothing."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$FAILED" -gt 0 ]; then
+            echo "$FAILED dispatch(es) failed."
+            exit 1
+          fi

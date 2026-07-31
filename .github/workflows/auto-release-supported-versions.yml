@@ -1,0 +1,27 @@
+name: Auto Release Supported Versions
+
+on:
+  schedule:
+    # Daily. Merged work should ship the same day rather than waiting for someone to
+    # remember; branches with nothing pending produce no release.
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview only — list dispatches without triggering any'
+        type: boolean
+        default: false
+      repo:
+        description: 'Single repository name to target (leave empty for all repos)'
+        type: string
+        default: ''
+
+run-name: "Auto release across supported version branches"
+
+jobs:
+  auto-release:
+    uses: ./.github/workflows/_auto-release-supported-versions.yml
+    with:
+      dry_run: ${{ inputs.dry_run || false }}
+      repo: ${{ inputs.repo || '' }}
+    secrets: inherit
