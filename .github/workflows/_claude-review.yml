@@ -20,10 +20,15 @@ on:
              architecture checkout.
 
           Pay particular attention to the Definition of done: every code branch
-          tested, 100% line and branch coverage per file for every file added or
-          touched, the `[Component]` commit and PR title format, trailing
-          newlines, American English, and the structure taxonomy (name suffix,
-          segment, and modifier must all agree).
+          tested, and 100% line and branch coverage per file for every file that
+          the change adds or touches. Also check trailing newlines, American
+          English, the documentation style, and the structure taxonomy (name
+          suffix, segment, and modifier must all agree).
+
+          Read the commit and pull request title rules from
+          `COMMIT_CONVENTION.md` in the architecture checkout. Do not apply a
+          format from memory: the convention changed, and the retired
+          `[Component] Description.` format is no longer correct.
 
           Comment inline on concrete, actionable problems only. Do not restate
           what the diff does, do not praise, and do not raise style points the
@@ -74,6 +79,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           bot_id: '249390750'
           bot_name: 'valkyrja-volundr[bot]'
+          track_progress: true
           use_sticky_comment: true
           claude_args: '--add-dir ${{ runner.temp }}/architecture'
           prompt: |
