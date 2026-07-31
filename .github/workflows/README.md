@@ -327,6 +327,17 @@ jobs:
 `_claude-review.yml` runs [`anthropics/claude-code-action`](https://github.com/anthropics/claude-code-action)
 against a pull request and posts its findings as review comments.
 
+The workflow runs only for a pull request that meets both conditions:
+
+- The author is the user named by the `VALKYRJA_REVIEWER` org variable.
+- The head branch is in the repository, not in a fork.
+
+The author condition bounds the cost. A review runs on every push to a pull
+request, so an open trigger spends Claude usage on each contributor and on each
+automated pull request. Dependabot and every other bot fail the author condition,
+because a bot login never matches the variable. Widen the condition later if you
+want reviews for other authors.
+
 Behavior:
 
 - Mints a short-lived token from the `VALKYRJA_GHA_APP_ID` /
@@ -353,13 +364,13 @@ into the repo's `.github/workflows/`. It is a standalone entry point rather than
 a `ci.yml` job: a review that comments is not a pass/fail gate and should not sit
 among the required status checks that gate merges.
 
-Two constraints are worth knowing before wiring it up:
+Both conditions are in the reusable workflow, not in the caller. Every caller
+gets them, and a repo cannot spend Claude usage by accident when it wires the
+reusable workflow by hand.
 
-- **Fork pull requests are skipped.** A `pull_request` event from a fork gets no
-  access to secrets, so neither the app token nor the Claude token is available.
-  The caller's `if:` guard skips those runs rather than failing them.
-- **Bot-authored pull requests are skipped** unless the action's `allowed_bots`
-  input names them, so Dependabot PRs are not reviewed by default.
+Warning: a fork pull request cannot run this workflow. GitHub gives no secret to
+a workflow that a fork triggers, so the app token and the Claude token are both
+absent. The fork condition skips that run. It does not fail the run.
 
 ---
 
