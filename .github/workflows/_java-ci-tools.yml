@@ -32,7 +32,6 @@ jobs:
     with:
       tool: 'spotless'
       java-version: ${{ inputs.java-version }}
-      copy-example-sources: ${{ inputs.copy-example-sources }}
       source-paths: ${{ inputs.source-paths }}
     secrets: inherit
 
