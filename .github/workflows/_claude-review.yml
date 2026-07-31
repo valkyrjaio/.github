@@ -25,6 +25,12 @@ on:
           English, the documentation style, and the structure taxonomy (name
           suffix, segment, and modifier must all agree).
 
+          Warning: you cannot run the test suite, the coverage report, or any
+          other CI tool. You can only read the source. So never state a coverage
+          number and never assert that a file is or is not covered. Instead name
+          the specific branch you believe no test reaches, say which test would
+          reach it, and mark the finding as unverified.
+
           Read the commit and pull request title rules from
           `COMMIT_CONVENTION.md` in the architecture checkout. Do not apply a
           format from memory: the convention changed, and the retired
@@ -34,6 +40,11 @@ on:
           what the diff does, do not praise, and do not raise style points the
           repository's own tooling already enforces. If you find nothing worth
           changing, say so in one line.
+
+          You run again on each push. So read the comments already on the pull
+          request first. Do not post a finding that you or another reviewer
+          already made, and do not repeat a finding that the author answered or
+          fixed.
       architecture-ref:
         description: 'Ref of the architecture repository to read the guides from'
         type: string
@@ -81,7 +92,9 @@ jobs:
           bot_name: 'valkyrja-volundr[bot]'
           track_progress: true
           use_sticky_comment: true
-          claude_args: '--add-dir ${{ runner.temp }}/architecture'
+          claude_args: |
+            --add-dir ${{ runner.temp }}/architecture
+            --allowedTools "Read,Grep,Glob,LS,Bash(git diff*),Bash(git log*),mcp__github_inline_comment__create_inline_comment,mcp__github_comment__update_claude_comment,Bash(gh pr diff*),Bash(gh pr view*),Bash(gh api --method GET repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments*)"
           prompt: |
             ${{ inputs.prompt }}
 

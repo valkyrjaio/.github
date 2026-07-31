@@ -427,6 +427,16 @@ Behavior:
   per-language guide, not just the repo's own thin `AGENTS.md`. The
   `architecture-ref` input selects the ref (default `master`).
 - Uses a sticky comment, so re-runs update one comment instead of accumulating.
+- Restricts the reviewer to read-only tools with `--allowedTools`. The reviewer
+  reads files, greps, runs `git diff` / `git log` / `gh pr diff` / `gh pr view`,
+  reads the pull request's existing comments, and writes its findings as inline
+  comments and the sticky comment. It cannot commit, push, or delete: naming the
+  tools replaces the action's defaults, which include `git add`, `git commit`,
+  `git rm`, and push.
+- Cannot run the test suite, the coverage report, or any other CI tool. The
+  prompt tells the reviewer to name a branch it believes no test reaches and to
+  mark the finding unverified, rather than state a coverage number it cannot
+  measure.
 - Authenticates to Claude with `CLAUDE_CODE_OAUTH_TOKEN` (org secret), billing
   the Claude subscription rather than API credits.
 
