@@ -1,0 +1,77 @@
+name: Z Reusable Java CI Tools
+
+on:
+  workflow_call:
+    inputs:
+      source-paths:
+        description: >
+          The repository's own source globs, one per line and unquoted. Each tool's filter
+          spec is derived from these plus its own CI directory, so the repository declares
+          its sources once for the whole suite.
+        type: string
+        required: true
+      java-version:
+        description: 'Java version to use'
+        type: string
+        default: '21'
+      copy-example-sources:
+        description: >
+          Copy *.example.java templates to their .java target (when missing) before building
+        type: boolean
+        default: false
+      upload-coverage:
+        description: >
+          Whether JUnit uploads its coverage report
+        type: boolean
+        default: true
+
+jobs:
+  spotless:
+    name: Spotless
+    uses: ./.github/workflows/_java-ci-tool.yml
+    with:
+      tool: 'spotless'
+      java-version: ${{ inputs.java-version }}
+      source-paths: ${{ inputs.source-paths }}
+    secrets: inherit
+
+  archunit:
+    name: ArchUnit
+    uses: ./.github/workflows/_java-ci-tool.yml
+    with:
+      tool: 'archunit'
+      java-version: ${{ inputs.java-version }}
+      copy-example-sources: ${{ inputs.copy-example-sources }}
+      source-paths: ${{ inputs.source-paths }}
+    secrets: inherit
+
+  errorprone:
+    name: ErrorProne
+    uses: ./.github/workflows/_java-ci-tool.yml
+    with:
+      tool: 'errorprone'
+      java-version: ${{ inputs.java-version }}
+      copy-example-sources: ${{ inputs.copy-example-sources }}
+      source-paths: ${{ inputs.source-paths }}
+    secrets: inherit
+
+  spotbugs:
+    name: SpotBugs
+    uses: ./.github/workflows/_java-ci-tool.yml
+    with:
+      tool: 'spotbugs'
+      java-version: ${{ inputs.java-version }}
+      copy-example-sources: ${{ inputs.copy-example-sources }}
+      source-paths: ${{ inputs.source-paths }}
+    secrets: inherit
+
+  junit:
+    name: JUnit
+    uses: ./.github/workflows/_java-junit.yml
+    with:
+      java-version: ${{ inputs.java-version }}
+      ci-directory: '.github/ci/junit'
+      copy-example-sources: ${{ inputs.copy-example-sources }}
+      upload-coverage: ${{ inputs.upload-coverage }}
+      source-paths: ${{ inputs.source-paths }}
+    secrets: inherit
