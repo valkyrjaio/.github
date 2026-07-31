@@ -110,6 +110,10 @@ jobs:
           sys.stdout.write(result)
           PYEOF
 
+          # The .github repo excludes itself on purpose. Its own callers use local
+          # `./` refs, so a synced template pinned to a release SHA would be wrong
+          # here: it would run the released workflow instead of the branch under
+          # test. This repo therefore adds its own copies by hand.
           REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
             --jq '.[] | select(.isArchived == false and .name != ".github") | .name')
 
