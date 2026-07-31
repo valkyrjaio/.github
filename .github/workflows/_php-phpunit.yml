@@ -35,6 +35,13 @@ on:
         description: 'PHP version that runs with coverage (all others run plain phpunit)'
         type: string
         default: '8.4'
+      source-paths:
+        description: >
+          The repository's own source globs, one per line and unquoted — for example
+          `src/**/*.php`. The filter spec is derived from these plus the CI directory, so a caller
+          declares its sources once. Ignored when `paths` is given.
+        type: string
+        default: ''
       paths:
         description: >
           YAML filter spec for dorny/paths-filter.
@@ -42,7 +49,7 @@ on:
           trigger the check). The "ci" key controls whether the base-branch CI directory is
           fetched; "files" controls whether the expensive steps run at all.
         type: string
-        required: true
+        default: ''
 
 jobs:
   phpunit:
@@ -62,6 +69,16 @@ jobs:
       contents: read
 
     steps:
+      - name: Validate inputs
+        env:
+          PATHS: ${{ inputs.paths }}
+          SOURCE_PATHS: ${{ inputs.source-paths }}
+        run: |
+          if [ -z "$PATHS" ] && [ -z "$SOURCE_PATHS" ]; then
+            echo 'One of `paths` or `source-paths` is required.'
+            exit 1
+          fi
+
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
@@ -73,11 +90,47 @@ jobs:
           app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
           private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
+      - name: Derive the path filters
+        id: filters
+        if: inputs.paths == ''
+        env:
+          CI_DIR: ${{ inputs.ci-directory }}
+          ADDITIONAL_DIR: ${{ inputs.additional-directory }}
+          SOURCE_PATHS: ${{ inputs.source-paths }}
+        run: |
+          # Both keys share the CI config that decides this tool's behavior; `files` adds the
+          # repository's own sources on top. `ci` controls whether the base-branch CI directory is
+          # restored, `files` whether the expensive steps run at all.
+          CONFIG=$(
+            printf "  - '%s/**'\n" "$CI_DIR"
+            if [ -n "$ADDITIONAL_DIR" ]; then
+              printf "  - '%s/**'\n" "$ADDITIONAL_DIR"
+            fi
+            printf "  - '.github/workflows/ci.yml'\n"
+          )
+
+          {
+            echo 'spec<<PATH_FILTERS_EOF'
+            echo 'ci:'
+            printf '%s\n' "$CONFIG"
+            echo 'files:'
+            printf '%s\n' "$CONFIG"
+            printf '%s\n' "$SOURCE_PATHS" | while IFS= read -r glob; do
+              glob=$(printf '%s' "$glob" | tr -d "\"' " )
+              # `&& printf` would make an empty line the last command and, under `bash -e`,
+              # fail the step. `source-paths` is a block scalar so it always ends in one.
+              if [ -n "$glob" ]; then
+                printf "  - '%s'\n" "$glob"
+              fi
+            done
+            echo 'PATH_FILTERS_EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Determine if workflow should run based on files changed
         id: changes
         uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
         with:
-          filters: ${{ inputs.paths }}
+          filters: ${{ inputs.paths != '' && inputs.paths || steps.filters.outputs.spec }}
 
       - name: Get latest CI code from target
         if: steps.changes.outputs.ci != 'true' && github.base_ref
