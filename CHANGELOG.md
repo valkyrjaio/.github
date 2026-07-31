@@ -1,6 +1,13 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.16.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.17.0...26.x)
+
+## [v26.17.0](https://github.com/valkyrjaio/.github/compare/v26.16.0...v26.17.0) - 2026-07-31
+
+* [Workflow] ci: Update .github workflow refs to v26.16.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/198
+* [Workflow] feat: Add the Claude review workflow to this repo by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/200
+* [Workflow] docs: Explain why the ensure job excludes the .github repo by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/199
+* [Workflow] ci: Skip the Claude review for draft pull requests by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/201
 
 ## [v26.16.0](https://github.com/valkyrjaio/.github/compare/v26.15.0...v26.16.0) - 2026-07-31
 
