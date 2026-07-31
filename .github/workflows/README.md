@@ -404,10 +404,16 @@ jobs:
 `_claude-review.yml` runs [`anthropics/claude-code-action`](https://github.com/anthropics/claude-code-action)
 against a pull request and posts its findings as review comments.
 
-The workflow runs only for a pull request that meets both conditions:
+The workflow runs only for a pull request that meets all three conditions:
 
 - The author is the user named by the `VALKYRJA_REVIEWER` org variable.
 - The head branch is in the repository, not in a fork.
+- The pull request is not a draft.
+
+A draft is the author's own statement that the work is not done. A review of it
+reports what the author already knows, and `synchronize` charges for that report
+on every push. `ready_for_review` is in the trigger list, so the review happens
+when the author marks the work ready. Draft iteration costs nothing.
 
 The author condition bounds the cost. A review runs on every push to a pull
 request, so an open trigger spends Claude usage on each contributor and on each
@@ -443,9 +449,10 @@ has the file is left alone. It is a standalone entry point rather than a `ci.yml
 job: a review that comments is not a pass/fail gate and should not sit among the
 required status checks that gate merges.
 
-Both conditions are in the reusable workflow, not in the caller. Every caller
-gets them, and a repo cannot spend Claude usage by accident when it wires the
-reusable workflow by hand.
+All three conditions are in the reusable workflow, not in the caller. Every
+caller gets them, and a repo cannot spend Claude usage by accident when it wires
+the reusable workflow by hand. A change to the conditions also reaches every
+repo through the ref repin, so no caller needs an edit.
 
 Warning: a fork pull request cannot run this workflow. GitHub gives no secret to
 a workflow that a fork triggers, so the app token and the Claude token are both
