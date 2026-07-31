@@ -1,6 +1,15 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.14.1...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.15.0...26.x)
+
+## [v26.15.0](https://github.com/valkyrjaio/.github/compare/v26.14.1...v26.15.0) - 2026-07-31
+
+* [Workflow] ci: Update .github workflow refs to v26.14.1 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/192
+* [Workflow] feat: Add a daily sweep that auto releases supported version branches by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/175
+* [Workflow] fix: Keep the major dependency gate effective for yearly releases by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/193
+* [Workflow] fix: Separate the Python major dependency check from the in-range check by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/194
+* [Workflow] feat: Add a reusable Claude pull-request review workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/156
+* [Workflow] fix: Separate the Java major dependency check from the in-range check by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/195
 
 ## [v26.14.1](https://github.com/valkyrjaio/.github/compare/v26.14.0...v26.14.1) - 2026-07-31
 
