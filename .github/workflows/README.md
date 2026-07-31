@@ -17,6 +17,7 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 - [Rulesets](#rulesets)
 - [Commit Message Rules](#commit-message-rules)
 - [Trailing Newline Check](#trailing-newline-check)
+- [Claude Review](#claude-review)
 - [Dependabot](#dependabot)
 - [Dependency Updates](#dependency-updates)
 - [Branch Utilities](#branch-utilities)
@@ -39,6 +40,7 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 | `MAVEN_SIGNING_KEY`          | In-memory PGP signing key for Java release artifacts                    |
 | `MAVEN_SIGNING_KEY_PASSWORD` | Passphrase for the PGP signing key                                      |
 | `PYPI_API_TOKEN`             | PyPI API token for Python releases (`uv publish`)                       |
+| `CLAUDE_CODE_OAUTH_TOKEN`    | Claude Code OAuth token used by the pull-request review workflow        |
 
 All reusable workflows receive secrets via `secrets: inherit` from their
 callers. `VALKYRJA_GHA_APP_ID` and `VALKYRJA_GHA_PRIVATE_KEY` must also be
@@ -46,9 +48,10 @@ registered as **Dependabot secrets** in org settings so Dependabot PRs can
 access them.
 
 The `MAVEN_*` and `PYPI_API_TOKEN` secrets are consumed only by the Java and
-Python publish workflows respectively. TypeScript/npm releases use npm
-[trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC), so no
-npm token secret is required.
+Python publish workflows respectively, and `CLAUDE_CODE_OAUTH_TOKEN` only by
+`_claude-review.yml`. TypeScript/npm releases use npm
+[trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC), so no npm
+token secret is required.
 
 ### Variables (org-level)
 
@@ -396,6 +399,58 @@ jobs:
 
 ---
 
+## Claude Review
+
+`_claude-review.yml` runs [`anthropics/claude-code-action`](https://github.com/anthropics/claude-code-action)
+against a pull request and posts its findings as review comments.
+
+The workflow runs only for a pull request that meets both conditions:
+
+- The author is the user named by the `VALKYRJA_REVIEWER` org variable.
+- The head branch is in the repository, not in a fork.
+
+The author condition bounds the cost. A review runs on every push to a pull
+request, so an open trigger spends Claude usage on each contributor and on each
+automated pull request. Dependabot and every other bot fail the author condition,
+because a bot login never matches the variable. Widen the condition later if you
+want reviews for other authors.
+
+Behavior:
+
+- Mints a short-lived token from the `VALKYRJA_GHA_APP_ID` /
+  `VALKYRJA_GHA_PRIVATE_KEY` app and passes it as the action's `github_token`,
+  so every comment is authored by `valkyrja-volundr[bot]` rather than a personal
+  account — the same identity split reviews follow everywhere else.
+- Shallow-clones [`valkyrjaio/architecture`](https://github.com/valkyrjaio/architecture)
+  into the runner temp directory and grants read access to it via `--add-dir`,
+  so the review is judged against the cross-language canonical guide and the
+  per-language guide, not just the repo's own thin `AGENTS.md`. The
+  `architecture-ref` input selects the ref (default `master`).
+- Uses a sticky comment, so re-runs update one comment instead of accumulating.
+- Authenticates to Claude with `CLAUDE_CODE_OAUTH_TOKEN` (org secret), billing
+  the Claude subscription rather than API credits.
+
+The `prompt` input overrides the review instructions wholesale; the default asks
+for an independent, defect-hunting review against the guides, inline and
+concrete, with no praise or restatement of the diff.
+
+### Adding to a consumer repo
+
+Copy [`required-workflows/claude-review.yml`](../../required-workflows/claude-review.yml)
+into the repo's `.github/workflows/`. It is a standalone entry point rather than
+a `ci.yml` job: a review that comments is not a pass/fail gate and should not sit
+among the required status checks that gate merges.
+
+Both conditions are in the reusable workflow, not in the caller. Every caller
+gets them, and a repo cannot spend Claude usage by accident when it wires the
+reusable workflow by hand.
+
+Warning: a fork pull request cannot run this workflow. GitHub gives no secret to
+a workflow that a fork triggers, so the app token and the Claude token are both
+absent. The fork condition skips that run. It does not fail the run.
+
+---
+
 ## Dependabot
 
 Dependabot PRs require access to `VALKYRJA_GHA_APP_ID` and
@@ -556,6 +611,12 @@ reusable workflows (leading `_`) are `workflow_call` only.
 | `_ts-vitest.yml`              | TypeScript tests (Vitest)                        |
 | `_go-golangci-lint.yml`       | Go lint (golangci-lint)                          |
 | `_go-test.yml`                | Go tests (`go test`)                             |
+
+### Code review (reusable)
+
+| File                 | Description                                                  |
+|----------------------|--------------------------------------------------------------|
+| `_claude-review.yml` | Claude pull-request review, posted as `valkyrja-volundr[bot]` |
 
 ### Dependency management (reusable)
 
