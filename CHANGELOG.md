@@ -1,6 +1,16 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.13.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.14.0...26.x)
+
+## [v26.14.0](https://github.com/valkyrjaio/.github/compare/v26.13.0...v26.14.0) - 2026-07-31
+
+* [Workflow] ci: Update .github workflow refs to v26.13.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/181
+* [Workflow] ci: Prefix the required tool checks with the Tools job by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/186
+* [PHP] feat: Add the aggregate PHP CI reusable workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/180
+* [Java] feat: Add the aggregate Java CI reusable workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/182
+* [TypeScript] feat: Add the aggregate TypeScript CI reusable workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/183
+* [Python] feat: Add the aggregate Python CI reusable workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/184
+* [Go] feat: Add the aggregate Go CI reusable workflow by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/185
 
 ## [v26.13.0](https://github.com/valkyrjaio/.github/compare/v26.12.2...v26.13.0) - 2026-07-29
 
