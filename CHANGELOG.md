@@ -1,6 +1,12 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.15.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.16.0...26.x)
+
+## [v26.16.0](https://github.com/valkyrjaio/.github/compare/v26.15.0...v26.16.0) - 2026-07-31
+
+* [Workflow] ci: Update .github workflow refs to v26.15.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/196
+* [Workflow] fix: Run the Claude review in tag mode so it posts its findings by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/197
+* [Workflow] feat: Add claude-review.yml to the required workflows by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/158
 
 ## [v26.15.0](https://github.com/valkyrjaio/.github/compare/v26.14.1...v26.15.0) - 2026-07-31
 
