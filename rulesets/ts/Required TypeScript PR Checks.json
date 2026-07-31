@@ -22,19 +22,19 @@
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           {
-            "context": "ESLint / ESLint",
+            "context": "Tools / ESLint / ESLint",
             "integration_id": 15368
           },
           {
-            "context": "TypeScript / TypeScript",
+            "context": "Tools / TypeScript / TypeScript",
             "integration_id": 15368
           },
           {
-            "context": "Vitest / Vitest",
+            "context": "Tools / Vitest / Vitest",
             "integration_id": 15368
           },
           {
-            "context": "Prettier / Prettier",
+            "context": "Tools / Prettier / Prettier",
             "integration_id": 15368
           }
         ]

@@ -19,11 +19,11 @@
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           {
-            "context": "golangci-lint / golangci-lint",
+            "context": "Tools / golangci-lint / golangci-lint",
             "integration_id": 15368
           },
           {
-            "context": "Test / Test",
+            "context": "Tools / Test / Test",
             "integration_id": 15368
           }
         ]

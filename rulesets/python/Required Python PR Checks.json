@@ -21,23 +21,23 @@
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           {
-            "context": "Ruff / Ruff",
+            "context": "Tools / Ruff / Ruff",
             "integration_id": 15368
           },
           {
-            "context": "mypy / mypy",
+            "context": "Tools / mypy / mypy",
             "integration_id": 15368
           },
           {
-            "context": "import-linter / import-linter",
+            "context": "Tools / import-linter / import-linter",
             "integration_id": 15368
           },
           {
-            "context": "Bandit / Bandit",
+            "context": "Tools / Bandit / Bandit",
             "integration_id": 15368
           },
           {
-            "context": "pytest / pytest",
+            "context": "Tools / pytest / pytest",
             "integration_id": 15368
           }
         ]
