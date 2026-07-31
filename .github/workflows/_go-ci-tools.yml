@@ -1,0 +1,28 @@
+name: Z Reusable Go CI Tools
+
+on:
+  workflow_call:
+    inputs:
+      source-paths:
+        description: >
+          The repository's own source globs, one per line and unquoted. Each tool's filter
+          spec is derived from these plus its own CI directory, so the repository declares
+          its sources once for the whole suite.
+        type: string
+        required: true
+
+jobs:
+  golangci-lint:
+    name: golangci-lint
+    uses: ./.github/workflows/_go-ci-tool.yml
+    with:
+      tool: 'golangci-lint'
+      source-paths: ${{ inputs.source-paths }}
+    secrets: inherit
+
+  test:
+    name: Test
+    uses: ./.github/workflows/_go-test.yml
+    with:
+      source-paths: ${{ inputs.source-paths }}
+    secrets: inherit
