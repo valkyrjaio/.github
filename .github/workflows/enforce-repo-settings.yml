@@ -10,7 +10,10 @@ on:
         type: string
         default: ''
 
-run-name: Enforce repository settings across ${{ github.repository_owner }}
+run-name: >-
+  ${{ inputs.repo
+   && format('Enforce repository settings on {0}', inputs.repo)
+   || format('Enforce repository settings across {0}', github.repository_owner) }}
 
 jobs:
   enforce:

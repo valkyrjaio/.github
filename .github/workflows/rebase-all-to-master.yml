@@ -12,8 +12,10 @@ on:
         type: string
         default: ''
 
-run-name: "Rebase all masters to latest version branch"
-
+run-name: >-
+  ${{ inputs.repo
+   && format('Rebase {0} master to latest version branch', inputs.repo)
+   || 'Rebase all masters to latest version branch' }}
 jobs:
   rebase-all:
     uses: ./.github/workflows/_rebase-all-to-master.yml
