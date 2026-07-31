@@ -1,6 +1,14 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.14.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.14.1...26.x)
+
+## [v26.14.1](https://github.com/valkyrjaio/.github/compare/v26.14.0...v26.14.1) - 2026-07-31
+
+* [Workflow] ci: Update .github workflow refs to v26.14.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/187
+* [Workflow] fix: Name a single-repository dispatch after that repository by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/188
+* [PhpUnit] fix: Add the missing separator to the extensions list by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/189
+* [Workflow] fix: Re-lock Python dependencies after rewriting the manifest constraints by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/190
+* [Workflow] fix: Gate the PHP outdated check on whether an update is installable by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/191
 
 ## [v26.14.0](https://github.com/valkyrjaio/.github/compare/v26.13.0...v26.14.0) - 2026-07-31
 
