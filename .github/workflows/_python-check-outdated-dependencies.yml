@@ -17,11 +17,12 @@ on:
         required: true
       major-release:
         description: >
-          When false (default, used for releases), the lock is upgraded within the
-          declared version constraints. When true (used for major version branch
-          creation), the same check applies. Valkyrja uses lower-bound-only
-          constraints, so `uv lock --upgrade` resolves to the latest available in
-          both cases; the flag only changes the failure message.
+          When false (default, used for releases), only in-range upgrades are
+          required — a newer major outside the declared constraints does not block a
+          release. When true (used for major version branch creation), dependencies
+          must also be at their latest major. Requires bounded specifiers
+          (">=1.2,<2") to distinguish the two; an unbounded ">=1.2" makes every
+          release demand the latest major.
         type: boolean
         default: false
 
@@ -51,20 +52,72 @@ jobs:
           MAJOR_RELEASE: ${{ inputs.major-release }}
           NAME: ${{ matrix.dependency.name }}
         run: |
+          # In-range check. `uv lock --upgrade` resolves within the declared
+          # constraints, so with bounded specifiers this proposes only what a release
+          # is allowed to take.
           uv lock --upgrade --quiet
 
-          if git diff --quiet -- uv.lock; then
-            echo "All $NAME dependencies are up to date."
+          if ! git diff --quiet -- uv.lock; then
+            echo "::group::Outdated $NAME dependencies"
+            git --no-pager diff -- uv.lock || true
+            echo "::endgroup::"
+            echo "Python dependencies must be updated before releasing."
+            exit 1
+          fi
+
+          if [ "$MAJOR_RELEASE" != "true" ]; then
+            echo "All $NAME dependencies are up to date within their declared constraints."
             exit 0
           fi
 
-          echo "::group::Outdated $NAME dependencies"
-          git --no-pager diff -- uv.lock || true
-          echo "::endgroup::"
+          # Major check. A newer major sits outside the declared upper bound, so
+          # `uv lock --upgrade` can never propose one — deciding this with the same
+          # command would report clean forever and the year-boundary gate would never
+          # gate anything. Re-resolve a copy with the upper bounds removed and compare
+          # resolved versions, which is the equivalent of npm's `wanted` vs `latest`.
+          PROBE=$(mktemp -d)
+          cp pyproject.toml uv.lock "$PROBE/"
 
-          if [ "$MAJOR_RELEASE" = "true" ]; then
-            echo "Python dependencies (including major versions) must be updated before creating a major version branch."
-          else
-            echo "Python dependencies must be updated before releasing."
+          python3 - "$PROBE/pyproject.toml" <<'PY'
+          import re, sys
+
+          path = sys.argv[1]
+          source = open(path).read()
+          # Drop any upper bound (",<2" / ", <= 2.1") from a dependency specifier,
+          # leaving the floor and any environment marker untouched.
+          open(path, "w").write(re.sub(r",\s*<=?\s*[0-9][^,;\"'\]\s]*", "", source))
+          PY
+
+          ( cd "$PROBE" && uv lock --upgrade --quiet )
+
+          python3 - uv.lock "$PROBE/uv.lock" <<'PY'
+          import sys, tomllib
+
+          def resolved(path):
+              with open(path, "rb") as handle:
+                  return {
+                      package["name"]: package.get("version", "")
+                      for package in tomllib.load(handle).get("package", [])
+                  }
+
+          current, unbounded = resolved(sys.argv[1]), resolved(sys.argv[2])
+          moved = sorted(
+              (name, current[name], unbounded[name])
+              for name in current
+              if name in unbounded and current[name] != unbounded[name]
+          )
+
+          for name, was, now in moved:
+              print(f"  {name}: {was} -> {now}")
+
+          sys.exit(1 if moved else 0)
+          PY
+          status=$?
+
+          if [ "$status" -eq 0 ]; then
+            echo "All $NAME dependencies are at their latest, including majors."
+            exit 0
           fi
+
+          echo "Python dependencies (including major versions) must be updated before creating a major version branch."
           exit 1
