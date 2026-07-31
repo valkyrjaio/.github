@@ -49,7 +49,7 @@ jobs:
       php-version: '8.4'
       php-versions: '["8.4", "8.5", "8.6"]'
       php-version-bleeding-edge: '8.6'
-      phpunit-extensions: 'mbstring, intl, sodium, fileinfo, pdo, php-mysql, php-sqlite3, php-pgsql, pdo_sqlite, pdo_pgsql, pdo_mysql xdebug'
+      phpunit-extensions: 'mbstring, intl, sodium, fileinfo, pdo, php-mysql, php-sqlite3, php-pgsql, pdo_sqlite, pdo_pgsql, pdo_mysql, xdebug'
       psalm-run-script: 'psalm-shepherd-with-stats'
       source-paths: |
         src/**/*.php
