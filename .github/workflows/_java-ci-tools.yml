@@ -71,6 +71,7 @@ jobs:
     uses: ./.github/workflows/_java-junit.yml
     with:
       java-version: ${{ inputs.java-version }}
+      ci-directory: '.github/ci/junit'
       copy-example-sources: ${{ inputs.copy-example-sources }}
       upload-coverage: ${{ inputs.upload-coverage }}
       source-paths: ${{ inputs.source-paths }}

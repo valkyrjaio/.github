@@ -134,7 +134,11 @@ jobs:
             printf '%s\n' "$CONFIG"
             printf '%s\n' "$SOURCE_PATHS" | while IFS= read -r glob; do
               glob=$(printf '%s' "$glob" | tr -d "\"' " )
-              [ -n "$glob" ] && printf "  - '%s'\n" "$glob"
+              # `&& printf` would make an empty line the last command and, under `bash -e`,
+              # fail the step. `source-paths` is a block scalar so it always ends in one.
+              if [ -n "$glob" ]; then
+                printf "  - '%s'\n" "$glob"
+              fi
             done
             echo 'PATH_FILTERS_EOF'
           } >> "$GITHUB_OUTPUT"
