@@ -19,23 +19,23 @@
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           {
-            "context": "Spotless / Spotless",
+            "context": "Tools / Spotless / Spotless",
             "integration_id": 15368
           },
           {
-            "context": "ArchUnit / ArchUnit",
+            "context": "Tools / ArchUnit / ArchUnit",
             "integration_id": 15368
           },
           {
-            "context": "ErrorProne / ErrorProne",
+            "context": "Tools / ErrorProne / ErrorProne",
             "integration_id": 15368
           },
           {
-            "context": "SpotBugs / SpotBugs",
+            "context": "Tools / SpotBugs / SpotBugs",
             "integration_id": 15368
           },
           {
-            "context": "JUnit / JUnit",
+            "context": "Tools / JUnit / JUnit",
             "integration_id": 15368
           }
         ]

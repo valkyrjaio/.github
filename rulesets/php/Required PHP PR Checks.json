@@ -22,39 +22,39 @@
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           {
-            "context": "PHP CS Fixer / PHP 8.4",
+            "context": "Tools / PHP CS Fixer / PHP 8.4",
             "integration_id": 15368
           },
           {
-            "context": "PHP Code Sniffer / PHP 8.4",
+            "context": "Tools / PHP Code Sniffer / PHP 8.4",
             "integration_id": 15368
           },
           {
-            "context": "PHPArkitect / PHP 8.4",
+            "context": "Tools / PHPArkitect / PHP 8.4",
             "integration_id": 15368
           },
           {
-            "context": "PHPStan / PHP 8.4",
+            "context": "Tools / PHPStan / PHP 8.4",
             "integration_id": 15368
           },
           {
-            "context": "PHPUnit / PHP 8.4",
+            "context": "Tools / PHPUnit / PHP 8.4",
             "integration_id": 15368
           },
           {
-            "context": "Psalm / PHP 8.4",
+            "context": "Tools / Psalm / PHP 8.4",
             "integration_id": 15368
           },
           {
-            "context": "Rector / PHP 8.4",
+            "context": "Tools / Rector / PHP 8.4",
             "integration_id": 15368
           },
           {
-            "context": "PHPUnit / PHP 8.5",
+            "context": "Tools / PHPUnit / PHP 8.5",
             "integration_id": 15368
           },
           {
-            "context": "PHPUnit / PHP 8.6",
+            "context": "Tools / PHPUnit / PHP 8.6",
             "integration_id": 15368
           }
         ]
