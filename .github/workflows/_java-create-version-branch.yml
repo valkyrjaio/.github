@@ -22,6 +22,7 @@ jobs:
     with:
       java-version: ${{ inputs.java-version }}
       dependencies: ${{ inputs.dependencies }}
+      major-release: true
 
   create-version-branch:
     needs: check-outdated-dependencies

@@ -14,6 +14,14 @@ on:
           Example: [{"name":"JUnit","directory":".github/ci/junit"}]
         type: string
         required: true
+      major-release:
+        description: >
+          When false (default, used for releases), only upgrades within the current
+          major block. A newer major is reported but does not fail, because taking one
+          is a year-boundary decision. When true (used for major version branch
+          creation), any outstanding upgrade fails.
+        type: boolean
+        default: false
 
 jobs:
   check-outdated-java-dependencies:
@@ -41,6 +49,9 @@ jobs:
 
       - name: Check ${{ matrix.dependency.name }} for outdated dependencies
         working-directory: ${{ matrix.dependency.directory }}
+        env:
+          MAJOR_RELEASE: ${{ inputs.major-release }}
+          NAME: ${{ matrix.dependency.name }}
         run: |
           # --refresh-dependencies is required: Gradle caches resolved dynamic versions for 24
           # hours by default, and the versions plugin does not override that. Without it a release
@@ -48,9 +59,58 @@ jobs:
           # dependencies are in fact outdated.
           output=$(gradle dependencyUpdates --refresh-dependencies 2>&1)
           echo "$output"
-          if echo "$output" | grep -q "The following dependencies have later release versions"; then
-            echo ""
-            echo "Outdated dependencies found in ${{ matrix.dependency.name }}! Update all dependencies before releasing."
-            exit 1
+
+          if ! echo "$output" | grep -q "The following dependencies have later release versions"; then
+            echo "All $NAME dependencies are up to date."
+            exit 0
           fi
-          echo "All ${{ matrix.dependency.name }} dependencies are up to date."
+
+          # Dependencies are pinned exactly, so every newer release shows up here —
+          # including majors, which policy reserves for the year boundary. Split the
+          # report so an ordinary release is not blocked on a major upgrade it is not
+          # allowed to take.
+          printf '%s\n' "$output" > /tmp/dependency-updates.txt
+
+          python3 - "$MAJOR_RELEASE" "$NAME" /tmp/dependency-updates.txt <<'PY'
+          import re, sys
+
+          major_release = sys.argv[1] == "true"
+          name = sys.argv[2]
+          report = open(sys.argv[3]).read()
+
+          # " - group:artifact [1.2.3 -> 1.3.0]"
+          entry = re.compile(r"^\s*-\s+(\S+?):(\S+?)\s+\[(\S+)\s*->\s*([^\]]+)\]", re.M)
+
+          def major(version):
+              head = re.match(r"\d+", version)
+              return int(head.group()) if head else None
+
+          within, across = [], []
+          for group, artifact, current, latest in entry.findall(report):
+              current_major, latest_major = major(current), major(latest.strip())
+              line = f"  {group}:{artifact} [{current} -> {latest.strip()}]"
+              if current_major is not None and latest_major is not None and latest_major > current_major:
+                  across.append(line)
+              else:
+                  within.append(line)
+
+          if across:
+              print(f"Major upgrades available for {name}:")
+              print("\n".join(across))
+
+          if within:
+              print(f"Upgrades within the current major for {name}:")
+              print("\n".join(within))
+
+          if major_release:
+              if within or across:
+                  print(f"All {name} dependencies must be at their latest, including majors, before creating a major version branch.")
+                  sys.exit(1)
+          elif within:
+              print(f"{name} dependencies must be updated before releasing.")
+              sys.exit(1)
+          elif across:
+              print(f"::notice title={name}::Major upgrades are available but are reserved for the next version line; they do not block this release.")
+
+          sys.exit(0)
+          PY
