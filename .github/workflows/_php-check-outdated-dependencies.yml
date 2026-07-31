@@ -39,14 +39,35 @@ jobs:
       - name: Check ${{ matrix.dependency.name }} for outdated direct dependencies
         env:
           COMPOSER_COMMAND: ${{ matrix.dependency.command }}
+          NAME: ${{ matrix.dependency.name }}
         run: |
-          output=$(eval "composer ${COMPOSER_COMMAND}" 2>&1)
-          if [[ "$output" == *"All your direct dependencies are up to date"* ]]; then
-            echo "$output"
-            echo "Proceeding..."
+          # `composer outdated` reports what exists on Packagist, not what this
+          # dependency graph can actually resolve to. When a sibling package pins a
+          # shared transitive dependency, the newer version is reported forever and no
+          # update run can ever clear it — a permanently red gate for something nobody
+          # can fix here. So the resolver decides: can it improve on the lock at all?
+          #
+          # The directory is embedded in the composer script ("cd <dir> && composer …"),
+          # so read it from there rather than changing every caller's inputs.
+          DIR=$(jq -r --arg c "${COMPOSER_COMMAND%% *}" '.scripts[$c] // "" | if type == "array" then .[0] else . end' composer.json \
+            | sed -nE 's|^cd ([^ ]+) &&.*|\1|p')
+          DIR=${DIR:-.}
+
+          echo "Checking whether $NAME can resolve to anything newer (in ${DIR})..."
+          resolution=$(cd "$DIR" && composer update --dry-run --no-interaction 2>&1) || true
+
+          if echo "$resolution" | grep -q "Nothing to modify in lock file"; then
+            echo "All $NAME dependencies are at their best resolvable versions. Proceeding..."
             exit 0
           fi
 
-          echo "Composer dependencies must be updated before releasing."
-          echo "$output"
+          echo "::group::What the resolver would change"
+          echo "$resolution"
+          echo "::endgroup::"
+
+          # Only now pay for the install that `composer outdated` needs — it names the
+          # packages and the versions to move to, which is what makes the failure
+          # actionable.
+          echo "Composer dependencies must be updated before releasing:"
+          eval "composer ${COMPOSER_COMMAND}" 2>&1 || true
           exit 1
