@@ -31,7 +31,7 @@ jobs:
     uses: ./.github/workflows/_auto-merge-bot-prs.yml
     with:
       bot-login: 'app/valkyrja-volundr'
-      types: 'Dependency'
+      types: 'Dependency,Workflow'
       # This repository is the source every other repository pins, so a merge
       # here reaches all of them at once. It keeps a human in the loop.
       exclude-repos: '.github'
