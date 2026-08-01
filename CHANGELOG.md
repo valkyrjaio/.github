@@ -1,6 +1,20 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.17.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.18.0...26.x)
+
+## [v26.18.0](https://github.com/valkyrjaio/.github/compare/v26.17.0...v26.18.0) - 2026-07-31
+
+* [Workflow] ci: Update .github workflow refs to v26.17.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/203
+* [Workflow] ci: Remove the base branch filter from the Claude review trigger by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/204
+* [Workflow] feat: Gate the Claude review on a label the reviewer applies by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/205
+* [Workflow] ci: Restrict the reviewer to read-only tools and allow inline comments by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/202
+* [Workflow] fix: Keep the authorize job within the permissions a caller grants by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/206
+* [Workflow] feat: Ensure org labels exist through the enforce settings job by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/207
+* [Workflow] fix: Trigger the review on actions the action supports by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/208
+* [Workflow] refactor: Split the pull request checks out of CI by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/209
+* [Workflow] ci: Review a draft when the label asks for it by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/210
+* [Workflow] refactor: Split the pull request checks out of CI by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/211
+* [Workflow] refactor: Rename the version branch workflow from major to yearly by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/212
 
 ## [v26.17.0](https://github.com/valkyrjaio/.github/compare/v26.16.0...v26.17.0) - 2026-07-31
 
