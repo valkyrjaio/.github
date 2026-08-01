@@ -20,6 +20,7 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 - [Claude Review](#claude-review)
 - [Dependabot](#dependabot)
 - [Dependency Updates](#dependency-updates)
+- [Auto Merging Bot Pull Requests](#auto-merging-bot-pull-requests)
 - [Branch Utilities](#branch-utilities)
 - [Cron Behavior](#cron-behavior)
 - [Language Templates](#language-templates)
@@ -601,6 +602,75 @@ in the `command` string:
 
 ---
 
+## Auto Merging Bot Pull Requests
+
+### `auto-merge-bot-prs.yml`
+
+Trigger: cron (hourly at `:30`) + `workflow_dispatch`.
+
+Sweeps every non-archived repo and merges the bot's own pull requests once they
+qualify. Hourly rather than daily because the release sweep at 14:00 fails a
+repo outright when a dependency bump is still sitting open — the window between
+green and merged is what that failure is made of.
+
+A pull request merges only when **all** of the following hold:
+
+| Gate           | Requirement                                                             |
+|----------------|-------------------------------------------------------------------------|
+| Author         | Matches the `bot-login` input exactly, and is a bot                     |
+| Title root     | Listed in the `types` input (`Dependency`, `Workflow`)                  |
+| Base branch    | A `??.x` branch matching `SUPPORTED_VERSIONS` — never `master`          |
+| Head branch    | Begins with `deps/`                                                     |
+| Changed files  | Every path falls inside that type's allowlist                           |
+| Status checks  | Every context the branch's ruleset requires has concluded `SUCCESS`     |
+| Draft          | Not a draft                                                             |
+
+Anything else is left open for a human.
+
+### Path allowlists
+
+The generators commit with `git add -A` after running a package manager, so
+nothing upstream bounds which files land in the pull request — whatever the tool
+rewrote is what gets committed. The allowlist is the only thing that bounds it,
+which is why it is a list of permitted shapes rather than a list of forbidden
+ones: a path nobody anticipated blocks the merge instead of riding along with
+it, and the sweep fails so someone looks.
+
+| Type         | Permitted paths                                                                                            |
+|--------------|--------------------------------------------------------------------------------------------------------------|
+| `Workflow`   | `.github/workflows/*.yml`, `required-workflows/**/*.yml`                                                    |
+| `Dependency` | Any depth: `composer.json`/`.lock`, `package.json`/`package-lock.json`, `build.gradle.kts`, `pyproject.toml`, `uv.lock`, `go.mod`, `go.sum` |
+
+### Why checks are re-verified here
+
+The app holds `bypass_mode: always` on the required-status-check rulesets, so
+GitHub will not hold a merge open on its behalf — the ruleset that gates a human
+does not gate this sweep. The check gate is therefore applied in the workflow
+itself, against the contexts the branch's own ruleset names (read from
+`repos/{owner}/{repo}/rules/branches/{branch}`) rather than a list kept here.
+Reading the ruleset also keeps advisory checks out of it: SonarCloud, Coveralls,
+and Scrutinizer report on these repos without being required, and SonarCloud is
+persistently red on Java by way of `java:S110`, so requiring every reported
+check to be green would mean nothing ever merged.
+
+### `.github` is excluded
+
+Passed explicitly as `exclude-repos`. This repository is the source every other
+repository pins, so a merge here reaches all of them at once — and a bot pull
+request against it can rewrite the release workflows that PR CI never exercises.
+It keeps a human in the loop.
+
+### Enabling a type, and previewing
+
+`types` and `bot-login` are required inputs with no defaults. A default on
+either would decide org-wide, and silently, whose pull requests merge without
+review. To add a type, list it in the caller.
+
+Dispatch with `dry_run: true` to see what the sweep would merge without merging
+anything, optionally narrowed to one repo with `repo`.
+
+---
+
 ## Branch Utilities
 
 ### `cherry-pick-commits.yml`
@@ -671,6 +741,7 @@ reusable workflows (leading `_`) are `workflow_call` only.
 | `fix-trailing-newlines.yml`          | cron (Mon 11:00) + dispatch           | Add missing trailing newlines across all repos via PRs                  |
 | `update-github-workflow-refs.yml`    | release + cron (Mon 10:00) + dispatch | Pin workflow refs to latest `.github` release SHA                       |
 | `update-php-dependencies.yml`        | `workflow_dispatch`                   | Fan out PHP dependency updates across all PHP repos                     |
+| `auto-merge-bot-prs.yml`             | cron (hourly :30) + dispatch          | Merge qualifying bot pull requests across all repos                     |
 | `cherry-pick-commits.yml`            | `workflow_dispatch`                   | Cherry-pick a commit to a target branch                                 |
 | `rebase-to-master.yml`               | `workflow_dispatch`                   | Rebase `master` onto the current (latest major) version branch          |
 | `rebase-from-master.yml`             | `workflow_dispatch`                   | Rebase the current branch onto `master`                                 |
@@ -742,6 +813,7 @@ reusable workflows (leading `_`) are `workflow_call` only.
 | `_ensure-reusable-workflow-names.yml` | Verify reusable workflow `name:`/filename conventions           |
 | `_fix-trailing-newlines.yml`          | Add missing trailing newlines across repos (opens PRs)          |
 | `_update-workflow-refs.yml`           | Update workflow SHA pins across all repos (`source-repo` input) |
+| `_auto-merge-bot-prs.yml`             | Merge bot pull requests that clear the allowlist and check gate |
 
 ### Branch utilities (reusable)
 
