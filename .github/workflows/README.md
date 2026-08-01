@@ -663,7 +663,7 @@ reusable workflows (leading `_`) are `workflow_call` only.
 |--------------------------------------|---------------------------------------|-------------------------------------------------------------------------|
 | `ci.yml`                             | `push` / `pull_request`               | Umbrella CI. On PRs runs the commit-message and trailing-newline checks |
 | `release-new-version.yml`            | `workflow_dispatch`                   | Create a new release (patch/minor/major/rc), then repin workflow refs   |
-| `create-version-branch.yml`          | `workflow_dispatch`                   | Create a new major release version branch from `master`                 |
+| `create-version-branch.yml`          | `workflow_dispatch`                   | Create a new yearly release version branch from `master`                |
 | `create-repo.yml`                    | `workflow_dispatch`                   | Create and configure a new org repository                               |
 | `enforce-repo-settings.yml`          | cron (Mon 09:00) + dispatch           | Enforce settings and rulesets across all repos                          |
 | `ensure-workflows.yml`               | cron (Mon 12:00) + dispatch           | Ensure required workflow files exist across all repos                   |
