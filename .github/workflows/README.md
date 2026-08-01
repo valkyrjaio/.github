@@ -421,6 +421,12 @@ automated pull request. Dependabot and every other bot fail the author condition
 because a bot login never matches the variable. Widen the condition later if you
 want reviews for other authors.
 
+The trigger sets no `branches:` filter. That filter matches the **base** branch,
+so `[ 'master', '*.x' ]` excluded every pull request that targets another feature
+branch — that is, every stacked pull request, which is the kind that most wants a
+review. The job conditions already bound who and what gets reviewed, so a
+base-branch filter adds nothing here.
+
 Behavior:
 
 - Mints a short-lived token from the `VALKYRJA_GHA_APP_ID` /
