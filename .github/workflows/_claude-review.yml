@@ -40,13 +40,54 @@ on:
         default: 'master'
 
 jobs:
+  authorize:
+    name: Authorize Review
+
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'claude-review') &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft == false
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: read
+      pull-requests: read
+
+    outputs:
+      requested: ${{ steps.check-requester.outputs.requested }}
+
+    steps:
+      - name: Check who asked for the review
+        id: check-requester
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEWER: ${{ vars.VALKYRJA_REVIEWER }}
+        run: |
+          # The label says a review was asked for. This says who asked. The
+          # review spends the reviewer's own Claude subscription, so only that
+          # person may start it — on any author's pull request. Take the most
+          # recent actor to apply the label: if someone else re-applies it after
+          # the reviewer removes it, that later actor is the one who asked.
+          REQUESTER=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/timeline" --paginate \
+            --jq '[.[] | select(.event == "labeled" and .label.name == "claude-review") | .actor.login] | last // ""')
+
+          if [ "$REQUESTER" = "$REVIEWER" ]; then
+            echo "requested=true" >> "$GITHUB_OUTPUT"
+            echo "Review requested by $REQUESTER."
+          else
+            echo "requested=false" >> "$GITHUB_OUTPUT"
+            echo "Label applied by '${REQUESTER:-unknown}', not '$REVIEWER'. Skipping."
+          fi
+
   claude-review:
     name: Claude Review
 
-    if: >-
-      github.event.pull_request.user.login == vars.VALKYRJA_REVIEWER &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.draft == false
+    needs: authorize
+
+    if: needs.authorize.outputs.requested == 'true'
 
     runs-on: ubuntu-latest
 
