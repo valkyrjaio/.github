@@ -282,12 +282,42 @@ Behavior (via `_enforce-repo-settings.yml`):
     - No wikis, no projects.
     - Vulnerability alerts + automated security fixes enabled.
     - Immutable releases enabled.
+- Applies **every label** from `labels/*.json` to every repo.
+- Applies **language labels** from `labels/<lang>/*.json` (`php`, `java`,
+  `python`, `ts`, `go`) to repos of that language.
 - Applies **all rulesets** from `rulesets/*.json` to every repo.
 - Applies **language rulesets** from `rulesets/<lang>/*.json` (`php`, `java`,
   `python`, `ts`, `go`) to repos whose name suffix matches a
   `SUPPORTED_LANGUAGES` entry.
 - Compares each ruleset's normalized JSON against the live ruleset before
   updating — no-ops if already in sync.
+
+### Adding a new label
+
+Append an object to a file in [`labels/`](../../labels) with a `name`, a `color`
+(six hex digits, no `#`), and a `description`. Each file holds an array, so you can
+add a label to an existing file or add a file of your own. The enforce cron picks it
+up on the next run — no workflow change is needed.
+
+```json
+[
+  {
+    "name": "claude-review",
+    "color": "5319e7",
+    "description": "Ask Claude to review this pull request"
+  }
+]
+```
+
+A label in `labels/` goes to every repo. A label in `labels/<lang>/` goes only to
+repos of that language, matched the same way language rulesets are — so
+`labels/php/*.json` reaches the PHP repos and nothing else.
+
+The job creates a label that is missing and corrects a color or description that
+has drifted. **It never deletes a label.** A label that `labels/` does not name is
+left alone, because a repository may carry labels of its own and deleting one
+would strip it from every issue and pull request already using it. To retire a
+label, remove it from `labels/` and delete it per repo by hand.
 
 ### Adding a new ruleset
 
