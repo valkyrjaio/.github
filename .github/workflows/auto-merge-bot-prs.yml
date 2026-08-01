@@ -1,0 +1,40 @@
+name: Auto Merge Bot Pull Requests
+
+on:
+  # Hourly rather than daily. The dependency sweep opens its pull requests
+  # mid-morning and the release sweep runs at 14:00 expecting dependencies to
+  # already be current — a bump still sitting open at that hour fails the
+  # release outright, so the gap between green and merged has to stay small.
+  schedule:
+    - cron: '30 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview only — report what would merge without merging any'
+        type: boolean
+        default: false
+      repo:
+        description: 'Single repository name to target (leave empty for all repos)'
+        type: string
+        default: ''
+
+run-name: "Auto merge bot pull requests"
+
+# Two overlapping sweeps would race for the same pull requests and one would
+# lose the merge to the other.
+concurrency:
+  group: auto-merge-bot-prs
+  cancel-in-progress: false
+
+jobs:
+  auto-merge:
+    uses: ./.github/workflows/_auto-merge-bot-prs.yml
+    with:
+      bot-login: 'app/valkyrja-volundr'
+      types: 'Dependency'
+      # This repository is the source every other repository pins, so a merge
+      # here reaches all of them at once. It keeps a human in the loop.
+      exclude-repos: '.github'
+      dry_run: ${{ inputs.dry_run || false }}
+      repo: ${{ inputs.repo || '' }}
+    secrets: inherit
