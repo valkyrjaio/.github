@@ -18,6 +18,8 @@ run-name: >-
 jobs:
   enforce:
     uses: ./.github/workflows/_enforce-repo-settings.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
     with:
       repo: ${{ inputs.repo || '' }}

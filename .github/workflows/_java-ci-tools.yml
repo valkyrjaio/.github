@@ -24,6 +24,13 @@ on:
           Whether JUnit uploads its coverage report
         type: boolean
         default: true
+    secrets:
+      VALKYRJA_GHA_APP_ID:
+        description: 'App ID of the GitHub App that mints the token this workflow uses'
+        required: true
+      VALKYRJA_GHA_PRIVATE_KEY:
+        description: 'Private key of the GitHub App that mints the token this workflow uses'
+        required: true
 
 jobs:
   spotless:
@@ -33,7 +40,9 @@ jobs:
       tool: 'spotless'
       java-version: ${{ inputs.java-version }}
       source-paths: ${{ inputs.source-paths }}
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
   archunit:
     name: ArchUnit
@@ -43,7 +52,9 @@ jobs:
       java-version: ${{ inputs.java-version }}
       copy-example-sources: ${{ inputs.copy-example-sources }}
       source-paths: ${{ inputs.source-paths }}
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
   errorprone:
     name: ErrorProne
@@ -53,7 +64,9 @@ jobs:
       java-version: ${{ inputs.java-version }}
       copy-example-sources: ${{ inputs.copy-example-sources }}
       source-paths: ${{ inputs.source-paths }}
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
   spotbugs:
     name: SpotBugs
@@ -63,7 +76,9 @@ jobs:
       java-version: ${{ inputs.java-version }}
       copy-example-sources: ${{ inputs.copy-example-sources }}
       source-paths: ${{ inputs.source-paths }}
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
   junit:
     name: JUnit
@@ -74,4 +89,6 @@ jobs:
       copy-example-sources: ${{ inputs.copy-example-sources }}
       upload-coverage: ${{ inputs.upload-coverage }}
       source-paths: ${{ inputs.source-paths }}
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}

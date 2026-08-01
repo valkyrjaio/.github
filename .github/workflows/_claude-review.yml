@@ -49,6 +49,16 @@ on:
         description: 'Ref of the architecture repository to read the guides from'
         type: string
         default: 'master'
+    secrets:
+      VALKYRJA_GHA_APP_ID:
+        description: 'App ID of the GitHub App that mints the token this workflow uses'
+        required: true
+      VALKYRJA_GHA_PRIVATE_KEY:
+        description: 'Private key of the GitHub App that mints the token this workflow uses'
+        required: true
+      CLAUDE_CODE_OAUTH_TOKEN:
+        description: 'OAuth token that authenticates the Claude review action'
+        required: true
 
 jobs:
   authorize:

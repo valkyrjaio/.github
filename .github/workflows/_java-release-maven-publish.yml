@@ -7,6 +7,19 @@ on:
         description: 'Java version to use'
         type: string
         default: '21'
+    secrets:
+      MAVEN_CENTRAL_USERNAME:
+        description: 'Maven Central user token name'
+        required: true
+      MAVEN_CENTRAL_PASSWORD:
+        description: 'Maven Central user token password'
+        required: true
+      MAVEN_SIGNING_KEY:
+        description: 'In-memory PGP key that signs the published artifacts'
+        required: true
+      MAVEN_SIGNING_KEY_PASSWORD:
+        description: 'Password of the PGP signing key'
+        required: true
 
 jobs:
   maven-publish:

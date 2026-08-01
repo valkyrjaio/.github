@@ -52,6 +52,13 @@ on:
         description: 'Whether to post a PR comment on failure (and delete it on success)'
         type: boolean
         default: true
+    secrets:
+      VALKYRJA_GHA_APP_ID:
+        description: 'App ID of the GitHub App that mints the token this workflow uses'
+        required: true
+      VALKYRJA_GHA_PRIVATE_KEY:
+        description: 'Private key of the GitHub App that mints the token this workflow uses'
+        required: true
 
 jobs:
   phparkitect:
@@ -65,7 +72,9 @@ jobs:
       additional-directory: ${{ inputs.additional-directory }}
       source-paths: ${{ inputs.source-paths }}
       post-pr-comment: ${{ inputs.post-pr-comment }}
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
   phpcodesniffer:
     name: PHP Code Sniffer
@@ -78,7 +87,9 @@ jobs:
       additional-directory: ${{ inputs.additional-directory }}
       source-paths: ${{ inputs.source-paths }}
       post-pr-comment: ${{ inputs.post-pr-comment }}
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
   phpcsfixer:
     name: PHP CS Fixer
@@ -91,7 +102,9 @@ jobs:
       additional-directory: ${{ inputs.additional-directory }}
       source-paths: ${{ inputs.source-paths }}
       post-pr-comment: ${{ inputs.post-pr-comment }}
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
   phpstan:
     name: PHPStan
@@ -104,7 +117,9 @@ jobs:
       additional-directory: ${{ inputs.additional-directory }}
       source-paths: ${{ inputs.source-paths }}
       post-pr-comment: ${{ inputs.post-pr-comment }}
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
   psalm:
     name: Psalm
@@ -118,7 +133,9 @@ jobs:
       run-script: ${{ inputs.psalm-run-script }}
       source-paths: ${{ inputs.source-paths }}
       post-pr-comment: ${{ inputs.post-pr-comment }}
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
   rector:
     name: Rector
@@ -131,7 +148,9 @@ jobs:
       additional-directory: ${{ inputs.additional-directory }}
       source-paths: ${{ inputs.source-paths }}
       post-pr-comment: ${{ inputs.post-pr-comment }}
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
   phpunit:
     name: PHPUnit
@@ -145,4 +164,6 @@ jobs:
       coverage-php-version: ${{ inputs.coverage-php-version }}
       source-paths: ${{ inputs.source-paths }}
       post-pr-comment: ${{ inputs.post-pr-comment }}
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}

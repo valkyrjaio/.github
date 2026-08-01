@@ -26,11 +26,20 @@ on:
         description: 'Simple file name for display (e.g. TemplateInfo). Leave empty to skip the info file update.'
         type: string
         default: ''
+    secrets:
+      VALKYRJA_GHA_APP_ID:
+        description: 'App ID of the GitHub App that mints the token this workflow uses'
+        required: true
+      VALKYRJA_GHA_PRIVATE_KEY:
+        description: 'Private key of the GitHub App that mints the token this workflow uses'
+        required: true
 
 jobs:
   check-version:
     uses: ./.github/workflows/_get-version-for-release.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
     with:
       bump: ${{ inputs.bump }}
 
@@ -38,7 +47,6 @@ jobs:
     needs: check-version
     if: needs.check-version.outputs.should-release == 'true'
     uses: ./.github/workflows/_python-check-outdated-dependencies.yml
-    secrets: inherit
     with:
       python-version: ${{ inputs.python-version }}
       dependencies: ${{ inputs.dependencies }}
@@ -47,7 +55,9 @@ jobs:
     needs: [check-outdated-dependencies, check-version]
     if: needs.check-version.outputs.should-release == 'true'
     uses: ./.github/workflows/_update-version-files.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
     with:
       version: ${{ needs.check-version.outputs.version }}
 
@@ -55,7 +65,9 @@ jobs:
     needs: [update-version-files, check-version]
     if: needs.check-version.outputs.should-release == 'true'
     uses: ./.github/workflows/_python-update-pyproject.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
     with:
       version: ${{ needs.check-version.outputs.version }}
 
@@ -63,7 +75,9 @@ jobs:
     needs: [update-python-pyproject, check-version]
     if: needs.check-version.outputs.should-release == 'true' && inputs.info-file-path != ''
     uses: ./.github/workflows/_python-update-info-files.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
     with:
       version: ${{ needs.check-version.outputs.version }}
       build-date: ${{ needs.check-version.outputs.build-date }}
@@ -74,6 +88,8 @@ jobs:
     needs: [update-version-files, update-python-pyproject, update-python-info-files, check-version]
     if: ${{ needs.check-version.outputs.should-release == 'true' && always() && needs.check-version.result == 'success' && needs.update-version-files.result == 'success' && needs.update-python-pyproject.result == 'success' && needs.update-python-info-files.result != 'failure' }}
     uses: ./.github/workflows/_release.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
     with:
       version: ${{ needs.check-version.outputs.version }}

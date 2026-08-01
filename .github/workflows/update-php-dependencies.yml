@@ -8,4 +8,6 @@ run-name: Update PHP dependencies across all PHP repos
 jobs:
   update-dependencies:
     uses: ./.github/workflows/_php-update-dependencies-across-repos.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
