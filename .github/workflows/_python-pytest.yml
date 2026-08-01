@@ -22,6 +22,13 @@ on:
         description: 'Path filters in dorny/paths-filter format (must define ci and files keys)'
         type: string
         default: ''
+    secrets:
+      VALKYRJA_GHA_APP_ID:
+        description: 'App ID of the GitHub App that mints the token this workflow uses'
+        required: true
+      VALKYRJA_GHA_PRIVATE_KEY:
+        description: 'Private key of the GitHub App that mints the token this workflow uses'
+        required: true
 
 jobs:
   pytest:

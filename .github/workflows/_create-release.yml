@@ -7,11 +7,20 @@ on:
         description: 'Version component to bump (auto, patch, feature, yearly, or rc)'
         type: string
         required: true
+    secrets:
+      VALKYRJA_GHA_APP_ID:
+        description: 'App ID of the GitHub App that mints the token this workflow uses'
+        required: true
+      VALKYRJA_GHA_PRIVATE_KEY:
+        description: 'Private key of the GitHub App that mints the token this workflow uses'
+        required: true
 
 jobs:
   check-version:
     uses: ./.github/workflows/_get-version-for-release.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
     with:
       bump: ${{ inputs.bump }}
 
@@ -19,7 +28,9 @@ jobs:
     needs: check-version
     if: needs.check-version.outputs.should-release == 'true'
     uses: ./.github/workflows/_update-version-files.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
     with:
       version: ${{ needs.check-version.outputs.version }}
 
@@ -27,6 +38,8 @@ jobs:
     needs: [update-version-files, check-version]
     if: needs.check-version.outputs.should-release == 'true'
     uses: ./.github/workflows/_release.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
     with:
       version: ${{ needs.check-version.outputs.version }}

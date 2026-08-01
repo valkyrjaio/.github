@@ -14,6 +14,13 @@ on:
           Example: [{"name":"Vitest CI","directory":".github/ci/vitest"}]
         type: string
         required: true
+    secrets:
+      VALKYRJA_GHA_APP_ID:
+        description: 'App ID of the GitHub App that mints the token this workflow uses'
+        required: true
+      VALKYRJA_GHA_PRIVATE_KEY:
+        description: 'Private key of the GitHub App that mints the token this workflow uses'
+        required: true
 
 jobs:
   update-ts-dependencies:

@@ -23,7 +23,9 @@ permissions:
 jobs:
   release:
     uses: ./.github/workflows/_create-release.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
     with:
       bump: ${{ inputs.bump }}
 
@@ -31,6 +33,8 @@ jobs:
     name: Update Workflow Refs
     needs: release
     uses: ./.github/workflows/_update-workflow-refs.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
     with:
       source-repo: .github

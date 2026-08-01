@@ -8,4 +8,6 @@ on:
 jobs:
   fix-trailing-newlines:
     uses: ./.github/workflows/_fix-trailing-newlines.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}

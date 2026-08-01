@@ -17,7 +17,9 @@ run-name: "Create ${{ github.repository_owner }}/${{ inputs.name }}"
 jobs:
   create-repo:
     uses: ./.github/workflows/_create-repo.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
     with:
       name: ${{ inputs.name }}
       description: ${{ inputs.description }}

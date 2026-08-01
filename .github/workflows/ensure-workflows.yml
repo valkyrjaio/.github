@@ -8,4 +8,6 @@ on:
 jobs:
   ensure-workflows:
     uses: ./.github/workflows/_ensure-workflows.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}

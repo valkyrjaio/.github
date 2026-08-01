@@ -43,16 +43,42 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 | `PYPI_API_TOKEN`             | PyPI API token for Python releases (`uv publish`)                       |
 | `CLAUDE_CODE_OAUTH_TOKEN`    | Claude Code OAuth token used by the pull-request review workflow        |
 
-All reusable workflows receive secrets via `secrets: inherit` from their
-callers. `VALKYRJA_GHA_APP_ID` and `VALKYRJA_GHA_PRIVATE_KEY` must also be
-registered as **Dependabot secrets** in org settings so Dependabot PRs can
-access them.
+`VALKYRJA_GHA_APP_ID` and `VALKYRJA_GHA_PRIVATE_KEY` must also be registered as
+**Dependabot secrets** in org settings so Dependabot PRs can access them.
 
 The `MAVEN_*` and `PYPI_API_TOKEN` secrets are consumed only by the Java and
 Python publish workflows respectively, and `CLAUDE_CODE_OAUTH_TOKEN` only by
 `_claude-review.yml`. TypeScript/npm releases use npm
 [trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC), so no npm
 token secret is required.
+
+### Which secrets a caller passes
+
+Every reusable workflow declares the secrets it needs under
+`on.workflow_call.secrets`, and every caller passes exactly that list. A caller
+never uses `secrets: inherit`, which hands the called workflow every org secret
+regardless of need.
+
+| Reusable workflow                       | Secrets to pass                                    |
+|-----------------------------------------|----------------------------------------------------|
+| `_claude-review.yml`                    | `VALKYRJA_GHA_*` and `CLAUDE_CODE_OAUTH_TOKEN`     |
+| `_java-release-maven-publish.yml`       | `MAVEN_CENTRAL_*` and `MAVEN_SIGNING_KEY*`         |
+| `_python-release-pypi-publish.yml`      | `PYPI_API_TOKEN`                                   |
+| `_<lang>-check-outdated-dependencies.yml` | none — omit the `secrets:` key                   |
+| `_ts-release-npm-publish.yml`           | none — omit the `secrets:` key                     |
+| every other `_*.yml`                    | `VALKYRJA_GHA_APP_ID` and `VALKYRJA_GHA_PRIVATE_KEY` |
+
+The last row covers an orchestrator such as `_php-create-release.yml` too. It
+mints no token itself, but the workflows it calls do, so it declares the app
+secrets and passes them down.
+
+`GITHUB_TOKEN` never appears in a list. GitHub gives it to a called workflow
+automatically, and the `GITHUB_` prefix is reserved, so a workflow cannot declare
+it.
+
+Warning: a consumer repo pins `valkyrjaio/.github` by commit SHA. An explicit
+list fails with `Invalid input` if the pinned SHA is older than the declaration
+it names. Re-pin the repo first, then change the list.
 
 ### Variables (org-level)
 
@@ -435,7 +461,9 @@ jobs:
         permissions:
             pull-requests: write
             contents: read
-        secrets: inherit
+        secrets:
+            VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+            VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 ```
 
 ---

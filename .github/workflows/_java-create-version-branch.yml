@@ -14,11 +14,17 @@ on:
           Example: [{"name":"JUnit","directory":".github/ci/junit"}]
         type: string
         required: true
+    secrets:
+      VALKYRJA_GHA_APP_ID:
+        description: 'App ID of the GitHub App that mints the token this workflow uses'
+        required: true
+      VALKYRJA_GHA_PRIVATE_KEY:
+        description: 'Private key of the GitHub App that mints the token this workflow uses'
+        required: true
 
 jobs:
   check-outdated-dependencies:
     uses: ./.github/workflows/_java-check-outdated-dependencies.yml
-    secrets: inherit
     with:
       java-version: ${{ inputs.java-version }}
       dependencies: ${{ inputs.dependencies }}
@@ -27,4 +33,6 @@ jobs:
   create-version-branch:
     needs: check-outdated-dependencies
     uses: ./.github/workflows/_create-version-branch.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}

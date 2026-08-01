@@ -19,6 +19,13 @@ on:
           Additional CI dependencies directory ESLint needs, since its config imports the TypeScript setup. Leave empty to skip.
         type: string
         default: '.github/ci/typescript'
+    secrets:
+      VALKYRJA_GHA_APP_ID:
+        description: 'App ID of the GitHub App that mints the token this workflow uses'
+        required: true
+      VALKYRJA_GHA_PRIVATE_KEY:
+        description: 'Private key of the GitHub App that mints the token this workflow uses'
+        required: true
 
 jobs:
   typescript:
@@ -28,7 +35,9 @@ jobs:
       tool: 'typescript'
       node-version: ${{ inputs.node-version }}
       source-paths: ${{ inputs.source-paths }}
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
   eslint:
     name: ESLint
@@ -38,7 +47,9 @@ jobs:
       node-version: ${{ inputs.node-version }}
       additional-directory: ${{ inputs.eslint-additional-directory }}
       source-paths: ${{ inputs.source-paths }}
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
   prettier:
     name: Prettier
@@ -47,7 +58,9 @@ jobs:
       tool: 'prettier'
       node-version: ${{ inputs.node-version }}
       source-paths: ${{ inputs.source-paths }}
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
   vitest:
     name: Vitest
@@ -55,4 +68,6 @@ jobs:
     with:
       node-version: ${{ inputs.node-version }}
       source-paths: ${{ inputs.source-paths }}
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}

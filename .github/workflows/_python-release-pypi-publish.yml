@@ -7,6 +7,10 @@ on:
         description: 'Python version to use'
         type: string
         default: '3.14'
+    secrets:
+      PYPI_API_TOKEN:
+        description: 'API token that authenticates the upload to PyPI'
+        required: true
 
 jobs:
   pypi-publish:

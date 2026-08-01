@@ -165,7 +165,10 @@ These workflows keep those pins current.
 ### Required Secrets and Variables
 
 All reusable workflows that use the Valkyrja GitHub App require these to be
-set at the organization level. Callers pass them down via `secrets: inherit`.
+set at the organization level. Each reusable workflow declares the secrets it
+needs, and a caller passes down that list. See
+[the workflow guide](.github/workflows/README.md#which-secrets-a-caller-passes)
+for the list per workflow.
 
 | Name                         | Type     | Description                                                                                                                                                                        |
 |------------------------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|

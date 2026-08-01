@@ -14,11 +14,17 @@ on:
           Example: [{"name":"Vitest","directory":".github/ci/vitest"}]
         type: string
         required: true
+    secrets:
+      VALKYRJA_GHA_APP_ID:
+        description: 'App ID of the GitHub App that mints the token this workflow uses'
+        required: true
+      VALKYRJA_GHA_PRIVATE_KEY:
+        description: 'Private key of the GitHub App that mints the token this workflow uses'
+        required: true
 
 jobs:
   check-outdated-dependencies:
     uses: ./.github/workflows/_ts-check-outdated-dependencies.yml
-    secrets: inherit
     with:
       node-version: ${{ inputs.node-version }}
       dependencies: ${{ inputs.dependencies }}
@@ -27,12 +33,16 @@ jobs:
   get-version:
     needs: check-outdated-dependencies
     uses: ./.github/workflows/_get-version.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
   create-version-branch:
     needs: get-version
     uses: ./.github/workflows/_ts-version-branch.yml
-    secrets: inherit
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
     with:
       version: ${{ needs.get-version.outputs.version }}
       branch: ${{ needs.get-version.outputs.branch }}
