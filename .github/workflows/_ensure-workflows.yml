@@ -39,6 +39,7 @@ jobs:
           REQUIRED_WORKFLOWS=(
             "cherry-pick-commits.yml"
             "claude-review.yml"
+            "pr.yml"
             "rebase-from-master.yml"
             "rebase-to-master.yml"
             "restore-branch-from-backup.yml"
