@@ -444,13 +444,12 @@ jobs:
 `_claude-review.yml` runs [`anthropics/claude-code-action`](https://github.com/anthropics/claude-code-action)
 against a pull request and posts its findings as review comments.
 
-A review is **opt in**. It runs only for a pull request that meets all four
+A review is **opt in**. It runs only for a pull request that meets all three
 conditions:
 
 - The `claude-review` label is on the pull request.
 - The `VALKYRJA_REVIEWER` user is the one who applied that label.
 - The head branch is in the repository, not in a fork.
-- The pull request is not a draft.
 
 Apply the label to ask for a review; remove it to stop. Every condition is
 re-checked on each push, so a labeled pull request keeps getting reviewed while
@@ -488,15 +487,16 @@ label, which stays correct across pushes.
 Applying a label needs triage permission or above, so a user with read access
 cannot ask for a review at all.
 
-A draft is the author's own statement that the work is not done. A review of it
-reports what the author already knows, and `synchronize` charges for that report
-on every push.
+A draft is reviewed on request, like any other pull request. The label is the
+whole gate, so a draft gets a review when you ask for one and never when you do
+not. That is worth having early: a class in the wrong segment costs less to fix
+at the third commit than at the thirtieth.
 
-The author condition bounds the cost. A review runs on every push to a pull
-request, so an open trigger spends Claude usage on each contributor and on each
-automated pull request. Dependabot and every other bot fail the author condition,
-because a bot login never matches the variable. Widen the condition later if you
-want reviews for other authors.
+The label bounds the cost by itself. A review runs on every push while the label
+is on, so leaving it on a long-lived pull request keeps spending usage. Take the
+label off when you have the findings you wanted. Nothing carries a label unless
+somebody applies one, so a dependency bump, a ref update, or any other automated
+pull request is never reviewed.
 
 The trigger sets no `branches:` filter. That filter matches the **base** branch,
 so `[ 'master', '*.x' ]` excluded every pull request that targets another feature
