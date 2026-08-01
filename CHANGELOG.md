@@ -1,6 +1,11 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.18.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.18.1...26.x)
+
+## [v26.18.1](https://github.com/valkyrjaio/.github/compare/v26.18.0...v26.18.1) - 2026-07-31
+
+* [Workflow] ci: Update .github workflow refs to v26.18.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/214
+* [Workflow] fix: Refuse to rebase master when it holds commits of its own by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/213
 
 ## [v26.18.0](https://github.com/valkyrjaio/.github/compare/v26.17.0...v26.18.0) - 2026-07-31
 
