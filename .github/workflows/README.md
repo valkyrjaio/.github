@@ -432,7 +432,11 @@ Behavior:
   comment lists on the pull request, and writes its findings as inline comments
   and the sticky comment. **`--allowedTools` adds to the action's defaults, it
   does not replace them**, so `--disallowedTools` is what removes the default
-  write tools (`git add`, `git commit`, `git rm`) and the file-editing tools.
+  write tools (`git add`, `git commit`, `git rm`, and the action's push script)
+  and the file-editing tools. The push script is matched by a wildcard on
+  purpose: its real path contains the action's pinned SHA, and naming that SHA
+  here would put the action's version in a second place, where a version bump
+  would leave the rule matching nothing and grant push again in silence.
 - Cannot run the test suite, the coverage report, or any other CI tool. The
   prompt tells the reviewer to name a branch it believes no test reaches and to
   mark the finding unverified, rather than state a coverage number it cannot
