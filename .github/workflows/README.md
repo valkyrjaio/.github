@@ -396,9 +396,19 @@ pattern can validate it: `[http]` passes. Root choice and casing are review's jo
 
 ## Trailing Newline Check
 
-The commit-message and trailing-newline checks run as jobs of `ci.yml` on every
-pull request targeting `master` or `*.x` (see `ci.yml` → `_commit-message-check`
-/ `_trailing-newline-check`). Separately, the `fix-trailing-newlines.yml` cron
+The commit-message check runs as a job of `pr.yml`, and the trailing-newline
+check as a job of `ci.yml`. The split follows what each one reads. `pr.yml`
+checks pull request metadata — the title and the commit messages — so it
+subscribes to `edited`, which is what GitHub reports for a title edit, a
+description edit, and the auto-retarget a stacked pull request gets when its
+parent merges. `ci.yml` checks file content, which an edit cannot change, so it
+does not subscribe to `edited`.
+
+Warning: do not merge the two back together, and do not add a guard that skips
+the tools on an edit. A caller job skipped by `if:` produces no `<job> / <job>`
+context, so the required status check waits forever and the pull request blocks.
+A guard *inside* the job is worse: it reports success without running the tools,
+so editing the description of a red pull request would turn it green. Separately, the `fix-trailing-newlines.yml` cron
 proactively repairs missing newlines across all repos via PRs.
 
 Behavior (via `_trailing-newline-check.yml`):
