@@ -447,6 +447,25 @@ re-checked on each push, so a labeled pull request keeps getting reviewed while
 the label stays on, and stops the moment it comes off. Nothing is reviewed
 automatically, whoever opens it.
 
+**Apply the label when you open the pull request** — `gh pr create --label
+claude-review`, or tick it in the creation form. The review then starts at once,
+on the `opened` event.
+
+Warning: applying the label to a pull request that is already open does not start
+a review by itself. The trigger does not list `labeled`, because
+`anthropics/claude-code-action` rejects that action:
+
+```
+track_progress for pull_request events is only supported for actions:
+opened, synchronize, ready_for_review, reopened. Current action: labeled
+```
+
+`track_progress` is what puts the action in tag mode, and tag mode is what posts
+the findings. Without it the action runs and discards its output. So the label is
+read on the actions the action does support. To start a review on a pull request
+that is already open, apply the label and then push, or close the pull request and
+reopen it.
+
 The label carries the request; the `authorize` job carries the identity. The
 review spends the reviewer's own Claude subscription, so only that person may
 start one — but they may start one on **any** author's pull request, which is the
