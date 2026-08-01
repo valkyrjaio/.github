@@ -24,7 +24,7 @@ jobs:
   trailing-newline-check:
     name: Trailing Newline Check
     if: github.event_name == 'pull_request'
-    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@09dea16834afe9016704cc57fa49f351bc55af6c
+    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@1438ce03055b4ad8010e8dfd863aa85d07f122ad
     permissions:
       pull-requests: write
       contents: read
@@ -34,7 +34,7 @@ jobs:
   # this composes as `CI / Tools / <Tool> / <version>`.
   tools:
     name: Tools
-    uses: valkyrjaio/.github/.github/workflows/_ts-ci-tools.yml@09dea16834afe9016704cc57fa49f351bc55af6c
+    uses: valkyrjaio/.github/.github/workflows/_ts-ci-tools.yml@1438ce03055b4ad8010e8dfd863aa85d07f122ad
     with:
       node-version: '22'
       source-paths: |
