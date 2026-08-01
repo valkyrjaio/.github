@@ -404,16 +404,34 @@ jobs:
 `_claude-review.yml` runs [`anthropics/claude-code-action`](https://github.com/anthropics/claude-code-action)
 against a pull request and posts its findings as review comments.
 
-The workflow runs only for a pull request that meets all three conditions:
+A review is **opt in**. It runs only for a pull request that meets all four
+conditions:
 
-- The author is the user named by the `VALKYRJA_REVIEWER` org variable.
+- The `claude-review` label is on the pull request.
+- The `VALKYRJA_REVIEWER` user is the one who applied that label.
 - The head branch is in the repository, not in a fork.
 - The pull request is not a draft.
 
+Apply the label to ask for a review; remove it to stop. Every condition is
+re-checked on each push, so a labeled pull request keeps getting reviewed while
+the label stays on, and stops the moment it comes off. Nothing is reviewed
+automatically, whoever opens it.
+
+The label carries the request; the `authorize` job carries the identity. The
+review spends the reviewer's own Claude subscription, so only that person may
+start one — but they may start one on **any** author's pull request, which is the
+point of separating "who asked" from "who wrote it". Checking `github.event.sender`
+would not work: it names the person who applied the label only on the `labeled`
+event itself, and becomes whoever pushed on every later run. So the `authorize`
+job reads the pull request timeline and takes the most recent actor to apply the
+label, which stays correct across pushes.
+
+Applying a label needs triage permission or above, so a user with read access
+cannot ask for a review at all.
+
 A draft is the author's own statement that the work is not done. A review of it
 reports what the author already knows, and `synchronize` charges for that report
-on every push. `ready_for_review` is in the trigger list, so the review happens
-when the author marks the work ready. Draft iteration costs nothing.
+on every push.
 
 The author condition bounds the cost. A review runs on every push to a pull
 request, so an open trigger spends Claude usage on each contributor and on each
