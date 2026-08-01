@@ -1,6 +1,15 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.18.2...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.19.0...26.x)
+
+## [v26.19.0](https://github.com/valkyrjaio/.github/compare/v26.18.2...v26.19.0) - 2026-08-01
+
+* [Workflow] ci: Update .github workflow refs to v26.18.2 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/216
+* [Workflow] feat: Auto merge bot dependency pull requests by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/217
+* [Workflow] feat: Expose the allow diverged input on the rebase to master template by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/220
+* [Workflow] feat: Auto merge bot workflow ref pull requests by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/218
+* [Git] chore: Ignore the .worktrees directory by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/222
+* [Workflow] ci: Declare and pass the secrets each reusable workflow needs by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/219
 
 ## [v26.18.2](https://github.com/valkyrjaio/.github/compare/v26.18.1...v26.18.2) - 2026-08-01
 
