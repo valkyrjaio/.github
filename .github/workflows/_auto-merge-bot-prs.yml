@@ -164,8 +164,24 @@ jobs:
           MERGED_LIST=""
           ATTENTION_LIST=""
 
+          # The summary is where a person goes after the sweep, and every row it
+          # holds is a row someone has to open — a merge to confirm, a failure to
+          # chase. A bare `#213` is a number to copy into a search box, so both
+          # tables carry the repository and the pull request as links instead.
+          repo_link() {
+            printf '[`%s`](https://github.com/%s/%s)' "$1" "$ORG" "$1"
+          }
+
+          pr_link() {
+            printf '[#%s](https://github.com/%s/%s/pull/%s)' "$2" "$ORG" "$1" "$2"
+          }
+
+          note_merged() {
+            MERGED_LIST="$MERGED_LIST"$'\n'"| $(repo_link "$1") | $(pr_link "$1" "$2") | $3 |"
+          }
+
           note_attention() {
-            ATTENTION_LIST="$ATTENTION_LIST"$'\n'"| \`$1\` | #$2 | $3 |"
+            ATTENTION_LIST="$ATTENTION_LIST"$'\n'"| $(repo_link "$1") | $(pr_link "$1" "$2") | $3 |"
           }
 
           while IFS= read -r REPO_NAME; do
@@ -303,7 +319,7 @@ jobs:
 
               if [ "$DRY_RUN" = "true" ]; then
                 echo "  [dry run] would merge #$PR_NUMBER — $PR_TITLE"
-                MERGED_LIST="$MERGED_LIST"$'\n'"| \`$REPO_NAME\` | #$PR_NUMBER | $PR_TITLE |"
+                note_merged "$REPO_NAME" "$PR_NUMBER" "$PR_TITLE"
                 MERGED=$((MERGED + 1))
                 continue
               fi
@@ -322,7 +338,7 @@ jobs:
               fi
 
               echo "  #$PR_NUMBER merged — $PR_TITLE"
-              MERGED_LIST="$MERGED_LIST"$'\n'"| \`$REPO_NAME\` | #$PR_NUMBER | $PR_TITLE |"
+              note_merged "$REPO_NAME" "$PR_NUMBER" "$PR_TITLE"
               MERGED=$((MERGED + 1))
             done <<< "$OPEN_PRS"
           done <<< "$REPOS"
