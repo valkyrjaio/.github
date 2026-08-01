@@ -62,17 +62,28 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      issues: read
-      pull-requests: read
+      contents: read
 
     outputs:
       requested: ${{ steps.check-requester.outputs.requested }}
 
     steps:
+      # The app token is used rather than GITHUB_TOKEN because a reusable
+      # workflow may not request a permission its caller does not grant, and the
+      # callers grant only `contents: read` and `pull-requests: write`. The app
+      # token carries its own permissions, so the timeline read does not widen
+      # what a caller has to hand over.
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
       - name: Check who asked for the review
         id: check-requester
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REVIEWER: ${{ vars.VALKYRJA_REVIEWER }}
