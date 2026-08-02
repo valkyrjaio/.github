@@ -196,10 +196,18 @@ jobs:
           # Delete every marked comment, not the first. Two concurrent runs can race on a rapid
           # double push and leave two marked comments, and a `head -1` left one of them behind
           # forever. `--paginate` reaches a marked comment after the first page of 30.
+          #
+          # Warning: never let a failed delete end the step. The same race puts the same comment id
+          # in both runs' lists, so the run that deletes second gets HTTP 404 and `gh` exits 1. The
+          # runner's default shell is `bash -e`, which ends the step on that status: the success
+          # step would fail the job and turn a required check red after the check itself passed,
+          # and the failure step would never reach the `gh pr comment` call below. Comment
+          # housekeeping must never decide the job result, so report the failure and continue.
           COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
             | jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id')
           for COMMENT_ID in $COMMENT_IDS; do
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
+              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
           done
           gh pr comment "$PR_NUMBER" --body "$COMMENT"
 
@@ -214,5 +222,6 @@ jobs:
           COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
             | jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id')
           for COMMENT_ID in $COMMENT_IDS; do
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
+              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
           done
