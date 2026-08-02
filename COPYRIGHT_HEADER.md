@@ -78,9 +78,9 @@ language is already implicit in the repo name and the file extension.
 `Valkyrja {Type}`
 
 `{Type}` is title-cased. The `app` type expands to `Application`. The
-identifier omits the word `Starter`, because the package identifier names
-what the package is, and the repository name already records that the
-application is a starting point.
+identifier omits the word `Starter`. The package identifier names what the
+package is, and the repository name already records that the application
+is a starting point.
 
 **3. Project template (`project-template-{lang}`)** → `Project Template`
 
@@ -124,12 +124,12 @@ identifier:
 
 The distinction captures what the package *is*, not who maintains it. A
 Valkyrja-native project is one that exists because of Valkyrja and serves
-it directly. A CI tool package is Valkyrja-native: it configures an
-independent tool (Psalm, PHPStan, etc.), but the rules it ships are
-Valkyrja's own conventions, and the package exists to apply them. A
-project template is not Valkyrja-native, because a repository scaffolded
-from it does not have to be a Valkyrja project. A standalone application
-like Sindri stands on its own as a distinct project.
+it directly. A CI tool package is Valkyrja-native. The package configures
+an independent tool, such as Psalm or PHPStan. The rules that the package
+ships are Valkyrja's own conventions. A project template is not
+Valkyrja-native, because a repository scaffolded from it does not have to
+be a Valkyrja project. A standalone application like Sindri stands on its
+own as a distinct project.
 
 Enforcement
 -----------
@@ -137,7 +137,7 @@ Enforcement
 Each language enforces the header with its own formatter or linter, and
 each repository configures that tool with its own
 `{PACKAGE_IDENTIFIER}`. A language that gains a repository must also gain
-a mechanism that enforces the header, so that no repository relies on a
+a mechanism that enforces the header. No repository relies on a
 contributor to add the header by hand.
 
 | Language   | Mechanism                                                            |
@@ -166,9 +166,10 @@ return Rules::getConfig($finder, $header);
 
 Warning: a tool that injects the header replaces the first comment block
 in the file. Point the tool away from any file whose first comment is not
-a license header, such as a static-analysis stub or a fixture that a test
-parses as input. Spotless in `sindri-java` and `valkyrja-java` shows the
-pattern: it targets `src/test/java` and never `src/test/resources`.
+a license header. A static-analysis stub is such a file. A fixture that a
+test parses as input is another. Spotless in `sindri-java` and
+`valkyrja-java` shows the pattern. It targets `src/test/java`, and it
+never targets `src/test/resources`.
 
 Examples
 --------
