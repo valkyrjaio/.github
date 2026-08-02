@@ -83,12 +83,13 @@ jobs:
           STATUS=$?
           set -e
 
-          if [ "$STATUS" -gt 1 ]; then
-            echo "Prettier failed to run."
-            printf '%s\n' "$DIFFERENT"
-            exit "$STATUS"
-          fi
-
+          # Warning: never branch on `$STATUS` before `$DIFFERENT`. `$STATUS` is the exit status of
+          # `xargs`, not of Prettier, and `xargs` does not pass the child's status through. GNU
+          # `xargs` reports 123 for any child status in 1 to 125, and BSD `xargs` reports 1, so the
+          # same drift gives a different number on a runner than on a developer's Mac. What the two
+          # agree on is the output: `--list-different` writes the unformatted files to stdout, and
+          # writes an error to stderr. So read the output first, and read the status only to catch
+          # a Prettier that failed without naming a file.
           if [ -n "$DIFFERENT" ]; then
             echo "The following files are not formatted:"
             printf '  %s\n' $DIFFERENT
@@ -98,6 +99,11 @@ jobs:
               echo 'EOF'
             } >> "$GITHUB_OUTPUT"
             exit 1
+          fi
+
+          if [ "$STATUS" -ne 0 ]; then
+            echo "Prettier failed to run, and named no file. Exit status $STATUS."
+            exit "$STATUS"
           fi
 
           echo "All Markdown files are formatted."
