@@ -39,6 +39,33 @@ conventions, 100% line-and-branch code coverage, and the per-language CI gates.
   workflows carry no language token (e.g. `_commit-message-check.yml`,
   `_release.yml`). Naming is enforced by `_ensure-reusable-workflow-names.yml`;
   required presence by `_ensure-workflows.yml`.
+- **Never use `secrets: inherit`. Pass each secret the called workflow declares.**
+  `inherit` hands the called workflow every secret the repository holds, including
+  the secrets it never asked for. A caller that names each secret keeps the grant
+  as small as the declaration, and it states its own dependency instead of hiding
+  it. This governs a caller in this repo and a caller in every other repo's
+  `ci.yml`.
+
+  ```yaml
+  # Wrong — the called workflow receives every secret the repository holds.
+  markdown-check:
+      uses: valkyrjaio/.github/.github/workflows/_markdown-check.yml@<sha>
+      secrets: inherit
+  ```
+
+  ```yaml
+  # Right — the caller names the two secrets that `_markdown-check.yml` declares.
+  markdown-check:
+      uses: valkyrjaio/.github/.github/workflows/_markdown-check.yml@<sha>
+      secrets:
+          VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+  ```
+
+  Read the reusable workflow's own `secrets:` block to find what to pass. Do not
+  copy the surrounding jobs: a file that still uses `inherit` predates the rule,
+  and matching it repeats the mistake.
+
 - **Community health files** (`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`,
   `SECURITY.md`) are inherited by every repo that does not override them —
   editing them changes every repo's defaults. GitHub does not support a default
