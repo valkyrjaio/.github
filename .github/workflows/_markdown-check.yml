@@ -108,8 +108,15 @@ jobs:
 
           echo "All Markdown files are formatted."
 
+      # The gate is the check step's own output, never `failure()`. `failure()` is true for any
+      # failed step, so a broken `actions/checkout`, `actions/setup-node`, or `npx` posted a comment
+      # that told the developer to run the formatter. That advice does not help, because no file is
+      # unformatted. The output is set only where the check names an unformatted file, so it is
+      # evidence that the check itself found a problem. `!cancelled()` is required: a step whose
+      # `if:` holds no status check function gets `success() &&` prepended, and the job status is
+      # already `failure` here.
       - name: Report failure in PR comment
-        if: failure() && github.event.pull_request.number && inputs.post-pr-comment
+        if: ${{ !cancelled() && steps.check.outputs.unformatted_files != '' && github.event.pull_request.number && inputs.post-pr-comment }}
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -136,12 +143,10 @@ jobs:
           BODY+="    --write"$'\n'
           BODY+='```'$'\n'
 
-          if [ -n "$UNFORMATTED_FILES" ]; then
-            BODY+=$'\n'"These files are not formatted:"$'\n\n'
-            while IFS= read -r f; do
-              [ -n "$f" ] && BODY+="- \`$f\`"$'\n'
-            done <<< "$UNFORMATTED_FILES"
-          fi
+          BODY+=$'\n'"These files are not formatted:"$'\n\n'
+          while IFS= read -r f; do
+            [ -n "$f" ] && BODY+="- \`$f\`"$'\n'
+          done <<< "$UNFORMATTED_FILES"
 
           BODY+=$'\n<!-- workflow-id: markdown-check -->'
           gh pr comment "$PR_NUMBER" --body "$BODY"

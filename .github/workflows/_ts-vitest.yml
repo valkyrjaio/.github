@@ -141,8 +141,14 @@ jobs:
           file: "${{ inputs.ci-directory }}/coverage/lcov.info"
           format: lcov
 
+      # The gate is the run step's own outcome, never `failure()`. `failure()` is true for any
+      # failed step, so a broken checkout, a failed dependency install, or a failed token mint
+      # posted a comment that told the developer to run Vitest locally. That advice does not help,
+      # because Vitest never reported a problem. `!cancelled()` is required: a step whose `if:`
+      # holds no status check function gets `success() &&` prepended, and the job status is already
+      # `failure` here.
       - name: Report failure in PR comment
-        if: failure() && github.event.pull_request.number
+        if: ${{ !cancelled() && steps.vitest.outcome == 'failure' && github.event.pull_request.number }}
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}

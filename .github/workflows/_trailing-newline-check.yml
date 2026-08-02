@@ -69,8 +69,14 @@ jobs:
 
           echo "All files have a trailing newline."
 
+      # The gate is the check step's own output, never `failure()`. `failure()` is true for any
+      # failed step, so a broken `actions/checkout` posted a comment that named no file and told the
+      # developer to add a newline. That advice does not help, because no file is missing one. The
+      # output is set only where the check names a file, so it is evidence that the check itself
+      # found a problem. `!cancelled()` is required: a step whose `if:` holds no status check
+      # function gets `success() &&` prepended, and the job status is already `failure` here.
       - name: Report failure in PR comment
-        if: failure() && github.event.pull_request.number && inputs.post-pr-comment
+        if: ${{ !cancelled() && steps.check.outputs.missing_files != '' && github.event.pull_request.number && inputs.post-pr-comment }}
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}

@@ -224,14 +224,21 @@ jobs:
           working-directory: ${{ inputs.additional-directory }}
 
       - name: Run ${{ inputs.tool }}
+        id: run
         if: steps.changes.outputs.files == 'true'
         env:
           RUN_SCRIPT: ${{ steps.tool.outputs.run-script }}
           PSALM_ALLOW_XDEBUG: ${{ inputs.tool == 'psalm' && '1' || '' }}
         run: composer "$RUN_SCRIPT"
 
+      # The gate is the tool run step's own outcome, never `failure()`. `failure()` is true for any
+      # failed step, so a broken checkout, a failed dependency install, or a failed token mint
+      # posted a comment that told the developer to run the tool locally. That advice does not help,
+      # because the tool never reported a problem. `!cancelled()` is required: a step whose `if:`
+      # holds no status check function gets `success() &&` prepended, and the job status is already
+      # `failure` here.
       - name: Report failure in PR comment
-        if: failure() && github.event.pull_request.number && inputs.post-pr-comment
+        if: ${{ !cancelled() && steps.run.outcome == 'failure' && github.event.pull_request.number && inputs.post-pr-comment }}
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}

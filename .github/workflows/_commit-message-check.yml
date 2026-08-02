@@ -109,8 +109,20 @@ jobs:
           steps.check-period-at-end.outcome == 'failure'
         run: exit 1
 
+      # The gate repeats the four outcomes that `Assert all checks passed` reads, never `failure()`.
+      # `failure()` is true for any failed step, so a broken `actions/checkout` or a failed token
+      # mint posted a comment that listed no rule at all. Each of the four checks carries
+      # `continue-on-error`, so an outcome of `failure` is evidence that the check itself found a
+      # problem. `!cancelled()` is required: a step whose `if:` holds no status check function gets
+      # `success() &&` prepended, and the job status is already `failure` here.
       - name: Report failure in PR comment
-        if: failure() && github.event.pull_request.number && inputs.post-pr-comment
+        if: >-
+          !cancelled() &&
+          (steps.check-commit-type.outcome == 'failure' ||
+          steps.check-no-trailing-period-title.outcome == 'failure' ||
+          steps.check-line-length.outcome == 'failure' ||
+          steps.check-period-at-end.outcome == 'failure') &&
+          github.event.pull_request.number && inputs.post-pr-comment
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
