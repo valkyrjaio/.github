@@ -17,9 +17,8 @@ management, and repository provisioning across every Valkyrja repo.
 What's Included
 ---------------
 
-- **Community health files** — `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`,
-  `LICENSE.md`, and `SECURITY.md` inherited by every repo that doesn't
-  override them
+- **Community health files** — `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, and
+  `SECURITY.md` inherited by every repo that doesn't override them
 - **Organization profile** — the `profile/README.md` that renders on the
   [Valkyrjaio organization page][org-page]
 - **Reusable workflows** — PR quality gates, dependency management,
@@ -37,7 +36,10 @@ Community Health Files
 | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Expected standards of behavior for community members       |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md)       | Guidelines for contributing code, tests, and documentation |
 | [`SECURITY.md`](SECURITY.md)               | Security vulnerability disclosure procedure                |
-| [`LICENSE.md`](LICENSE.md)                 | MIT license                                                |
+
+GitHub does not support a default license file. Every repository carries its
+own `LICENSE.md`, so the license is included when a person clones, packages,
+or downloads that project.
 
 Project Conventions
 -------------------
