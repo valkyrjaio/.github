@@ -50,6 +50,12 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
 
+      - name: Probe the runner default shell flags
+        run: |
+          echo "set flags: $-"
+          echo "pipefail: $(shopt -o pipefail | awk '{print $2}')"
+          echo "BASH_VERSION: $BASH_VERSION"
+
       - name: Check Markdown formatting
         id: check
         env:
@@ -136,6 +142,8 @@ jobs:
           # housekeeping must never decide the job result, so report the failure and continue.
           COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
             --jq '.[] | select(.body | contains("<!-- workflow-id: markdown-check -->")) | .id')
+          COMMENT_IDS="999999999 $COMMENT_IDS"
+          echo "seeded a stale id to simulate a lost delete race"
           for COMMENT_ID in $COMMENT_IDS; do
             gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
               || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
@@ -168,6 +176,8 @@ jobs:
         run: |
           COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
             --jq '.[] | select(.body | contains("<!-- workflow-id: markdown-check -->")) | .id')
+          COMMENT_IDS="999999999 $COMMENT_IDS"
+          echo "seeded a stale id to simulate a lost delete race"
           for COMMENT_ID in $COMMENT_IDS; do
             gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
               || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."

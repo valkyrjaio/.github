@@ -95,9 +95,10 @@ jobs:
           # housekeeping must never decide the job result, so report the failure and continue.
           COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
             --jq '.[] | select(.body | contains("<!-- workflow-id: trailing-newline-check -->")) | .id')
+          COMMENT_IDS="999999999 $COMMENT_IDS"
+          echo "seeded a stale id to simulate a lost delete race"
           for COMMENT_ID in $COMMENT_IDS; do
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
-              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
           done
           BODY="The following files are missing a trailing newline:"$'\n\n'
           while IFS= read -r f; do
@@ -115,7 +116,8 @@ jobs:
         run: |
           COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
             --jq '.[] | select(.body | contains("<!-- workflow-id: trailing-newline-check -->")) | .id')
+          COMMENT_IDS="999999999 $COMMENT_IDS"
+          echo "seeded a stale id to simulate a lost delete race"
           for COMMENT_ID in $COMMENT_IDS; do
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
-              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
           done
