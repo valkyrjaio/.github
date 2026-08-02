@@ -154,18 +154,33 @@ contributor to add the header by hand.
 | TypeScript | ESLint — the local `copyright-header` rule                             |
 | Go         | golangci-lint — `goheader`, with the template in `license-header.txt`  |
 | Python     | Ruff — `CPY001`, with `notice-rgx` in `.github/ci/ruff/pyproject.toml` |
+| Shell      | The reusable `_copyright-header-check.yml` workflow in `.github`       |
 
 Warning: a mechanism that reports a missing header does not always report a
 wrong one, and it does not always correct one. PHP CS Fixer, Spotless,
 `goheader`, and the ESLint rule compare the whole header, and the first three
-replace a header that differs. Ruff reports a file that does not match
-`notice-rgx`, and corrects nothing.
+replace a header that differs. Ruff and `_copyright-header-check.yml` report a
+header that does not match, and correct nothing.
 
-A file that the language's tool does not match keeps the header that a person
-gives it, and no tool reports that the header is wrong. A shell script is such
-a file, and it carries the same text as a line comment. `valkyrja-php` holds
-one at `.github/ci/phpunit/path-coverage-shards.sh`. A tool that matches a file
-by extension also misses a program file that has no extension.
+A formatter reads only the language it formats, so a file in any other language
+keeps the header that a person gives it. A shell script is such a file, and it
+carries the same text as a line comment. The reusable
+`_copyright-header-check.yml` workflow covers those files. It compares text
+against text, so it needs no toolchain. A caller passes its own
+`{PACKAGE_IDENTIFIER}` and the pathspecs to read, and the workflow names every
+file that does not carry the header. The header follows the shebang line, where
+the file has one. `valkyrja-php` calls the workflow for `*.sh`, which covers
+`.github/ci/phpunit/path-coverage-shards.sh`.
+
+Warning: do not point a PHP tool at a shell script to close this gap. PHP CS
+Fixer accepts the file, because a file without a `<?php` tag parses as one
+inline-HTML token, and the `header_comment` fixer then has nothing to anchor
+to. It reports no error and fixes nothing, so a wrong header passes the check.
+
+Warning: a tool that matches a file by extension also misses a program file
+that has no extension. Give the language's own finder that file by name.
+`sindri-php` names `bin/sindri`, and `valkyrja-starter-app-php` names
+`app/bin/cli` and `app/bin/openswoole`.
 
 The PHP CS Fixer configuration in `ci-phpcsfixer-php` injects the header
 into every file. Consuming repositories pass their
