@@ -33,7 +33,7 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 ### Secrets (org-level)
 
 | Secret                       | Purpose                                                                 |
-|------------------------------|-------------------------------------------------------------------------|
+| ---------------------------- | ----------------------------------------------------------------------- |
 | `VALKYRJA_GHA_APP_ID`        | GitHub App ID used to generate short-lived tokens                       |
 | `VALKYRJA_GHA_PRIVATE_KEY`   | Private key for the GitHub App                                          |
 | `MAVEN_CENTRAL_USERNAME`     | Maven Central (Sonatype) user-token username — publishing Java releases |
@@ -59,14 +59,14 @@ Every reusable workflow declares the secrets it needs under
 never uses `secrets: inherit`, which hands the called workflow every org secret
 regardless of need.
 
-| Reusable workflow                       | Secrets to pass                                    |
-|-----------------------------------------|----------------------------------------------------|
-| `_claude-review.yml`                    | `VALKYRJA_GHA_*` and `CLAUDE_CODE_OAUTH_TOKEN`     |
-| `_java-release-maven-publish.yml`       | `MAVEN_CENTRAL_*` and `MAVEN_SIGNING_KEY*`         |
-| `_python-release-pypi-publish.yml`      | `PYPI_API_TOKEN`                                   |
-| `_<lang>-check-outdated-dependencies.yml` | none — omit the `secrets:` key                   |
-| `_ts-release-npm-publish.yml`           | none — omit the `secrets:` key                     |
-| every other `_*.yml`                    | `VALKYRJA_GHA_APP_ID` and `VALKYRJA_GHA_PRIVATE_KEY` |
+| Reusable workflow                         | Secrets to pass                                      |
+| ----------------------------------------- | ---------------------------------------------------- |
+| `_claude-review.yml`                      | `VALKYRJA_GHA_*` and `CLAUDE_CODE_OAUTH_TOKEN`       |
+| `_java-release-maven-publish.yml`         | `MAVEN_CENTRAL_*` and `MAVEN_SIGNING_KEY*`           |
+| `_python-release-pypi-publish.yml`        | `PYPI_API_TOKEN`                                     |
+| `_<lang>-check-outdated-dependencies.yml` | none — omit the `secrets:` key                       |
+| `_ts-release-npm-publish.yml`             | none — omit the `secrets:` key                       |
+| every other `_*.yml`                      | `VALKYRJA_GHA_APP_ID` and `VALKYRJA_GHA_PRIVATE_KEY` |
 
 The last row covers an orchestrator such as `_php-create-release.yml` too. It
 mints no token itself, but the workflows it calls do, so it declares the app
@@ -83,7 +83,7 @@ it names. Re-pin the repo first, then change the list.
 ### Variables (org-level)
 
 | Variable               | Example                 | Purpose                                                                                                                                  |
-|------------------------|-------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| ---------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `SUPPORTED_VERSIONS`   | `2[6-9]`                | Regex matching supported major versions (used in cherry-pick, ref updates, enforce)                                                      |
 | `LATEST_MAJOR_VERSION` | `26`                    | Latest released major version number                                                                                                     |
 | `SUPPORTED_LANGUAGES`  | `php java python ts go` | Space-separated language suffixes; selects the `project-template-<lang>` scaffold and `rulesets/<lang>/` rulesets on repo create/enforce |
@@ -105,13 +105,13 @@ only once a year, so the middle component carries both new features and breaking
 changes. See
 [VERSIONING.md](https://github.com/valkyrjaio/architecture/blob/master/VERSIONING.md).
 
-| Bump      | Source branch | Tag format    | Notes                                        |
-|-----------|---------------|---------------|----------------------------------------------|
+| Bump      | Source branch | Tag format    | Notes                                                            |
+| --------- | ------------- | ------------- | ---------------------------------------------------------------- |
 | `auto`    | `??.x`        | either        | **Default.** Resolves from the commits merged since the last tag |
-| `patch`   | `??.x`        | `v26.0.1`     | Increments patch from latest stable tag      |
-| `feature` | `??.x`        | `v26.1.0`     | Increments the feature component, resets patch |
-| `yearly`  | `??.x`        | `v26.0.0`     | Always `BRANCH_MAJOR.0.0`                    |
-| `rc`      | `master` only | `v27.0.0-RC1` | Pre-release for next unreleased major        |
+| `patch`   | `??.x`        | `v26.0.1`     | Increments patch from latest stable tag                          |
+| `feature` | `??.x`        | `v26.1.0`     | Increments the feature component, resets patch                   |
+| `yearly`  | `??.x`        | `v26.0.0`     | Always `BRANCH_MAJOR.0.0`                                        |
+| `rc`      | `master` only | `v27.0.0-RC1` | Pre-release for next unreleased major                            |
 
 `yearly` and `rc` are **manual only** — a year boundary is a decision, not
 something the commit log can express, and the scheduled sweep never dispatches to
@@ -123,11 +123,11 @@ something the commit log can express, and the scheduled sweep never dispatches t
 against the branch head and reads the **subject** of each commit. Squash merges
 take their subject from the PR title, so the subject is the conventional line.
 
-| Found in the window                                | Result       |
-|----------------------------------------------------|--------------|
-| any `feat`, any `deprecate`, or any type with `!`  | `feature`    |
-| any other type                                     | `patch`      |
-| nothing, or only release-version roots             | no release   |
+| Found in the window                               | Result     |
+| ------------------------------------------------- | ---------- |
+| any `feat`, any `deprecate`, or any type with `!` | `feature`  |
+| any other type                                    | `patch`    |
+| nothing, or only release-version roots            | no release |
 
 Release bookkeeping is recognised by its release-version root (`[v26.6.1]`), not
 by its type — the release run's own commits ship inside the tag they describe, so
@@ -264,7 +264,7 @@ orchestrators. Each language repo wires the appropriate one into its own release
 workflow (typically triggered on release publish):
 
 | Language   | Publish workflow                          | Credentials                              |
-|------------|-------------------------------------------|------------------------------------------|
+| ---------- | ----------------------------------------- | ---------------------------------------- |
 | PHP        | — (released via tag; no publish workflow) | none                                     |
 | Java       | `_java-release-maven-publish.yml`         | `MAVEN_CENTRAL_*`, `MAVEN_SIGNING_KEY*`  |
 | Python     | `_python-release-pypi-publish.yml`        | `PYPI_API_TOKEN`                         |
@@ -339,11 +339,11 @@ Triggers:
 Behavior (via `_enforce-repo-settings.yml`):
 
 - Applies standard repository settings to all non-archived org repos:
-    - Squash merge only (`PR_TITLE` + `PR_BODY`).
-    - Auto-delete head branches on merge.
-    - No wikis, no projects.
-    - Vulnerability alerts + automated security fixes enabled.
-    - Immutable releases enabled.
+  - Squash merge only (`PR_TITLE` + `PR_BODY`).
+  - Auto-delete head branches on merge.
+  - No wikis, no projects.
+  - Vulnerability alerts + automated security fixes enabled.
+  - Immutable releases enabled.
 - Applies **every label** from `labels/*.json` to every repo.
 - Applies **language labels** from `labels/<lang>/*.json` (`php`, `java`,
   `python`, `ts`, `go`) to repos of that language.
@@ -398,7 +398,7 @@ Stored in `rulesets/` (org-wide) and `rulesets/<lang>/` (language-specific) and
 auto-applied by enforce and create-repo.
 
 | File                                                      | Scope        | Purpose                                                                              |
-|-----------------------------------------------------------|--------------|--------------------------------------------------------------------------------------|
+| --------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------ |
 | `rulesets/Protect Against Force Pushes and Deletion.json` | All repos    | Prevents force pushes and deletion on version branches (`??.x`)                      |
 | `rulesets/Protect Master At All Times.json`               | All repos    | Prevents force pushes and deletion on `master`                                       |
 | `rulesets/Protect Release Tags.json`                      | All repos    | Prevents deletion or non-fast-forward of `*.*.*` tags                                |
@@ -439,7 +439,7 @@ issue reference. Full reference:
 - No line may exceed 120 characters.
 - Enforced by the `Commit Message Check / Check Commit Message` required check.
 
-The check inspects commits *in a pull request*, which are working-branch commits, and
+The check inspects commits _in a pull request_, which are working-branch commits, and
 never sees a direct push to a protected branch — which is why the release run's own
 commits carry no period.
 
@@ -469,7 +469,7 @@ does not subscribe to `edited`.
 Warning: do not merge the two back together, and do not add a guard that skips
 the tools on an edit. A caller job skipped by `if:` produces no `<job> / <job>`
 context, so the required status check waits forever and the pull request blocks.
-A guard *inside* the job is worse: it reports success without running the tools,
+A guard _inside_ the job is worse: it reports success without running the tools,
 so editing the description of a red pull request would turn it green. Separately, the `fix-trailing-newlines.yml` cron
 proactively repairs missing newlines across all repos via PRs.
 
@@ -678,15 +678,15 @@ green and merged is what that failure is made of.
 
 A pull request merges only when **all** of the following hold:
 
-| Gate           | Requirement                                                             |
-|----------------|-------------------------------------------------------------------------|
-| Author         | Matches the `bot-login` input exactly, and is a bot                     |
-| Title root     | Listed in the `types` input (`Dependency`, `Workflow`)                  |
-| Base branch    | A `??.x` branch matching `SUPPORTED_VERSIONS` — never `master`          |
-| Head branch    | Begins with `deps/`                                                     |
-| Changed files  | Every path falls inside that type's allowlist                           |
-| Status checks  | Every context the branch's ruleset requires has concluded `SUCCESS`     |
-| Draft          | Not a draft                                                             |
+| Gate          | Requirement                                                         |
+| ------------- | ------------------------------------------------------------------- |
+| Author        | Matches the `bot-login` input exactly, and is a bot                 |
+| Title root    | Listed in the `types` input (`Dependency`, `Workflow`)              |
+| Base branch   | A `??.x` branch matching `SUPPORTED_VERSIONS` — never `master`      |
+| Head branch   | Begins with `deps/`                                                 |
+| Changed files | Every path falls inside that type's allowlist                       |
+| Status checks | Every context the branch's ruleset requires has concluded `SUCCESS` |
+| Draft         | Not a draft                                                         |
 
 Anything else is left open for a human.
 
@@ -699,9 +699,9 @@ which is why it is a list of permitted shapes rather than a list of forbidden
 ones: a path nobody anticipated blocks the merge instead of riding along with
 it, and the sweep fails so someone looks.
 
-| Type         | Permitted paths                                                                                            |
-|--------------|--------------------------------------------------------------------------------------------------------------|
-| `Workflow`   | `.github/workflows/*.yml`, `required-workflows/**/*.yml`                                                    |
+| Type         | Permitted paths                                                                                                                             |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Workflow`   | `.github/workflows/*.yml`, `required-workflows/**/*.yml`                                                                                    |
 | `Dependency` | Any depth: `composer.json`/`.lock`, `package.json`/`package-lock.json`, `build.gradle.kts`, `pyproject.toml`, `uv.lock`, `go.mod`, `go.sum` |
 
 ### Why checks are re-verified here
@@ -793,7 +793,7 @@ reusable workflows (leading `_`) are `workflow_call` only.
 ### Entry points (public)
 
 | File                                 | Trigger                               | Description                                                             |
-|--------------------------------------|---------------------------------------|-------------------------------------------------------------------------|
+| ------------------------------------ | ------------------------------------- | ----------------------------------------------------------------------- |
 | `ci.yml`                             | `push` / `pull_request`               | Umbrella CI. On PRs runs the commit-message and trailing-newline checks |
 | `release-new-version.yml`            | `workflow_dispatch`                   | Create a new release (patch/minor/major/rc), then repin workflow refs   |
 | `create-version-branch.yml`          | `workflow_dispatch`                   | Create a new yearly release version branch from `master`                |
@@ -813,7 +813,7 @@ reusable workflows (leading `_`) are `workflow_call` only.
 ### Release & version (reusable)
 
 | File                                              | Description                                                                                                   |
-|---------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `_create-release.yml`                             | Orchestrate stable/RC release (version → update files → release)                                              |
 | `_release.yml`                                    | Core release logic (notes, changelog, tag)                                                                    |
 | `_get-version-for-release.yml`                    | Compute and validate the next release version                                                                 |
@@ -832,7 +832,7 @@ reusable workflows (leading `_`) are `workflow_call` only.
 ### Language CI checks (reusable)
 
 | File                          | Description                                      |
-|-------------------------------|--------------------------------------------------|
+| ----------------------------- | ------------------------------------------------ |
 | `_commit-message-check.yml`   | Commit message format check (skips Dependabot)   |
 | `_trailing-newline-check.yml` | Trailing newline check; posts/removes PR comment |
 | `_java-spotless.yml`          | Java formatting (Spotless)                       |
@@ -854,14 +854,14 @@ reusable workflows (leading `_`) are `workflow_call` only.
 
 ### Code review (reusable)
 
-| File                 | Description                                                  |
-|----------------------|--------------------------------------------------------------|
+| File                 | Description                                                   |
+| -------------------- | ------------------------------------------------------------- |
 | `_claude-review.yml` | Claude pull-request review, posted as `valkyrja-volundr[bot]` |
 
 ### Dependency management (reusable)
 
 | File                                                    | Description                                                  |
-|---------------------------------------------------------|--------------------------------------------------------------|
+| ------------------------------------------------------- | ------------------------------------------------------------ |
 | `_{php,java,python,ts}-check-outdated-dependencies.yml` | Verify all direct dependencies are up to date before release |
 | `_{php,java,python,ts}-update-dependencies.yml`         | Run the dependency updater and open/refresh a PR             |
 | `_php-update-dependencies-across-repos.yml`             | Trigger `update-dependencies` across all PHP repos           |
@@ -869,7 +869,7 @@ reusable workflows (leading `_`) are `workflow_call` only.
 ### Repository & workflow management (reusable)
 
 | File                                  | Description                                                     |
-|---------------------------------------|-----------------------------------------------------------------|
+| ------------------------------------- | --------------------------------------------------------------- |
 | `_create-repo.yml`                    | Create and configure a new org repository with rulesets         |
 | `_enforce-repo-settings.yml`          | Apply settings and rulesets to a repo                           |
 | `_ensure-workflows.yml`               | Ensure required workflow files across repos (opens PRs)         |
@@ -881,7 +881,7 @@ reusable workflows (leading `_`) are `workflow_call` only.
 ### Branch utilities (reusable)
 
 | File                              | Description                                                        |
-|-----------------------------------|--------------------------------------------------------------------|
+| --------------------------------- | ------------------------------------------------------------------ |
 | `_cherry-pick-commits.yml`        | Cherry-pick logic with branch validation                           |
 | `_rebase-to-master.yml`           | Rebase `master` onto the current branch (with backup + validation) |
 | `_rebase-from-master.yml`         | Rebase the current branch onto `master` (with backup)              |

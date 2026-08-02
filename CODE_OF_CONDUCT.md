@@ -57,9 +57,9 @@ Addressing and Repairing Harm
 If an investigation by the Community Moderators finds that this Code of Conduct has been violated, the following enforcement ladder may be used to determine how best to repair harm, based on the incident’s impact on the individuals involved and the community as a whole. Depending on the severity of a violation, lower rungs on the ladder may be skipped.
 
 1. Warning
-    1. Event: A violation involving a single incident or series of incidents.
-    2. Consequence: A private, written warning from the Community Moderators.
-    3. Repair: Examples of repair include a private written apology, acknowledgement of responsibility, and seeking clarification on expectations.
+   1. Event: A violation involving a single incident or series of incidents.
+   2. Consequence: A private, written warning from the Community Moderators.
+   3. Repair: Examples of repair include a private written apology, acknowledgement of responsibility, and seeking clarification on expectations.
 2. Temporarily Limited Activities
    1. Event: A repeated incidence of a violation that previously resulted in a warning, or the first incidence of a more serious violation.
    2. Consequence: A private, written warning with a time-limited cooldown period designed to underscore the seriousness of the situation and give the community members involved time to process the incident. The cooldown period may be limited to particular communication channels or interactions with particular community members.
@@ -77,10 +77,12 @@ This enforcement ladder is intended as a guideline. It does not limit the abilit
 
 Scope
 -----
+
 This Code of Conduct applies within all community spaces, and also applies when an individual is officially representing the community in public or other spaces. Examples of representing our community include using an official email address, posting via an official social media account, or acting as an appointed representative at an online or offline event.
 
 Attribution
 -----------
+
 This Code of Conduct is adapted from the [Contributor Covenant][Contributor Covenant url], version 3.0, permanently available at https://www.contributor-covenant.org/version/3/0/.
 
 [Contributor Covenant url]: https://www.contributor-covenant.org/

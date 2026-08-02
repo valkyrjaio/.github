@@ -204,7 +204,7 @@ When creating a new repo, work through these questions in order:
 Use lowercase, short, unambiguous language identifiers:
 
 | Language   | Suffix   |
-|------------|----------|
+| ---------- | -------- |
 | PHP        | `php`    |
 | Java       | `java`   |
 | Python     | `python` |
@@ -261,7 +261,7 @@ Every repo either ends with a language suffix or is one of the three
 legitimately language-agnostic exceptions (`.github`, `architecture`, `art`).
 
 | Category               | Examples                                                                     |
-|------------------------|------------------------------------------------------------------------------|
+| ---------------------- | ---------------------------------------------------------------------------- |
 | Language-agnostic (1)  | `.github`, `architecture`, `art`                                             |
 | CI tooling (2)         | `ci-phpstan-php`, `ci-phpunit-php`, `ci-rector-php`                          |
 | Project templates (3)  | `project-template-php`, `project-template-java`                              |

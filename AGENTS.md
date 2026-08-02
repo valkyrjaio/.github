@@ -62,6 +62,6 @@ Most relevant roots here: `[Workflow]` (reusable and required workflows),
 `REPOSITORY_NAMING.md` and `VOCABULARY.md`), and `[Git]`.
 
 **`[GitHub]` is not a root in this repo.** A root is never the repo's own identity,
-and this repo *is* the org's GitHub configuration — so the name says nothing here.
+and this repo _is_ the org's GitHub configuration — so the name says nothing here.
 Name the thing instead. `[GitHub]` stays correct in any other repo, where a
 GitHub-specific file genuinely stands out.
