@@ -12,4 +12,4 @@ allows time to properly fix, and report the issue to the community as a whole to
 ensure everyone using the application can upgrade before being affected
 by public knowledge.
 
-[security advisories url]: https://github.com/valkyrjaio/valkyrja/security/advisories/new
+[security advisories url]: https://github.com/valkyrjaio/valkyrja-php/security/advisories/new
