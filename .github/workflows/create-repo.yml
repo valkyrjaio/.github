@@ -11,6 +11,11 @@ on:
         description: 'Repository description'
         type: string
         required: true
+      package-identifier:
+        description: 'Copyright header package identifier, e.g. Valkyrja PHPStan (see COPYRIGHT_HEADER.md). Derived from the repository name when empty.'
+        type: string
+        required: false
+        default: ''
 
 run-name: "Create ${{ github.repository_owner }}/${{ inputs.name }}"
 
@@ -23,3 +28,4 @@ jobs:
     with:
       name: ${{ inputs.name }}
       description: ${{ inputs.description }}
+      package-identifier: ${{ inputs.package-identifier }}
