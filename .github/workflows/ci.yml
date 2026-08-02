@@ -30,3 +30,14 @@ jobs:
     secrets:
       VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
       VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+  markdown-check:
+    name: Markdown Check
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/_markdown-check.yml
+    permissions:
+      pull-requests: write
+      contents: read
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
