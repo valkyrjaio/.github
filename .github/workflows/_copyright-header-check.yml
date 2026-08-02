@@ -36,14 +36,38 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       # `uses: ...@<sha>` pins this workflow file, and it pins nothing else. The runner holds the
-      # caller's checkout, so a bare path would reach the caller's own tree rather than this
-      # repository. The script is checked out here at `job_workflow_sha`, which is the commit this
-      # workflow was loaded from, so the script is pinned exactly as tightly as the workflow.
+      # caller's checkout, so a bare path reaches the caller's own tree rather than this
+      # repository. The script is checked out at the commit this workflow was loaded from, which
+      # pins the script exactly as tightly as the workflow file the caller named.
+      #
+      # Warning: an expression that names a property no context holds evaluates to an empty
+      # string, and it raises no error. `actions/checkout` reads an empty `ref` as the default
+      # branch, so the job would run the script from that branch and still report success. That
+      # turns one wrong property name into a silently unpinned script. This step fails instead,
+      # and it prints both properties so a run shows what the resolution saw.
+      - name: Resolve the CI scripts ref
+        id: scripts-ref
+        env:
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+          WORKFLOW_REF: ${{ job.workflow_ref }}
+        run: |
+          printf 'job.workflow_sha=[%s]\n' "$WORKFLOW_SHA"
+          printf 'job.workflow_ref=[%s]\n' "$WORKFLOW_REF"
+
+          if [ -z "$WORKFLOW_SHA" ]; then
+            echo 'job.workflow_sha is empty, so the script cannot be pinned to this workflow.'
+            echo 'Checking out an empty ref would read the default branch, which is not what the'
+            echo 'caller pinned. Fix the resolution rather than let the check run unpinned code.'
+            exit 1
+          fi
+
+          printf 'ref=%s\n' "$WORKFLOW_SHA" >> "$GITHUB_OUTPUT"
+
       - name: Checkout the CI scripts
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           repository: valkyrjaio/.github
-          ref: ${{ github.job_workflow_sha }}
+          ref: ${{ steps.scripts-ref.outputs.ref }}
           path: dot-github
 
       - name: Generate a token
