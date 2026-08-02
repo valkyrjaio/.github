@@ -154,12 +154,12 @@ starts the next one. A dependency therefore always ships before the repository
 that consumes it:
 
 | Release tier | Repositories                                   | Why it is here                         |
-| ---- | ---------------------------------------------- | -------------------------------------- |
-| 1    | `ci-*`                                         | The framework consumes the CI tools    |
-| 2    | `valkyrja-<lang>`                              | Everything else consumes the framework |
-| 3    | `sindri-<lang>`                                | `sindri` builds against the framework  |
-| 4    | `valkyrja-starter-app-*`, `project-template-*` | An application uses both               |
-| 5    | Everything the tiers do not name               | Released last, so nothing waits on it  |
+| ------------ | ---------------------------------------------- | -------------------------------------- |
+| 1            | `ci-*`                                         | The framework consumes the CI tools    |
+| 2            | `valkyrja-<lang>`                              | Everything else consumes the framework |
+| 3            | `sindri-<lang>`                                | `sindri` builds against the framework  |
+| 4            | `valkyrja-starter-app-*`, `project-template-*` | An application uses both               |
+| 5            | Everything the tiers do not name               | Released last, so nothing waits on it  |
 
 Order alone is not enough. A dependent that releases straight after its
 dependency still carries the previous version in its manifest. The release gate
