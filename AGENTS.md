@@ -40,13 +40,15 @@ conventions, 100% line-and-branch code coverage, and the per-language CI gates.
   `_release.yml`). Naming is enforced by `_ensure-reusable-workflow-names.yml`;
   required presence by `_ensure-workflows.yml`.
 - **Community health files** (`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`,
-  `SECURITY.md`, `LICENSE.md`, `COPYRIGHT_HEADER.md`) are inherited by every repo
-  that does not override them — editing them changes every repo's defaults.
+  `SECURITY.md`) are inherited by every repo that does not override them —
+  editing them changes every repo's defaults. GitHub does not support a default
+  license file, so `LICENSE.md` applies to this repo alone.
 - **Templates** — `.github/PULL_REQUEST_TEMPLATE.md` and `.github/ISSUE_TEMPLATE/`.
 - **Rulesets** — `rulesets/` holds exported GitHub branch rulesets applied
   org-wide via the repo-management workflows.
-- **Conventions** — `REPOSITORY_NAMING.md` (how repos are named) and
-  `VOCABULARY.md` (shared terms) are authoritative for the whole project.
+- **Conventions** — `REPOSITORY_NAMING.md` (how repos are named),
+  `VOCABULARY.md` (shared terms), and `COPYRIGHT_HEADER.md` (the source file
+  header) are authoritative for the whole project.
 - The org enforces **trailing newlines** (`_fix-trailing-newlines.yml`) and the
   **`[Root] type:` commit-message format** (`_commit-message-check.yml`) — this
   repo documents those standards and is held to them.
