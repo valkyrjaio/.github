@@ -192,7 +192,7 @@ never targets `src/test/resources`.
 Examples
 --------
 
-**Framework file (`valkyrja-php/src/Valkyrja/Http/Kernel.php`):**
+**Framework file (`valkyrja-php/src/Valkyrja/Http/Server/Handler/RequestHandler.php`):**
 
 ```php
 /*
@@ -216,7 +216,7 @@ Examples
  */
 ```
 
-**Sindri file (`sindri-php/src/Sindri/Forge/Command.php`):**
+**Sindri file (`sindri-php/src/Sindri/Cli/Command/GenerateDataFromConfigCommand.php`):**
 
 ```php
 /*
