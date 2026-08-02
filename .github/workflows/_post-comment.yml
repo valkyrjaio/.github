@@ -1,0 +1,91 @@
+name: Z Reusable Post Comment
+
+# A building block for the workflows in this repository, not a check a repository calls directly.
+# It keeps one comment per marker on a pull request. Twelve workflows in this repository held
+# their own copy of this logic, so a correction to it needed twelve identical edits, and any one
+# of them could be missed without a failure to show it.
+#
+# Post and remove are not two modes. The workflow always removes the comment that carries the
+# marker, and it then posts a new one only when it is given a body. An empty body therefore means
+# "clear it", which is what a check does when it starts passing again.
+
+on:
+  workflow_call:
+    inputs:
+      marker:
+        description: >
+          Identifies the comment this workflow owns, for example `copyright-header-check`. It is
+          written into an HTML comment in the body, which is how a later run finds the comment it
+          wrote before. One marker per check.
+        type: string
+        required: true
+      body:
+        description: >
+          Markdown to post. Leave it empty to remove the comment and post nothing, which is how a
+          check clears its own report once it passes.
+        type: string
+        default: ''
+      pr-number:
+        description: 'Pull request to comment on. Leave empty to use the one the event carries.'
+        type: string
+        default: ''
+    secrets:
+      VALKYRJA_GHA_APP_ID:
+        description: 'App ID of the GitHub App that mints the token this workflow uses'
+        required: true
+      VALKYRJA_GHA_PRIVATE_KEY:
+        description: 'Private key of the GitHub App that mints the token this workflow uses'
+        required: true
+
+jobs:
+  post:
+    name: Post
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Keep one comment for the marker
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ inputs.pr-number || github.event.pull_request.number }}
+          MARKER: ${{ inputs.marker }}
+          BODY: ${{ inputs.body }}
+        run: |
+          if [ -z "$PR_NUMBER" ]; then
+            echo 'No pull request number, so there is nothing to comment on.'
+            exit 0
+          fi
+
+          TAG="<!-- workflow-id: $MARKER -->"
+
+          # Remove first, then post. A run that now passes removes its old report and stops, and a
+          # run that still fails replaces the report rather than adding a second one.
+          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.body | contains(\"$TAG\")) | .id" \
+            | head -1)
+
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+            echo "Removed the previous $MARKER comment."
+          fi
+
+          if [ -z "$BODY" ]; then
+            echo "No body given, so no $MARKER comment was posted."
+            exit 0
+          fi
+
+          printf '%s\n\n%s\n' "$BODY" "$TAG" > comment.md
+          gh pr comment "$PR_NUMBER" --body-file comment.md
+          echo "Posted the $MARKER comment."

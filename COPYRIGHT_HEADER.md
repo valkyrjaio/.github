@@ -152,18 +152,50 @@ contributor to add the header by hand.
 | TypeScript | ESLint — the local `copyright-header` rule                             |
 | Go         | golangci-lint — `goheader`, with the template in `license-header.txt`  |
 | Python     | Ruff — `CPY001`, with `notice-rgx` in `.github/ci/ruff/pyproject.toml` |
+| Every file | The reusable `_copyright-header-check.yml` workflow in `.github`       |
 
 Warning: a mechanism that reports a missing header does not always report a
 wrong one, and it does not always correct one. PHP CS Fixer, Spotless,
 `goheader`, and the ESLint rule compare the whole header, and the first three
-replace a header that differs. Ruff reports a file that does not match
-`notice-rgx`, and corrects nothing.
+replace a header that differs. Ruff and `_copyright-header-check.yml` report a
+header that does not match, and correct nothing.
 
-A file that the language's tool does not match keeps the header that a person
-gives it, and no tool reports that the header is wrong. A shell script is such
-a file, and it carries the same text as a line comment. `valkyrja-php` holds
-one at `.github/ci/phpunit/path-coverage-shards.sh`. A tool that matches a file
-by extension also misses a program file that has no extension.
+A formatter reads only the language it formats, so a file in any other language
+keeps the header that a person gives it. A shell script is such a file, and it
+carries the same text as a line comment. The reusable
+`_copyright-header-check.yml` workflow covers every file, whatever its language.
+It compares text against text, so it needs no toolchain.
+
+The check is closed by default. It reads every tracked file, and it requires the
+header in each file that `EXCLUDED` does not match. A new file therefore fails
+the check until a person adds the header, or adds the file to `EXCLUDED`. This
+is what a language tool cannot give: a tool that selects files by extension goes
+green on a file type nobody taught it about. A caller keeps `IDENTIFIER` and
+`EXCLUDED` in `.github/ci/copyright-header/config`, and
+`.github/ci/scripts/copyright-header-check.sh` in this repository holds the
+check itself.
+
+A file that holds no program code belongs in `EXCLUDED`. A document, a lock
+file, a workflow, and a configuration file are such files. A fixture that a test
+renders or parses is another, because the header would become part of the output
+the test compares.
+
+Warning: a language formatter can skip a file of its own language. PHP CS Fixer
+adds no header to a PHP file that opens with inline HTML, because the
+`header_comment` fixer has no PHP open tag to anchor to. `valkyrja-php` holds
+such a file at `tests/templates/php/page.php`, which is `<p><?php echo $content;
+?></p>`. A count of matched files therefore does not prove that the tool acted
+on them.
+
+Warning: do not point a PHP tool at a shell script to close this gap. PHP CS
+Fixer accepts the file, because a file without a `<?php` tag parses as one
+inline-HTML token, and the `header_comment` fixer then has nothing to anchor
+to. It reports no error and fixes nothing, so a wrong header passes the check.
+
+Warning: a tool that matches a file by extension also misses a program file
+that has no extension. Give the language's own finder that file by name.
+`sindri-php` names `bin/sindri`, and `valkyrja-starter-app-php` names
+`app/bin/cli` and `app/bin/openswoole`.
 
 The PHP CS Fixer configuration in `ci-phpcsfixer-php` injects the header
 into every file. Consuming repositories pass their

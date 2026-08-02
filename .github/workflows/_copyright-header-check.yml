@@ -1,0 +1,55 @@
+name: Z Reusable Copyright Header Check
+
+# Each language enforces the copyright header with its own formatter, and a formatter reads only
+# the language it formats. A file in any other language keeps the header a person gives it, and no
+# tool reports that the header is wrong. This check covers every such file.
+#
+# The work itself is not here. `_run-script.yml` runs the script, and `_post-comment.yml` keeps the
+# report on the pull request. This workflow only names the check and wires the two together, so a
+# correction to either building block reaches every check that uses it.
+
+on:
+  workflow_call:
+    inputs:
+      config-path:
+        description: >
+          Path in the calling repository to the config that sets `IDENTIFIER` and the `EXCLUDED`
+          array. COPYRIGHT_HEADER.md maps every repository to its own identifier.
+        type: string
+        default: '.github/ci/copyright-header/config'
+      post-pr-comment:
+        description: 'Whether to post a PR comment on failure (and delete it on success)'
+        type: boolean
+        default: true
+    secrets:
+      VALKYRJA_GHA_APP_ID:
+        description: 'App ID of the GitHub App that mints the token this workflow uses'
+        required: true
+      VALKYRJA_GHA_PRIVATE_KEY:
+        description: 'Private key of the GitHub App that mints the token this workflow uses'
+        required: true
+
+jobs:
+  check:
+    name: Check Copyright Header
+    # A relative path resolves to the same commit as this workflow, so the script this runs can
+    # never drift from the workflow that runs it, and no reference needs a bump.
+    uses: ./.github/workflows/_run-script.yml
+    with:
+      script: copyright-header-check.sh
+      env: |
+        CONFIG_PATH=${{ inputs.config-path }}
+
+  # `always()` runs this after a passing check as well as a failing one. A passing check posts no
+  # body, which removes the report it left on an earlier run.
+  comment:
+    name: Report
+    needs: check
+    if: always() && inputs.post-pr-comment && github.event.pull_request.number
+    uses: ./.github/workflows/_post-comment.yml
+    with:
+      marker: copyright-header-check
+      body: ${{ needs.check.outputs.outcome == 'failure' && needs.check.outputs.report-markdown || '' }}
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
