@@ -83,3 +83,13 @@ jobs:
       VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
     with:
       version: ${{ needs.check-version.outputs.version }}
+
+  # PHP has no publish job. Packagist reads the tag through a webhook and
+  # indexes it on its own schedule, so the wait belongs to the release rather
+  # than to a publish step that does not exist.
+  wait-for-availability:
+    needs: [release]
+    uses: ./.github/workflows/_wait-for-package-availability.yml
+    with:
+      ecosystem: packagist
+      wait-minutes: 15

@@ -237,6 +237,47 @@ authenticates as the GitHub App.
 Publishing an RC does **not** trigger `update-github-workflow-refs` — only
 stable releases propagate the ref pin across repos.
 
+### Waiting for the package to become available
+
+A publish step finishes before the registry serves the package.
+`gradle publishAndReleaseToMavenCentral` returns when the Portal accepts the
+deployment, not when `repo1.maven.org` answers for the artifact. PHP has no
+publish step at all: `_release.yml` creates the tag, and Packagist indexes it
+through a webhook on its own schedule.
+
+That gap is invisible and it corrupts the next release. A dependent asks the
+registry for the latest version and reads the previous one. It produces no
+dependency bump, so the outdated-dependency gate passes — the installed version
+equals the latest version the registry reports. The dependent then releases
+against the previous version of its dependency, and no check objects.
+
+So `_wait-for-package-availability.yml` runs after each publish and holds the
+release open until the registry answers for the new version. A release is not
+complete until another repository can resolve the package. That is the
+condition the tiered release sweep depends on.
+
+| Ecosystem   | What the workflow polls                                    |
+|-------------|------------------------------------------------------------|
+| `maven`     | `repo1.maven.org` for the versioned `.pom`                 |
+| `npm`       | `registry.npmjs.org` for the version document              |
+| `packagist` | `repo.packagist.org` for the version in the package's list |
+| `pypi`      | `pypi.org` for the version's JSON                          |
+
+The version comes from `VERSION.md`, and the package name from the manifest that
+the ecosystem uses. Registries disagree about the `v` prefix. Packagist reports
+the tag, and Maven Central reports the bare version. The workflow compares every
+version without the prefix.
+
+A repository that never published to a registry has nothing to wait for. The
+workflow asks the registry for the package first, and a package the registry
+does not know ends the wait immediately. Without that, every release in a
+repository that does not publish would stall for the full timeout.
+
+Warning: a wait that times out fails the job, and the release sweep reads that
+as a reason to stop. The release itself already succeeded — the tag, the GitHub
+release, and the upload are all done. The failure reports one thing only: the
+package is not resolvable yet, so nothing may release against it.
+
 ### Version validation
 
 `_get-version-for-release` enforces:
@@ -825,6 +866,7 @@ reusable workflows (leading `_`) are `workflow_call` only.
 | `_java-release-maven-publish.yml`                 | Publish Java artifacts to Maven Central (`MAVEN_*` secrets)                                                   |
 | `_python-release-pypi-publish.yml`                | Publish Python package to PyPI (`PYPI_API_TOKEN`)                                                             |
 | `_ts-release-npm-publish.yml`                     | Publish TypeScript package to npm (trusted publishing, no token)                                              |
+| `_wait-for-package-availability.yml`              | Hold the release open until the registry serves the published version                                         |
 | `_{php,java,python,ts}-update-info-files.yml`     | Update `VERSION`/`BUILD_DATE` constants in a language's info file                                             |
 | `_{php,java,python,ts}-create-version-branch.yml` | Per-language new-version-branch orchestrators (run check-outdated first)                                      |
 | `_{python,ts}-version-branch.yml`                 | Python/TS branch-creation logic (PHP/Java reuse `_version-branch.yml`)                                        |

@@ -39,3 +39,11 @@ jobs:
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         run: uv publish
+
+  wait-for-availability:
+    name: Wait For Package Availability
+    needs: [pypi-publish]
+    uses: ./.github/workflows/_wait-for-package-availability.yml
+    with:
+      ecosystem: pypi
+      wait-minutes: 15
