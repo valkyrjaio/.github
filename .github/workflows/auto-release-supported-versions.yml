@@ -18,10 +18,26 @@ on:
 
 run-name: "Auto release across supported version branches"
 
+# One sweep at a time. Two overlapping sweeps would each wait on the other's
+# releases and could dispatch a dependent while its dependency is mid-release.
+concurrency:
+  group: auto-release-supported-versions
+  cancel-in-progress: false
+
 jobs:
   auto-release:
     uses: ./.github/workflows/_auto-release-supported-versions.yml
     with:
+      # Dependencies before dependents. A CI tool ships first because the
+      # framework consumes it, the framework before sindri, and sindri before
+      # anything that builds an application with it. Only PHP has CI tool repos
+      # today; the pattern costs nothing in a language that has none.
+      tiers: |
+        ci-*
+        valkyrja-php valkyrja-java valkyrja-python valkyrja-ts valkyrja-go
+        sindri-php sindri-java sindri-python sindri-ts sindri-go
+        valkyrja-starter-app-* project-template-*
+      refresh-dependencies: true
       dry_run: ${{ inputs.dry_run || false }}
       repo: ${{ inputs.repo || '' }}
     secrets:
