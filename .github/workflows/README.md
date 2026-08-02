@@ -146,6 +146,41 @@ than the reverse.
 `SUPPORTED_VERSIONS`. Supports `dry_run` and a single-`repo` target on manual
 dispatch.
 
+#### Release order
+
+The sweep releases in tiers, and it waits for each tier to finish before it
+starts the next one. A dependency therefore always ships before the repository
+that consumes it:
+
+| Tier | Repositories                                | Why it is here                        |
+|------|---------------------------------------------|---------------------------------------|
+| 1    | `ci-*`                                      | The framework consumes the CI tools   |
+| 2    | `valkyrja-<lang>`                           | Everything else consumes the framework |
+| 3    | `sindri-<lang>`                             | `sindri` builds against the framework  |
+| 4    | `valkyrja-starter-app-*`, `project-template-*` | An application uses both            |
+| 5    | Everything the tiers do not name            | Released last, so nothing waits on it  |
+
+Order alone is not enough. A dependent that releases straight after its
+dependency still carries the previous version in its manifest. The release gate
+rejects an outdated direct dependency. So between tiers
+the sweep runs each repository's `update-dependencies`, then dispatches
+`auto-merge-bot-prs.yml` to land the bump under the gates that workflow already
+applies. Only then does it dispatch the tier's releases.
+
+The sweep stops waiting for a bump once every check on it has reported and the
+pull request is still open. The auto-merge sweep declined for a reason that will
+not change on its own. The release goes ahead, and the outdated-dependency gate
+objects instead.
+
+Warning: a failed release fails the whole sweep, because every later tier was
+sequenced on the assumption that the release shipped. A wait that times out does
+not fail the sweep — the run it stopped watching may still finish.
+
+This ordering is what a release of `@valkyrjaio/sindri` needs. Before it, the
+sweep dispatched every repository at once in `gh repo list` order, so `sindri`
+released before or after `valkyrja` by chance. When it lost the toss it either
+shipped against a stale framework or failed its outdated-dependency gate.
+
 It **never dispatches to `master`.** The sibling cross-repo sweeps fall back to
 `master` when a repo has no version branch; this one skips the repo instead, because a
 release must never be cut from `master` — that is where the next year is prepared, and
