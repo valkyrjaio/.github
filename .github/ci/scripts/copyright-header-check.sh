@@ -84,8 +84,8 @@ readonly TEXT_1="This file is part of the ${IDENTIFIER} package."
 readonly TEXT_2='Copyright (c) 2016-present Melech Mizrachi'
 readonly TEXT_3='Released under the MIT License. See LICENSE.md for details.'
 
-# A PHP file writes the header as a block comment. Every other file writes the
-# same text as a line comment, where each delimiter of the block becomes a bare
+# A language that writes a block comment writes the header between `/*` and `*/`. Every other
+# file writes the same text as a line comment, where each delimiter of the block becomes a bare
 # comment mark.
 BLOCK_COMMENT=()
 BLOCK_COMMENT[0]='/*'
@@ -106,6 +106,25 @@ LINE_COMMENT[5]="# ${TEXT_3}"
 LINE_COMMENT[6]='#'
 
 readonly HEADER_LINES=7
+
+# The extensions whose header is a block comment. Each of these languages writes the same text
+# between `/*` and `*/`. Every other file writes it as a line comment. A language that owns its own
+# header tool belongs in EXCLUDED instead, because that tool is what keeps the header correct.
+BLOCK_COMMENT_EXTENSIONS=('*.php' '*.java' '*.ts' '*.tsx' '*.js' '*.jsx')
+
+is_block_comment() {
+    local path="$1"
+    local pattern
+
+    for pattern in "${BLOCK_COMMENT_EXTENSIONS[@]}"; do
+        # shellcheck disable=SC2053
+        if [[ "$path" == $pattern ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
 
 is_excluded() {
     local path="$1"
@@ -131,8 +150,7 @@ header_offset() {
     local line
 
     while IFS= read -r line || [[ -n "$line" ]]; do
-        case "$path" in
-            *.php)
+        if is_block_comment "$path"; then
                 case "$line" in
                     '<?php'*|'declare(strict_types=1);'|'')
                         index=$((index + 1))
@@ -141,8 +159,7 @@ header_offset() {
                     # Any other line opens the header, so stop skipping.
                     *) ;;
                 esac
-                ;;
-            *)
+        else
                 if [[ "$index" -eq 0 ]]; then
                     case "$line" in
                         '#!'*)
@@ -153,8 +170,7 @@ header_offset() {
                         *) ;;
                     esac
                 fi
-                ;;
-        esac
+        fi
 
         break
     done < "$path"
@@ -178,10 +194,11 @@ while IFS= read -r -d '' path; do
     # buffer, and `pipefail` turns that into a crash the moment a large file appears.
     actual="$(sed -n "$((offset + 1)),$((offset + HEADER_LINES))p" "$path")"
 
-    case "$path" in
-        *.php) expected="$(printf '%s\n' "${BLOCK_COMMENT[@]}")" ;;
-        *) expected="$(printf '%s\n' "${LINE_COMMENT[@]}")" ;;
-    esac
+    if is_block_comment "$path"; then
+        expected="$(printf '%s\n' "${BLOCK_COMMENT[@]}")"
+    else
+        expected="$(printf '%s\n' "${LINE_COMMENT[@]}")"
+    fi
 
     if [[ "$actual" != "$expected" ]]; then
         printf 'Missing or wrong copyright header: %s\n' "$path" >&2
@@ -197,8 +214,9 @@ fi
 if [[ "$failed" -ne 0 ]]; then
     printf '\nEach file above must carry this header:\n\n' >&2
     printf '%s\n' "${LINE_COMMENT[@]}" >&2
-    printf '\nA PHP file writes the same text as a block comment.\n' >&2
-    printf 'The header follows the shebang, or the PHP open tag, where the file has one.\n' >&2
+    printf '\nA file of one of these types writes the same text as a block comment: %s\n' \
+        "${BLOCK_COMMENT_EXTENSIONS[*]}" >&2
+    printf 'The header follows the shebang, or the open tag, where the file has one.\n' >&2
     printf 'A file that holds no program code belongs in EXCLUDED in %s.\n' "$CONFIG_PATH" >&2
 
     exit 1
