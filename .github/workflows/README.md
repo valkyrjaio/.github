@@ -258,7 +258,7 @@ complete until another repository can resolve the package. That is the
 condition the tiered release sweep depends on.
 
 | Ecosystem   | What the workflow polls                                    |
-|-------------|------------------------------------------------------------|
+| ----------- | ---------------------------------------------------------- |
 | `maven`     | `repo1.maven.org` for the versioned `.pom`                 |
 | `npm`       | `registry.npmjs.org` for the version document              |
 | `packagist` | `repo.packagist.org` for the version in the package's list |
