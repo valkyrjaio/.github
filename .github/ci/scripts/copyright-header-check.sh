@@ -110,7 +110,7 @@ readonly HEADER_LINES=7
 # The extensions whose header is a block comment. Each of these languages writes the same text
 # between `/*` and `*/`. Every other file writes it as a line comment. A language that owns its own
 # header tool belongs in EXCLUDED instead, because that tool is what keeps the header correct.
-BLOCK_COMMENT_EXTENSIONS=('*.php' '*.java' '*.ts' '*.tsx' '*.js' '*.jsx')
+BLOCK_COMMENT_EXTENSIONS=('*.php' '*.java' '*.go' '*.ts' '*.tsx' '*.js' '*.jsx')
 
 is_block_comment() {
     local path="$1"
