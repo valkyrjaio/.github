@@ -33,14 +33,16 @@ set -euo pipefail
 CONFIG_PATH="${CONFIG_PATH:-.github/ci/copyright-header/config}"
 ROOT="${ROOT:-}"
 
-while [ "$#" -gt 0 ]; do
+while [[ "$#" -gt 0 ]]; do
     case "$1" in
         --config)
-            CONFIG_PATH="${2:-}"
+            [[ "$#" -ge 2 ]] || { printf -- '--config needs a value.\n' >&2; exit 1; }
+            CONFIG_PATH="$2"
             shift 2
             ;;
         --root)
-            ROOT="${2:-}"
+            [[ "$#" -ge 2 ]] || { printf -- '--root needs a value.\n' >&2; exit 1; }
+            ROOT="$2"
             shift 2
             ;;
         -h|--help)
@@ -54,13 +56,13 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-if [ -z "$ROOT" ]; then
+if [[ -z "$ROOT" ]]; then
     ROOT="$(git rev-parse --show-toplevel)"
 fi
 
 cd "$ROOT"
 
-if [ ! -f "$CONFIG_PATH" ]; then
+if [[ ! -f "$CONFIG_PATH" ]]; then
     printf 'No config at %s.\n' "$CONFIG_PATH" >&2
     printf 'The file sets IDENTIFIER, and it sets the EXCLUDED array.\n' >&2
     exit 1
@@ -72,7 +74,7 @@ EXCLUDED=()
 # shellcheck source=/dev/null
 . "$CONFIG_PATH"
 
-if [ -z "$IDENTIFIER" ]; then
+if [[ -z "$IDENTIFIER" ]]; then
     printf '%s sets no IDENTIFIER.\n' "$CONFIG_PATH" >&2
     printf 'COPYRIGHT_HEADER.md maps every repository to its own identifier.\n' >&2
     exit 1
@@ -128,7 +130,7 @@ header_offset() {
     local index=0
     local line
 
-    while IFS= read -r line || [ -n "$line" ]; do
+    while IFS= read -r line || [[ -n "$line" ]]; do
         case "$path" in
             *.php)
                 case "$line" in
@@ -136,15 +138,19 @@ header_offset() {
                         index=$((index + 1))
                         continue
                         ;;
+                    # Any other line opens the header, so stop skipping.
+                    *) ;;
                 esac
                 ;;
             *)
-                if [ "$index" -eq 0 ]; then
+                if [[ "$index" -eq 0 ]]; then
                     case "$line" in
                         '#!'*)
                             index=1
                             continue
                             ;;
+                        # No shebang, so the header opens on line 1.
+                        *) ;;
                     esac
                 fi
                 ;;
@@ -177,18 +183,18 @@ while IFS= read -r -d '' path; do
         *) expected="$(printf '%s\n' "${LINE_COMMENT[@]}")" ;;
     esac
 
-    if [ "$actual" != "$expected" ]; then
+    if [[ "$actual" != "$expected" ]]; then
         printf 'Missing or wrong copyright header: %s\n' "$path" >&2
         failed=1
     fi
 done < <(git ls-files -z)
 
-if [ "$checked" -eq 0 ]; then
+if [[ "$checked" -eq 0 ]]; then
     printf 'EXCLUDED matched every tracked file, so this check verified nothing.\n' >&2
     exit 1
 fi
 
-if [ "$failed" -ne 0 ]; then
+if [[ "$failed" -ne 0 ]]; then
     printf '\nEach file above must carry this header:\n\n' >&2
     printf '%s\n' "${LINE_COMMENT[@]}" >&2
     printf '\nA PHP file writes the same text as a block comment.\n' >&2
