@@ -268,7 +268,8 @@ jobs:
 
                 while [ "$MERGE_WAITED" -lt "$STAGE_TIMEOUT" ]; do
                   MERGE_SINCE=$(now_utc)
-                  gh workflow run auto-merge-bot-prs.yml --repo "$ORG/$THIS_REPO" >/dev/null 2>&1 || true
+                  gh workflow run auto-merge-bot-prs.yml --repo "$ORG/$THIS_REPO" \
+                    --ref "$THIS_REF" >/dev/null 2>&1 || true
                   wait_for_dispatch "$THIS_REPO" "auto-merge-bot-prs.yml" "$THIS_REF" "$MERGE_SINCE" >/dev/null
 
                   STILL_OPEN=0
