@@ -87,6 +87,9 @@ this template" button.
 
 - `project-template-php`
 - `project-template-java`
+- `project-template-go`
+- `project-template-python`
+- `project-template-ts`
 
 **Rule:** One project template per language. Templates are org-level
 infrastructure — they're not specific to any single project.
@@ -129,7 +132,8 @@ Valkyrja repo.
 - `valkyrja-php` — the Valkyrja framework in PHP
 - `valkyrja-java` — the Valkyrja framework in Java
 - `sindri-php` — the Sindri build tool in PHP
-- `sindri-java` _(future)_
+- `sindri-java` — the Sindri build tool in Java
+- `sindri-ts` — the Sindri build tool in TypeScript
 
 **Rule:** If the repo requires another Valkyrja project to function, it is
 not a base project. Use Category 4b instead.
