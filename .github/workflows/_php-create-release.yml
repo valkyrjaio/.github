@@ -87,9 +87,14 @@ jobs:
   # PHP has no publish job. Packagist reads the tag through a webhook and
   # indexes it on its own schedule, so the wait belongs to the release rather
   # than to a publish step that does not exist.
+  #
+  # That also makes this the one caller that runs where nothing publishes. Every
+  # PHP repository reaches this job, and several are on no registry at all, so
+  # an unknown package ends the wait here instead of holding the release.
   wait-for-availability:
     needs: [release]
     uses: ./.github/workflows/_wait-for-package-availability.yml
     with:
       ecosystem: packagist
       wait-minutes: 15
+      skip-when-unknown: true
