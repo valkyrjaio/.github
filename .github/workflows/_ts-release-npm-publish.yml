@@ -47,3 +47,11 @@ jobs:
 
       - name: Publish to npm
         run: npm publish --provenance --access public
+
+  wait-for-availability:
+    name: Wait For Package Availability
+    needs: [npm-publish]
+    uses: ./.github/workflows/_wait-for-package-availability.yml
+    with:
+      ecosystem: npm
+      wait-minutes: 15

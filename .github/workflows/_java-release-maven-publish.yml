@@ -52,3 +52,13 @@ jobs:
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.MAVEN_SIGNING_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.MAVEN_SIGNING_KEY_PASSWORD }}
+
+  wait-for-availability:
+    name: Wait For Package Availability
+    needs: [maven-publish]
+    # Maven Central accepts a deployment before `repo1.maven.org` serves it, and
+    # that sync is the slowest of the four registries.
+    uses: ./.github/workflows/_wait-for-package-availability.yml
+    with:
+      ecosystem: maven
+      wait-minutes: 60
