@@ -193,8 +193,11 @@ jobs:
           TASK: ${{ steps.tool.outputs.task }}
         run: gradle "$TASK"
 
+      # `!cancelled()` is required. A step whose `if:` holds no status check function gets
+      # `success() &&` prepended, and a failed tool step already set the job status to `failure`,
+      # so the outcome condition alone could never run.
       - name: Report failure in PR comment
-        if: steps.build_step.outcome == 'failure'
+        if: ${{ !cancelled() && steps.build_step.outcome == 'failure' }}
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
