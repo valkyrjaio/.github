@@ -72,14 +72,26 @@ jobs:
 
           # Remove first, then post. A run that now passes removes its old report and stops, and a
           # run that still fails replaces the report rather than adding a second one.
-          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            --jq ".[] | select(.body | contains(\"$TAG\")) | .id" \
-            | head -1)
+          #
+          # Warning: remove EVERY marked comment, not the first one. Two runs racing on a double
+          # push each leave a marked comment, and deleting one of them leaves the other on the pull
+          # request forever.
+          #
+          # Warning: `--paginate` is required. The API returns 30 comments per page, so a marked
+          # comment on a busy pull request sits past the first page and is never found without it.
+          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.body | contains(\"$TAG\")) | .id")
 
-          if [ -n "$COMMENT_ID" ]; then
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
-            echo "Removed the previous $MARKER comment."
-          fi
+          # Warning: never let a failed delete end the step. The same race puts one comment id in
+          # both runs' lists, so whichever run deletes second gets HTTP 404 and `gh` exits 1. The
+          # runner's shell is `bash -e`, which would end the step on that status — a check that
+          # passed would go red, or a failing check would never reach the comment it must post.
+          # Comment housekeeping must never decide the job result, so report and continue.
+          for COMMENT_ID in $COMMENT_IDS; do
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
+              && echo "Removed a previous $MARKER comment." \
+              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
+          done
 
           if [ -z "$BODY" ]; then
             echo "No body given, so no $MARKER comment was posted."
