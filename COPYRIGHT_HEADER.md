@@ -147,7 +147,7 @@ contributor to add the header by hand.
 
 | Language   | Mechanism                                                              |
 | ---------- | ---------------------------------------------------------------------- |
-| PHP        | PHP CS Fixer — the `$header` argument to `Rules::getConfig()`          |
+| PHP        | PHP CS Fixer — the `$package` argument to `Rules::getConfig()`         |
 | Java       | Spotless — `licenseHeader` in `.github/ci/spotless/build.gradle.kts`   |
 | TypeScript | ESLint — the local `copyright-header` rule                             |
 | Go         | golangci-lint — `goheader`, with the template in `license-header.txt`  |
@@ -197,21 +197,21 @@ that has no extension. Give the language's own finder that file by name.
 `sindri-php` names `bin/sindri`, and `valkyrja-starter-app-php` names
 `app/bin/cli` and `app/bin/openswoole`.
 
-The PHP CS Fixer configuration in `ci-phpcsfixer-php` injects the header
-into every file. Consuming repositories pass their
-`{PACKAGE_IDENTIFIER}` value to `Rules::getConfig()` via the `$header`
-argument:
+The PHP CS Fixer configuration in `ci-phpcsfixer-php` injects the header into
+every file. The package holds the header text, and `Rules::getHeader()` builds
+the header from a package name. A consuming repository therefore passes its
+`{PACKAGE_IDENTIFIER}` value to `Rules::getConfig()`, and states nothing else.
+The `$package` argument requires `valkyrja/phpcsfixer` v26.3.0 or later.
+
+Warning: pass the package name, never the assembled header. `getHeader()` puts
+the argument into the first line of the header, so an assembled header names the
+whole header as the package. PHP CS Fixer then writes that text into every file,
+and the check afterwards passes, because the files and the configuration agree
+with each other. `getHeader()` rejects a package name that spans more than one
+line for that reason, and throws an `InvalidArgumentException`.
 
 ```php
-$header = <<<HEADER
-This file is part of the Valkyrja Benchmarking package.
-
-Copyright (c) 2016-present Melech Mizrachi
-
-Released under the MIT License. See LICENSE.md for details.
-HEADER;
-
-return Rules::getConfig($finder, $header);
+return Rules::getConfig($finder, 'Valkyrja Framework');
 ```
 
 Warning: a tool that injects the header replaces the first comment block
