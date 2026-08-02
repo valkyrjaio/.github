@@ -3,19 +3,12 @@ name: Z Reusable Copyright Header Check
 on:
   workflow_call:
     inputs:
-      package-identifier:
+      config-path:
         description: >
-          The package the header names, written without the word `package` — for example
-          `Valkyrja Framework`. COPYRIGHT_HEADER.md maps every repository to its own value.
+          Path in the calling repository to the config that sets `IDENTIFIER` and the `EXCLUDED`
+          array. COPYRIGHT_HEADER.md maps every repository to its own identifier.
         type: string
-        required: true
-      paths:
-        description: >
-          Pathspecs the check reads, one per line and unquoted, as `git ls-files` accepts them —
-          for example `*.sh`. Every file a pathspec matches must carry the header as a line
-          comment.
-        type: string
-        default: '*.sh'
+        default: '.github/ci/copyright-header/config'
       post-pr-comment:
         description: 'Whether to post a PR comment on failure (and delete it on success)'
         type: boolean
@@ -42,6 +35,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
+      # `uses: ...@<sha>` pins this workflow file, and it pins nothing else. The runner holds the
+      # caller's checkout, so a bare path would reach the caller's own tree rather than this
+      # repository. The script is checked out here at `job_workflow_sha`, which is the commit this
+      # workflow was loaded from, so the script is pinned exactly as tightly as the workflow.
+      - name: Checkout the CI scripts
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          repository: valkyrjaio/.github
+          ref: ${{ github.job_workflow_sha }}
+          path: dot-github
+
       - name: Generate a token
         id: generate-token
         if: github.event.pull_request.number && inputs.post-pr-comment
@@ -53,90 +57,25 @@ jobs:
       - name: Check the copyright header
         id: check
         env:
-          PACKAGE_IDENTIFIER: ${{ inputs.package-identifier }}
-          PATHS: ${{ inputs.paths }}
+          CONFIG_PATH: ${{ inputs.config-path }}
         run: |
-          # Each language enforces the header with its own formatter, and a formatter reads only
-          # the language it formats. A file in any other language therefore keeps the header a
-          # person gave it, and nothing reports that the header drifted. This check covers those
-          # files. It reads text and compares text, so it needs no toolchain and no language.
-          #
-          # Warning: this check reports a wrong header and corrects nothing. A formatter that
-          # injects the header rewrites the file; this one names the file and stops.
+          # The script writes every failing file and the remediation text, so the report step
+          # quotes that output rather than building a second copy of the same message.
+          set +e
+          OUTPUT=$(dot-github/.github/ci/scripts/copyright-header-check.sh --config "$CONFIG_PATH" 2>&1)
+          STATUS=$?
+          set -e
 
-          # The text is the one COPYRIGHT_HEADER.md specifies, written as a `#` line comment.
-          # Each delimiter of the block comment becomes a bare `#`, so the line-comment form
-          # opens and closes on one, the way the block form opens on `/*` and closes on `*/`.
-          #
-          # `printf` builds the block rather than a heredoc, because a heredoc body must start at
-          # column 1 and every line of this script is indented by the YAML block scalar.
-          EXPECTED=$(printf '%s\n' \
-            '#' \
-            "# This file is part of the $PACKAGE_IDENTIFIER package." \
-            '#' \
-            '# Copyright (c) 2016-present Melech Mizrachi' \
-            '#' \
-            '# Released under the MIT License. See LICENSE.md for details.' \
-            '#')
-          HEADER_LINES=7
+          printf '%s\n' "$OUTPUT"
 
-          PATHSPECS=()
-          while IFS= read -r SPEC; do
-            [ -n "$SPEC" ] && PATHSPECS+=("$SPEC")
-          done <<< "$PATHS"
-
-          if [ "${#PATHSPECS[@]}" -eq 0 ]; then
-            echo 'The `paths` input names no pathspec.'
-            exit 1
-          fi
-
-          # `git ls-files` names the files, rather than a shell glob. A glob also matches a
-          # vendored script under `vendor/`, `node_modules/`, or a worktree directory, and the
-          # check must read only what the repository tracks.
-          FILES=()
-          while IFS= read -r -d '' FILE; do
-            FILES+=("$FILE")
-          done < <(git ls-files -z -- "${PATHSPECS[@]}")
-
-          # A pathspec that matches nothing is a failure, not a pass. A path filter fails
-          # silently when its path is wrong: it matches nothing and the check goes green, which
-          # reads the same as a clean run. A repository that has no file to check does not call
-          # this workflow at all.
-          if [ "${#FILES[@]}" -eq 0 ]; then
-            echo "No tracked file matches the given paths, so this check verified nothing:"
-            printf '  %s\n' "${PATHSPECS[@]}"
-            exit 1
-          fi
-
-          WRONG=()
-          for FILE in "${FILES[@]}"; do
-            # A script names its interpreter on line 1, so the header follows the shebang rather
-            # than opening the file. Any other file carries the header on line 1.
-            OFFSET=0
-            IFS= read -r FIRST < "$FILE" || FIRST=''
-            case "$FIRST" in
-              '#!'*) OFFSET=1 ;;
-            esac
-
-            ACTUAL=$(tail -n "+$((OFFSET + 1))" "$FILE" | head -n "$HEADER_LINES")
-
-            if [ "$ACTUAL" != "$EXPECTED" ]; then
-              WRONG+=("$FILE")
-            fi
-          done
-
-          if [ "${#WRONG[@]}" -gt 0 ]; then
-            echo "The following files do not carry the copyright header:"
-            printf '  %s\n' "${WRONG[@]}"
+          if [ "$STATUS" -ne 0 ]; then
             {
-              echo 'wrong_files<<EOF'
-              printf '%s\n' "${WRONG[@]}"
-              echo 'EOF'
+              echo 'report<<CHECK_EOF'
+              printf '%s\n' "$OUTPUT"
+              echo 'CHECK_EOF'
             } >> "$GITHUB_OUTPUT"
-            exit 1
+            exit "$STATUS"
           fi
-
-          echo "All ${#FILES[@]} checked files carry the copyright header."
 
       - name: Report failure in PR comment
         if: failure() && github.event.pull_request.number && inputs.post-pr-comment
@@ -144,8 +83,8 @@ jobs:
           GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PACKAGE_IDENTIFIER: ${{ inputs.package-identifier }}
-          WRONG_FILES: ${{ steps.check.outputs.wrong_files }}
+          CONFIG_PATH: ${{ inputs.config-path }}
+          REPORT: ${{ steps.check.outputs.report }}
         run: |
           COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
             --jq '.[] | select(.body | contains("<!-- workflow-id: copyright-header-check -->")) | .id' \
@@ -154,25 +93,13 @@ jobs:
             gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
           fi
 
-          BODY="The copyright header check failed. Please give each file below this header, "
-          BODY+="under the shebang line where the file has one, and commit the changes:"$'\n\n'
-          BODY+='```'$'\n'
-          BODY+='#'$'\n'
-          BODY+="# This file is part of the $PACKAGE_IDENTIFIER package."$'\n'
-          BODY+='#'$'\n'
-          BODY+='# Copyright (c) 2016-present Melech Mizrachi'$'\n'
-          BODY+='#'$'\n'
-          BODY+='# Released under the MIT License. See LICENSE.md for details.'$'\n'
-          BODY+='#'$'\n'
-          BODY+='```'$'\n'
-
-          if [ -n "$WRONG_FILES" ]; then
-            BODY+=$'\n'"These files do not carry it:"$'\n\n'
-            while IFS= read -r f; do
-              [ -n "$f" ] && BODY+="- \`$f\`"$'\n'
-            done <<< "$WRONG_FILES"
+          BODY="The copyright header check failed."$'\n\n'
+          if [ -n "$REPORT" ]; then
+            BODY+='```'$'\n'"$REPORT"$'\n''```'$'\n\n'
           fi
-
+          BODY+="The check is closed by default. Every tracked file must carry the header, "
+          BODY+="unless \`EXCLUDED\` in \`$CONFIG_PATH\` matches it. Add the header to the file, "
+          BODY+="or add the file to \`EXCLUDED\` when the file holds no program code."$'\n'
           BODY+=$'\n<!-- workflow-id: copyright-header-check -->'
           gh pr comment "$PR_NUMBER" --body "$BODY"
 
