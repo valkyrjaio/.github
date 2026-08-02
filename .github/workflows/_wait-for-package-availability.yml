@@ -55,10 +55,24 @@ jobs:
           case "$ECOSYSTEM" in
             maven)
               GROUP=$(grep -oE '^group *= *"[^"]+"' build.gradle.kts | grep -oE '"[^"]+"' | tr -d '"')
-              # The artifact is the second argument of `coordinates(...)`, and the
-              # first quoted literal on that line. The other two arguments are
-              # `group.toString()` and `version.toString()`, which carry no quotes.
-              ARTIFACT=$(grep -E 'coordinates\(' build.gradle.kts | grep -oE '"[^"]+"' | head -1 | tr -d '"')
+              # The artifact is the first quoted literal of the `coordinates(...)`
+              # call. The other two arguments are `group.toString()` and
+              # `version.toString()`, which carry no quotes. The scan starts at
+              # the call and continues past the end of the line, because the
+              # Kotlin DSL wraps a multi-argument call as often as it does not.
+              ARTIFACT=$(awk '/coordinates\(/{f=1} f' build.gradle.kts \
+                | grep -oE '"[^"]+"' | head -1 | tr -d '"')
+
+              # Each half is checked on its own. A single missing half still
+              # builds a plausible looking coordinate, and the URL it produces
+              # answers 404 — which every other branch of this workflow reads as
+              # "the registry does not carry this package". A parsing failure
+              # must not borrow that meaning.
+              if [ -z "$GROUP" ] || [ -z "$ARTIFACT" ]; then
+                echo "Could not read the Maven coordinates from build.gradle.kts (group='$GROUP' artifact='$ARTIFACT')."
+                exit 1
+              fi
+
               PACKAGE="$GROUP:$ARTIFACT"
               GROUP_PATH=$(echo "$GROUP" | tr . /)
               ROOT_URL="https://repo1.maven.org/maven2/$GROUP_PATH/$ARTIFACT/maven-metadata.xml"
@@ -85,7 +99,7 @@ jobs:
               ;;
           esac
 
-          if [ -z "$PACKAGE" ] || [ "$PACKAGE" = ":" ]; then
+          if [ -z "$PACKAGE" ]; then
             echo "Could not read the package name from the manifest for $ECOSYSTEM."
             exit 1
           fi
