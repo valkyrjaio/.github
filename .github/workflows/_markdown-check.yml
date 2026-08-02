@@ -1,0 +1,159 @@
+name: Z Reusable Markdown Check
+
+on:
+  workflow_call:
+    inputs:
+      prettier-version:
+        description: 'Prettier version the check runs. Pinned here so one edit upgrades every repository.'
+        type: string
+        default: '3.9.6'
+      node-version:
+        description: 'Node.js version Prettier runs on'
+        type: string
+        default: '22'
+      post-pr-comment:
+        description: 'Whether to post a PR comment on failure (and delete it on success)'
+        type: boolean
+        default: true
+    secrets:
+      VALKYRJA_GHA_APP_ID:
+        description: 'App ID of the GitHub App that mints the token this workflow uses'
+        required: true
+      VALKYRJA_GHA_PRIVATE_KEY:
+        description: 'Private key of the GitHub App that mints the token this workflow uses'
+        required: true
+
+jobs:
+  markdown-check:
+    name: Check Markdown
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Generate a token
+        id: generate-token
+        if: github.event.pull_request.number && inputs.post-pr-comment
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Check Markdown formatting
+        id: check
+        env:
+          PRETTIER_VERSION: ${{ inputs.prettier-version }}
+        run: |
+          # Three settings carry the whole configuration, so no repository needs a config file.
+          #
+          #   --embedded-language-formatting=off  Prettier's default rewrites the code inside every
+          #                                       fence whose tag it knows. A document shows what a
+          #                                       repository contains, so the formatter must leave
+          #                                       the example alone.
+          #   --prose-wrap=preserve               Keeps every hand-placed line break. Documentation
+          #                                       prose is wrapped by sentence and by clause, and a
+          #                                       reflow to a fixed width erases that structure.
+          #   --no-config                         Keeps the rules identical in every repository. A
+          #                                       repository's own prettier config governs its other
+          #                                       file types, never its Markdown.
+          #
+          # CHANGELOG.md is excluded because the release automation writes it.
+          #
+          # `git ls-files` names the files, rather than a `**/*.md` glob. The glob also matches a
+          # vendored document under `vendor/`, `node_modules/`, or a worktree directory, and the
+          # check must read only what the repository tracks.
+          set +e
+          DIFFERENT=$(git ls-files -z -- '*.md' ':(exclude)*CHANGELOG.md' \
+            | xargs -0 -r npx --yes "prettier@$PRETTIER_VERSION" \
+              --no-config \
+              --embedded-language-formatting=off \
+              --prose-wrap=preserve \
+              --list-different)
+          STATUS=$?
+          set -e
+
+          # Warning: never branch on `$STATUS` before `$DIFFERENT`. `$STATUS` is the exit status of
+          # `xargs`, not of Prettier, and `xargs` does not pass the child's status through. GNU
+          # `xargs` reports 123 for any child status in 1 to 125, and BSD `xargs` reports 1, so the
+          # same drift gives a different number on a runner than on a developer's Mac. What the two
+          # agree on is the output: `--list-different` writes the unformatted files to stdout, and
+          # writes an error to stderr. So read the output first, and read the status only to catch
+          # a Prettier that failed without naming a file.
+          if [ -n "$DIFFERENT" ]; then
+            echo "The following files are not formatted:"
+            printf '  %s\n' $DIFFERENT
+            {
+              echo 'unformatted_files<<EOF'
+              printf '%s\n' "$DIFFERENT"
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          if [ "$STATUS" -ne 0 ]; then
+            echo "Prettier failed to run, and named no file. Exit status $STATUS."
+            exit "$STATUS"
+          fi
+
+          echo "All Markdown files are formatted."
+
+      - name: Report failure in PR comment
+        if: failure() && github.event.pull_request.number && inputs.post-pr-comment
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PRETTIER_VERSION: ${{ inputs.prettier-version }}
+          UNFORMATTED_FILES: ${{ steps.check.outputs.unformatted_files }}
+        run: |
+          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | contains("<!-- workflow-id: markdown-check -->")) | .id' \
+            | head -1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+          fi
+
+          BODY="The Markdown check failed. Please run this command locally and commit the changes:"$'\n\n'
+          BODY+='```bash'$'\n'
+          BODY+="git ls-files -z -- '*.md' ':(exclude)*CHANGELOG.md' \\"$'\n'
+          BODY+="  | xargs -0 npx --yes prettier@$PRETTIER_VERSION \\"$'\n'
+          BODY+="    --no-config \\"$'\n'
+          BODY+="    --embedded-language-formatting=off \\"$'\n'
+          BODY+="    --prose-wrap=preserve \\"$'\n'
+          BODY+="    --write"$'\n'
+          BODY+='```'$'\n'
+
+          if [ -n "$UNFORMATTED_FILES" ]; then
+            BODY+=$'\n'"These files are not formatted:"$'\n\n'
+            while IFS= read -r f; do
+              [ -n "$f" ] && BODY+="- \`$f\`"$'\n'
+            done <<< "$UNFORMATTED_FILES"
+          fi
+
+          BODY+=$'\n<!-- workflow-id: markdown-check -->'
+          gh pr comment "$PR_NUMBER" --body "$BODY"
+
+      - name: Remove failure comment on success
+        if: success() && github.event.pull_request.number && inputs.post-pr-comment
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | contains("<!-- workflow-id: markdown-check -->")) | .id' \
+            | head -1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+          fi

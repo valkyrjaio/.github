@@ -17,6 +17,7 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 - [Rulesets](#rulesets)
 - [Commit Message Rules](#commit-message-rules)
 - [Trailing Newline Check](#trailing-newline-check)
+- [Markdown Check](#markdown-check)
 - [Claude Review](#claude-review)
 - [Dependabot](#dependabot)
 - [Dependency Updates](#dependency-updates)
@@ -152,13 +153,13 @@ The sweep releases in tiers, and it waits for each tier to finish before it
 starts the next one. A dependency therefore always ships before the repository
 that consumes it:
 
-| Tier | Repositories                                | Why it is here                        |
-|------|---------------------------------------------|---------------------------------------|
-| 1    | `ci-*`                                      | The framework consumes the CI tools   |
-| 2    | `valkyrja-<lang>`                           | Everything else consumes the framework |
-| 3    | `sindri-<lang>`                             | `sindri` builds against the framework  |
-| 4    | `valkyrja-starter-app-*`, `project-template-*` | An application uses both            |
-| 5    | Everything the tiers do not name            | Released last, so nothing waits on it  |
+| Tier | Repositories                                   | Why it is here                         |
+| ---- | ---------------------------------------------- | -------------------------------------- |
+| 1    | `ci-*`                                         | The framework consumes the CI tools    |
+| 2    | `valkyrja-<lang>`                              | Everything else consumes the framework |
+| 3    | `sindri-<lang>`                                | `sindri` builds against the framework  |
+| 4    | `valkyrja-starter-app-*`, `project-template-*` | An application uses both               |
+| 5    | Everything the tiers do not name               | Released last, so nothing waits on it  |
 
 Order alone is not enough. A dependent that releases straight after its
 dependency still carries the previous version in its manifest. The release gate
@@ -257,7 +258,7 @@ complete until another repository can resolve the package. That is the
 condition the tiered release sweep depends on.
 
 | Ecosystem   | What the workflow polls                                    |
-|-------------|------------------------------------------------------------|
+| ----------- | ---------------------------------------------------------- |
 | `maven`     | `repo1.maven.org` for the versioned `.pom`                 |
 | `npm`       | `registry.npmjs.org` for the version document              |
 | `packagist` | `repo.packagist.org` for the version in the package's list |
@@ -446,19 +447,19 @@ The JSON structure follows the GitHub Rulesets REST API response format. The
 Stored in `rulesets/` (org-wide) and `rulesets/<lang>/` (language-specific) and
 auto-applied by enforce and create-repo.
 
-| File                                                      | Scope        | Purpose                                                                              |
-| --------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------ |
-| `rulesets/Protect Against Force Pushes and Deletion.json` | All repos    | Prevents force pushes and deletion on version branches (`??.x`)                      |
-| `rulesets/Protect Master At All Times.json`               | All repos    | Prevents force pushes and deletion on `master`                                       |
-| `rulesets/Protect Release Tags.json`                      | All repos    | Prevents deletion or non-fast-forward of `*.*.*` tags                                |
-| `rulesets/Require Pull Request.json`                      | All repos    | Requires squash-merge PRs with code-owner review on `master`/`??.x`                  |
-| `rulesets/Required Default PR Checks.json`                | All repos    | Requires `Commit Message Check` and `Trailing Newline Check` to pass                 |
-| `rulesets/Restrict Changes to Unsupported Branches.json`  | All repos    | Locks backup branches (`*-backup`) against all changes                               |
-| `rulesets/php/Required PHP PR Checks.json`                | PHP repos    | Requires PHP CS Fixer, PHPCS, PHPArkitect, PHPStan, PHPUnit (8.4–8.6), Psalm, Rector |
-| `rulesets/java/Required Java PR Checks.json`              | Java repos   | Requires Spotless, ArchUnit, Error Prone, SpotBugs, JUnit                            |
-| `rulesets/python/Required Python PR Checks.json`          | Python repos | Requires Ruff, mypy, import-linter, Bandit, pytest                                   |
-| `rulesets/ts/Required TypeScript PR Checks.json`          | TS repos     | Requires ESLint, TypeScript (`tsc`), Vitest, Prettier                                |
-| `rulesets/go/Required Go PR Checks.json`                  | Go repos     | Requires golangci-lint, go test                                                      |
+| File                                                      | Scope        | Purpose                                                                                 |
+| --------------------------------------------------------- | ------------ | --------------------------------------------------------------------------------------- |
+| `rulesets/Protect Against Force Pushes and Deletion.json` | All repos    | Prevents force pushes and deletion on version branches (`??.x`)                         |
+| `rulesets/Protect Master At All Times.json`               | All repos    | Prevents force pushes and deletion on `master`                                          |
+| `rulesets/Protect Release Tags.json`                      | All repos    | Prevents deletion or non-fast-forward of `*.*.*` tags                                   |
+| `rulesets/Require Pull Request.json`                      | All repos    | Requires squash-merge PRs with code-owner review on `master`/`??.x`                     |
+| `rulesets/Required Default PR Checks.json`                | All repos    | Requires `Commit Message Check`, `Markdown Check`, and `Trailing Newline Check` to pass |
+| `rulesets/Restrict Changes to Unsupported Branches.json`  | All repos    | Locks backup branches (`*-backup`) against all changes                                  |
+| `rulesets/php/Required PHP PR Checks.json`                | PHP repos    | Requires PHP CS Fixer, PHPCS, PHPArkitect, PHPStan, PHPUnit (8.4–8.6), Psalm, Rector    |
+| `rulesets/java/Required Java PR Checks.json`              | Java repos   | Requires Spotless, ArchUnit, Error Prone, SpotBugs, JUnit                               |
+| `rulesets/python/Required Python PR Checks.json`          | Python repos | Requires Ruff, mypy, import-linter, Bandit, pytest                                      |
+| `rulesets/ts/Required TypeScript PR Checks.json`          | TS repos     | Requires ESLint, TypeScript (`tsc`), Vitest, Prettier                                   |
+| `rulesets/go/Required Go PR Checks.json`                  | Go repos     | Requires golangci-lint, go test                                                         |
 
 ### Bypass actors
 
@@ -549,6 +550,77 @@ jobs:
             VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
             VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 ```
+
+---
+
+## Markdown Check
+
+`_markdown-check.yml` runs [Prettier](https://prettier.io) over every Markdown file that the
+repository tracks, and fails when a file is not formatted. It runs as a job of `ci.yml`, beside
+the trailing-newline check, because it reads file content rather than pull request metadata.
+
+The check exists because Markdown was the one file type no gate read. Every CI tool in every
+language repository reads that language's source, so a table whose pipes stopped lining up merged
+green, and a person repaired it by hand afterward.
+
+Behavior:
+
+- Names the files with `git ls-files`, never a `**/*.md` glob. The glob also matches a vendored
+  document under `vendor/`, `node_modules/`, or a worktree directory, and the check must read only
+  what the repository tracks.
+- Excludes `CHANGELOG.md`, because the release automation writes it.
+- Posts a PR comment on failure that carries the exact fix command and lists every unformatted
+  file, and removes the comment when the check passes.
+- Pins the Prettier version in this workflow, so one edit here upgrades every repository.
+
+### Configuration
+
+Three settings carry the whole configuration, so no repository needs a Prettier config file:
+
+| Setting                              | Why                                                                                                                                                                    |
+| :----------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--embedded-language-formatting=off` | The default rewrites the code inside every fence whose tag Prettier knows. A document shows what a repository contains, so the formatter must leave the example alone. |
+| `--prose-wrap=preserve`              | Keeps every hand-placed line break. Documentation prose is wrapped by sentence and by clause, and a reflow to a fixed width erases that structure.                     |
+| `--no-config`                        | Keeps the rules identical in every repository. A repository's own Prettier config governs its other file types, never its Markdown.                                    |
+
+Warning: do not remove `--embedded-language-formatting=off`. Prettier then reformats the JSON and
+the YAML examples inside the documents, and each example stops matching the file it describes.
+
+### Running it locally
+
+```bash
+git ls-files -z -- '*.md' ':(exclude)*CHANGELOG.md' \
+  | xargs -0 npx --yes prettier@3.9.6 \
+    --no-config \
+    --embedded-language-formatting=off \
+    --prose-wrap=preserve \
+    --write
+```
+
+Replace `--write` with `--list-different` to see what would change without changing it.
+
+### Adding to a consumer repo
+
+```yaml
+jobs:
+    markdown-check:
+        if: github.event_name == 'pull_request'
+        uses: valkyrjaio/.github/.github/workflows/_markdown-check.yml@<sha>
+        permissions:
+            pull-requests: write
+            contents: read
+        secrets:
+            VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+            VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+```
+
+Warning: normalize the repository's Markdown before you add the job. A repository whose documents
+were never formatted fails the check on its first pull request.
+
+`Markdown Check / Check Markdown` is a required status check in
+`rulesets/Required Default PR Checks.json`. A required check that never reports blocks a pull
+request, so a repository must have the job before `enforce-repo-settings.yml` applies the ruleset
+to it.
 
 ---
 
@@ -841,23 +913,23 @@ reusable workflows (leading `_`) are `workflow_call` only.
 
 ### Entry points (public)
 
-| File                                 | Trigger                               | Description                                                             |
-| ------------------------------------ | ------------------------------------- | ----------------------------------------------------------------------- |
-| `ci.yml`                             | `push` / `pull_request`               | Umbrella CI. On PRs runs the commit-message and trailing-newline checks |
-| `release-new-version.yml`            | `workflow_dispatch`                   | Create a new release (patch/minor/major/rc), then repin workflow refs   |
-| `create-version-branch.yml`          | `workflow_dispatch`                   | Create a new yearly release version branch from `master`                |
-| `create-repo.yml`                    | `workflow_dispatch`                   | Create and configure a new org repository                               |
-| `enforce-repo-settings.yml`          | cron (Mon 09:00) + dispatch           | Enforce settings and rulesets across all repos                          |
-| `ensure-workflows.yml`               | cron (Mon 12:00) + dispatch           | Ensure required workflow files exist across all repos                   |
-| `ensure-reusable-workflow-names.yml` | cron (Mon 13:00) + dispatch           | Verify reusable workflow names/filenames follow convention              |
-| `fix-trailing-newlines.yml`          | cron (Mon 11:00) + dispatch           | Add missing trailing newlines across all repos via PRs                  |
-| `update-github-workflow-refs.yml`    | release + cron (Mon 10:00) + dispatch | Pin workflow refs to latest `.github` release SHA                       |
-| `update-php-dependencies.yml`        | `workflow_dispatch`                   | Fan out PHP dependency updates across all PHP repos                     |
-| `auto-merge-bot-prs.yml`             | cron (hourly :30) + dispatch          | Merge qualifying bot pull requests across all repos                     |
-| `cherry-pick-commits.yml`            | `workflow_dispatch`                   | Cherry-pick a commit to a target branch                                 |
-| `rebase-to-master.yml`               | `workflow_dispatch`                   | Rebase `master` onto the current (latest major) version branch          |
-| `rebase-from-master.yml`             | `workflow_dispatch`                   | Rebase the current branch onto `master`                                 |
-| `restore-branch-from-backup.yml`     | `workflow_dispatch`                   | Restore a branch from its `<branch>-backup` counterpart                 |
+| File                                 | Trigger                               | Description                                                           |
+| ------------------------------------ | ------------------------------------- | --------------------------------------------------------------------- |
+| `ci.yml`                             | `push` / `pull_request`               | Umbrella CI. On PRs runs the trailing-newline and Markdown checks     |
+| `release-new-version.yml`            | `workflow_dispatch`                   | Create a new release (patch/minor/major/rc), then repin workflow refs |
+| `create-version-branch.yml`          | `workflow_dispatch`                   | Create a new yearly release version branch from `master`              |
+| `create-repo.yml`                    | `workflow_dispatch`                   | Create and configure a new org repository                             |
+| `enforce-repo-settings.yml`          | cron (Mon 09:00) + dispatch           | Enforce settings and rulesets across all repos                        |
+| `ensure-workflows.yml`               | cron (Mon 12:00) + dispatch           | Ensure required workflow files exist across all repos                 |
+| `ensure-reusable-workflow-names.yml` | cron (Mon 13:00) + dispatch           | Verify reusable workflow names/filenames follow convention            |
+| `fix-trailing-newlines.yml`          | cron (Mon 11:00) + dispatch           | Add missing trailing newlines across all repos via PRs                |
+| `update-github-workflow-refs.yml`    | release + cron (Mon 10:00) + dispatch | Pin workflow refs to latest `.github` release SHA                     |
+| `update-php-dependencies.yml`        | `workflow_dispatch`                   | Fan out PHP dependency updates across all PHP repos                   |
+| `auto-merge-bot-prs.yml`             | cron (hourly :30) + dispatch          | Merge qualifying bot pull requests across all repos                   |
+| `cherry-pick-commits.yml`            | `workflow_dispatch`                   | Cherry-pick a commit to a target branch                               |
+| `rebase-to-master.yml`               | `workflow_dispatch`                   | Rebase `master` onto the current (latest major) version branch        |
+| `rebase-from-master.yml`             | `workflow_dispatch`                   | Rebase the current branch onto `master`                               |
+| `restore-branch-from-backup.yml`     | `workflow_dispatch`                   | Restore a branch from its `<branch>-backup` counterpart               |
 
 ### Release & version (reusable)
 
@@ -881,26 +953,27 @@ reusable workflows (leading `_`) are `workflow_call` only.
 
 ### Language CI checks (reusable)
 
-| File                          | Description                                      |
-| ----------------------------- | ------------------------------------------------ |
-| `_commit-message-check.yml`   | Commit message format check (skips Dependabot)   |
-| `_trailing-newline-check.yml` | Trailing newline check; posts/removes PR comment |
-| `_java-spotless.yml`          | Java formatting (Spotless)                       |
-| `_java-errorprone.yml`        | Java static analysis (Error Prone)               |
-| `_java-spotbugs.yml`          | Java static analysis (SpotBugs)                  |
-| `_java-archunit.yml`          | Java architecture tests (ArchUnit)               |
-| `_java-junit.yml`             | Java tests (JUnit)                               |
-| `_python-ruff.yml`            | Python lint/format (Ruff)                        |
-| `_python-mypy.yml`            | Python type checking (mypy)                      |
-| `_python-bandit.yml`          | Python security scan (Bandit)                    |
-| `_python-import-linter.yml`   | Python import contracts (import-linter)          |
-| `_python-pytest.yml`          | Python tests (pytest)                            |
-| `_ts-eslint.yml`              | TypeScript lint (ESLint)                         |
-| `_ts-prettier.yml`            | TypeScript formatting (Prettier)                 |
-| `_ts-typescript.yml`          | TypeScript type checking (`tsc`)                 |
-| `_ts-vitest.yml`              | TypeScript tests (Vitest)                        |
-| `_go-golangci-lint.yml`       | Go lint (golangci-lint)                          |
-| `_go-test.yml`                | Go tests (`go test`)                             |
+| File                          | Description                                                    |
+| ----------------------------- | -------------------------------------------------------------- |
+| `_commit-message-check.yml`   | Commit message format check (skips Dependabot)                 |
+| `_trailing-newline-check.yml` | Trailing newline check; posts/removes PR comment               |
+| `_markdown-check.yml`         | Markdown formatting check (Prettier); posts/removes PR comment |
+| `_java-spotless.yml`          | Java formatting (Spotless)                                     |
+| `_java-errorprone.yml`        | Java static analysis (Error Prone)                             |
+| `_java-spotbugs.yml`          | Java static analysis (SpotBugs)                                |
+| `_java-archunit.yml`          | Java architecture tests (ArchUnit)                             |
+| `_java-junit.yml`             | Java tests (JUnit)                                             |
+| `_python-ruff.yml`            | Python lint/format (Ruff)                                      |
+| `_python-mypy.yml`            | Python type checking (mypy)                                    |
+| `_python-bandit.yml`          | Python security scan (Bandit)                                  |
+| `_python-import-linter.yml`   | Python import contracts (import-linter)                        |
+| `_python-pytest.yml`          | Python tests (pytest)                                          |
+| `_ts-eslint.yml`              | TypeScript lint (ESLint)                                       |
+| `_ts-prettier.yml`            | TypeScript formatting (Prettier)                               |
+| `_ts-typescript.yml`          | TypeScript type checking (`tsc`)                               |
+| `_ts-vitest.yml`              | TypeScript tests (Vitest)                                      |
+| `_go-golangci-lint.yml`       | Go lint (golangci-lint)                                        |
+| `_go-test.yml`                | Go tests (`go test`)                                           |
 
 ### Code review (reusable)
 
