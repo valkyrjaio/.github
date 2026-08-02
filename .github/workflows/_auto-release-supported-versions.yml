@@ -113,10 +113,10 @@ jobs:
           # the same format, so a string comparison orders them correctly.
           # Echoes the run conclusion, or `timeout` / `missing`.
           wait_for_dispatch() {
-            local repo="$1" workflow="$2" branch="$3" since="$4"
+            local repo="$1" workflow="$2" branch="$3" since="$4" deadline="${5:-$STAGE_TIMEOUT}"
             local run_id="" waited=0 status
 
-            while [ "$waited" -lt "$STAGE_TIMEOUT" ]; do
+            while [ "$waited" -lt "$deadline" ]; do
               if [ -z "$run_id" ]; then
                 run_id=$(gh run list --repo "$ORG/$repo" --workflow "$workflow" --branch "$branch" \
                   --limit 20 --json databaseId,createdAt \
@@ -264,13 +264,21 @@ jobs:
               # go green first, and its checks start only once the refresh above
               # has pushed.
               if [ -n "$(printf '%s' "$REFRESHED" | tr -d '[:space:]')" ]; then
-                MERGE_WAITED=0
+                # Measured against the clock rather than counted in iterations.
+                # Each pass also waits on a dispatched run, so crediting a fixed
+                # amount per pass would undercount the time the pass really took
+                # and let this block run far past the stage timeout it claims to
+                # honor. The remaining budget also bounds the inner wait, so the
+                # whole block stays inside one stage timeout.
+                MERGE_START=$(date +%s)
+                MERGE_REMAINING=$STAGE_TIMEOUT
 
-                while [ "$MERGE_WAITED" -lt "$STAGE_TIMEOUT" ]; do
+                while [ "$MERGE_REMAINING" -gt 0 ]; do
                   MERGE_SINCE=$(now_utc)
                   gh workflow run auto-merge-bot-prs.yml --repo "$ORG/$THIS_REPO" \
                     --ref "$THIS_REF" >/dev/null 2>&1 || true
-                  wait_for_dispatch "$THIS_REPO" "auto-merge-bot-prs.yml" "$THIS_REF" "$MERGE_SINCE" >/dev/null
+                  wait_for_dispatch "$THIS_REPO" "auto-merge-bot-prs.yml" "$THIS_REF" \
+                    "$MERGE_SINCE" "$MERGE_REMAINING" >/dev/null
 
                   STILL_OPEN=0
                   STILL_RUNNING=0
@@ -312,7 +320,7 @@ jobs:
 
                   echo "  $STILL_OPEN dependency pull request(s) not landed yet, waiting."
                   sleep "$POLL_SECONDS"
-                  MERGE_WAITED=$((MERGE_WAITED + POLL_SECONDS))
+                  MERGE_REMAINING=$((STAGE_TIMEOUT - ($(date +%s) - MERGE_START)))
                 done
               fi
             fi
