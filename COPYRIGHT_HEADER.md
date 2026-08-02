@@ -12,9 +12,10 @@ Template
 /*
  * This file is part of the {PACKAGE_IDENTIFIER} package.
  *
- * Copyright (c) 2025-present Melech Mizrachi
+ * (c) Melech Mizrachi <melechmizrachi@gmail.com>
  *
- * Released under the MIT License. See LICENSE.md for details.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
 ```
 
@@ -26,30 +27,37 @@ below for the full mapping, and the
 Package Identifier Resolution
 -----------------------------
 
-| Repository                  | Package Identifier             |
-|-----------------------------|--------------------------------|
-| `valkyrja-php`              | `Valkyrja Framework`           |
-| `valkyrja-java`             | `Valkyrja Framework`           |
-| `sindri-php`                | `Sindri`                       |
-| `valkyrja-starter-app-php`  | `Valkyrja Starter Application` |
-| `valkyrja-starter-app-java` | `Valkyrja Starter Application` |
-| `project-template-php`      | `Project Template`             |
-| `project-template-java`     | `Project Template`             |
-| `valkyrja-openswoole-php`   | `Valkyrja OpenSwoole`          |
-| `valkyrja-frankenphp-php`   | `Valkyrja FrankenPHP`          |
-| `valkyrja-roadrunner-php`   | `Valkyrja RoadRunner`          |
-| `valkyrja-tomcat-java`      | `Valkyrja Tomcat`              |
-| `valkyrja-netty-java`       | `Valkyrja Netty`               |
-| `valkyrja-jetty-java`       | `Valkyrja Jetty`               |
-| `valkyrja-docker-php`       | `Valkyrja Docker`              |
-| `valkyrja-benchmarking-php` | `Valkyrja Benchmarking`        |
-| `ci-psalm-php`              | `Psalm CI`                     |
-| `ci-rector-php`             | `Rector CI`                    |
-| `ci-phpstan-php`            | `PHPStan CI`                   |
-| `ci-phpunit-php`            | `PHPUnit CI`                   |
-| `ci-phpcsfixer-php`         | `PHP CS Fixer CI`              |
-| `ci-phparkitect-php`        | `PHPArkitect CI`               |
-| `ci-phpcodesniffer-php`     | `PHP Code Sniffer CI`          |
+| Repository                  | Package Identifier          |
+|-----------------------------|-----------------------------|
+| `valkyrja-php`              | `Valkyrja Framework`        |
+| `valkyrja-java`             | `Valkyrja Framework`        |
+| `valkyrja-ts`               | `Valkyrja Framework`        |
+| `sindri-php`                | `Sindri`                    |
+| `sindri-java`               | `Sindri`                    |
+| `sindri-ts`                 | `Sindri`                    |
+| `valkyrja-starter-app-php`  | `Valkyrja Application`      |
+| `valkyrja-starter-app-java` | `Valkyrja Application`      |
+| `valkyrja-starter-app-ts`   | `Valkyrja Application`      |
+| `project-template-php`      | `Project Template`          |
+| `project-template-java`     | `Project Template`          |
+| `project-template-go`       | `Project Template`          |
+| `project-template-python`   | `Project Template`          |
+| `project-template-ts`       | `Project Template`          |
+| `valkyrja-openswoole-php`   | `Valkyrja OpenSwoole`       |
+| `valkyrja-frankenphp-php`   | `Valkyrja FrankenPHP`       |
+| `valkyrja-roadrunner-php`   | `Valkyrja RoadRunner`       |
+| `valkyrja-tomcat-java`      | `Valkyrja Tomcat`           |
+| `valkyrja-netty-java`       | `Valkyrja Netty`            |
+| `valkyrja-jetty-java`       | `Valkyrja Jetty`            |
+| `valkyrja-docker-php`       | `Valkyrja Docker`           |
+| `benchmark`                 | `Valkyrja Benchmarking`     |
+| `ci-psalm-php`              | `Valkyrja Psalm`            |
+| `ci-rector-php`             | `Valkyrja Rector`           |
+| `ci-phpstan-php`            | `Valkyrja PHPStan`          |
+| `ci-phpunit-php`            | `Valkyrja PHPUnit`          |
+| `ci-phpcsfixer-php`         | `Valkyrja PHP CS Fixer`     |
+| `ci-phparkitect-php`        | `Valkyrja PHPArkitect`      |
+| `ci-phpcodesniffer-php`     | `Valkyrja PHP Code Sniffer` |
 
 Repositories that contain only documentation, art, or GitHub configuration
 (`.github`, `architecture`, `art`) do not have source files requiring this
@@ -67,9 +75,12 @@ The framework is language-agnostic in the package identifier — the
 language is already implicit in the repo name and the file extension.
 
 **2. Starter application (`valkyrja-starter-{type}-{lang}`)** →
-`Valkyrja Starter {Type}`
+`Valkyrja {Type}`
 
-`{Type}` is title-cased. The `app` type expands to `Application`.
+`{Type}` is title-cased. The `app` type expands to `Application`. The
+identifier omits the word `Starter`, because the package identifier names
+what the package is, and the repository name already records that the
+application is a starting point.
 
 **3. Project template (`project-template-{lang}`)** → `Project Template`
 
@@ -85,14 +96,14 @@ pattern applies to worker integrations, Docker support, benchmarking, and
 any other Valkyrja-specific code that integrates with an external tool or
 runtime.
 
-**5. CI tool (`ci-{tool}-{lang}`)** → `{Tool} CI`
+**5. CI tool (`ci-{tool}-{lang}`)** → `Valkyrja {Tool}`
 
 `{Tool}` is the tool's official name, preserving its capitalization and
-spacing convention (`PHPStan` without space, `PHP CS Fixer` with spaces).
-No Valkyrja prefix. These packages ship rules, configurations, custom
-expressions, helper classes, and reusable workflows for running the tool
-in a CI/CD context — they are usable in any project that wants similar
-CI rules, not only Valkyrjaio org projects.
+spacing convention (`PHPStan` without a space, `PHP CS Fixer` with
+spaces). These packages ship the rules, the configurations, the custom
+expressions, the helper classes, and the reusable workflows that run the
+tool. The rules encode Valkyrja's own conventions, so each package is
+Valkyrja-native and takes the prefix.
 
 **6. Standalone application (`sindri-{lang}`)** → `Sindri`
 
@@ -105,91 +116,111 @@ Naming Modes
 Three conceptual modes govern when to include `Valkyrja` in a package
 identifier:
 
-- **Valkyrja-native** → prefixed with `Valkyrja` (framework, starter,
-  worker integrations, docker, benchmarking)
-- **Standalone or external tool** → no prefix (Sindri, CI tools)
+- **Valkyrja-native** → prefixed with `Valkyrja` (framework, starter
+  application, worker integrations, docker, benchmarking, CI tool
+  packages)
+- **Standalone application** → no prefix (Sindri)
 - **Reusable template** → no prefix (project templates)
 
 The distinction captures what the package *is*, not who maintains it. A
 Valkyrja-native project is one that exists because of Valkyrja and serves
-it directly. An external-tool CI package ships rules and helpers for a
-tool (Psalm, PHPStan, etc.) that exists independently — even if
-Valkyrja-specific rules are embedded, the package itself is fundamentally
-a package for that tool. A standalone application like Sindri stands on
-its own as a distinct project.
+it directly. A CI tool package is Valkyrja-native: it configures an
+independent tool (Psalm, PHPStan, etc.), but the rules it ships are
+Valkyrja's own conventions, and the package exists to apply them. A
+project template is not Valkyrja-native, because a repository scaffolded
+from it does not have to be a Valkyrja project. A standalone application
+like Sindri stands on its own as a distinct project.
 
 Enforcement
 -----------
 
-The PHP CS Fixer configuration in `ci-phpcsfixer-php` automatically
-injects this header into every file. Consuming repositories pass their
+Each language enforces the header with its own formatter or linter, and
+each repository configures that tool with its own
+`{PACKAGE_IDENTIFIER}`. A language that gains a repository must also gain
+a mechanism that enforces the header, so that no repository relies on a
+contributor to add the header by hand.
+
+| Language   | Mechanism                                                            |
+|------------|----------------------------------------------------------------------|
+| PHP        | PHP CS Fixer — the `$header` argument to `Rules::getConfig()`         |
+| Java       | Spotless — `licenseHeader` in `.github/ci/spotless/build.gradle.kts`  |
+| TypeScript | ESLint — the local `copyright-header` rule                            |
+
+The PHP CS Fixer configuration in `ci-phpcsfixer-php` injects the header
+into every file. Consuming repositories pass their
 `{PACKAGE_IDENTIFIER}` value to `Rules::getConfig()` via the `$header`
 argument:
 
-```
+```php
 $header = <<<HEADER
 This file is part of the Valkyrja OpenSwoole package.
 
-Copyright (c) 2025-present Melech Mizrachi
+(c) Melech Mizrachi <melechmizrachi@gmail.com>
 
-Released under the MIT License. See LICENSE.md for details.
+For the full copyright and license information, please view the LICENSE
+file that was distributed with this source code.
 HEADER;
 
 return Rules::getConfig($finder, $header);
 ```
 
-When tooling adds a language port (Java, Go, Python, TypeScript), the
-equivalent formatting/linting tool for that language should enforce the
-same header structure by way of a shared configuration package following
-the same pattern as the PHP CS Fixer setup.
+Warning: a tool that injects the header replaces the first comment block
+in the file. Point the tool away from any file whose first comment is not
+a license header, such as a static-analysis stub or a fixture that a test
+parses as input. Spotless in `sindri-java` and `valkyrja-java` shows the
+pattern: it targets `src/test/java` and never `src/test/resources`.
 
 Examples
 --------
 
 **Framework file (`valkyrja-php/src/Valkyrja/Http/Kernel.php`):**
 
-```
+```php
 /*
  * This file is part of the Valkyrja Framework package.
  *
- * Copyright (c) 2025-present Melech Mizrachi
+ * (c) Melech Mizrachi <melechmizrachi@gmail.com>
  *
- * Released under the MIT License. See LICENSE.md for details.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
 ```
 
 **Worker integration file (`valkyrja-openswoole-php/src/OpenSwooleHttp.php`):**
 
-```
+```php
 /*
  * This file is part of the Valkyrja OpenSwoole package.
  *
- * Copyright (c) 2025-present Melech Mizrachi
+ * (c) Melech Mizrachi <melechmizrachi@gmail.com>
  *
- * Released under the MIT License. See LICENSE.md for details.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
 ```
 
 **Sindri file (`sindri-php/src/Sindri/Forge/Command.php`):**
 
-```
+```php
 /*
  * This file is part of the Sindri package.
  *
- * Copyright (c) 2025-present Melech Mizrachi
+ * (c) Melech Mizrachi <melechmizrachi@gmail.com>
  *
- * Released under the MIT License. See LICENSE.md for details.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
 ```
 
 **CI tool file (`ci-phparkitect-php/src/Arkitect/Rules.php`):**
 
-```
+```php
 /*
- * This file is part of the PHPArkitect CI package.
+ * This file is part of the Valkyrja PHPArkitect package.
  *
- * Copyright (c) 2025-present Melech Mizrachi
+ * (c) Melech Mizrachi <melechmizrachi@gmail.com>
  *
- * Released under the MIT License. See LICENSE.md for details.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
 ```
