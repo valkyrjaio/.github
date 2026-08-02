@@ -1,6 +1,18 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.19.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.20.0...26.x)
+
+## [v26.20.0](https://github.com/valkyrjaio/.github/compare/v26.19.0...v26.20.0) - 2026-08-02
+
+* [Workflow] ci: Update .github workflow refs to v26.19.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/223
+* [Workflow] ci: Link pull requests in the auto merge summary by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/224
+* [CopyrightHeader] docs: Align the specification with the enforced headers by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/225
+* [RepositoryNaming] docs: Record the repositories that now exist by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/227
+* [Workflow] feat: Set the copyright header package identifier on a new repository by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/226
+* [Workflow] feat: Order the release sweep by dependency by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/228
+* [Markdown] style: Normalize the formatting of every document by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/229
+* [Workflow] feat: Hold a release open until the registry serves the package by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/230
+* [Workflow] feat: Add the Markdown formatting check by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/231
 
 ## [v26.19.0](https://github.com/valkyrjaio/.github/compare/v26.18.2...v26.19.0) - 2026-08-01
 
