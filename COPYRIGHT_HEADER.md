@@ -50,14 +50,8 @@ Package Identifier Resolution
 | `project-template-go`       | `Project Template`          |
 | `project-template-python`   | `Project Template`          |
 | `project-template-ts`       | `Project Template`          |
-| `valkyrja-openswoole-php`   | `Valkyrja OpenSwoole`       |
-| `valkyrja-frankenphp-php`   | `Valkyrja FrankenPHP`       |
-| `valkyrja-roadrunner-php`   | `Valkyrja RoadRunner`       |
-| `valkyrja-tomcat-java`      | `Valkyrja Tomcat`           |
-| `valkyrja-netty-java`       | `Valkyrja Netty`            |
-| `valkyrja-jetty-java`       | `Valkyrja Jetty`            |
 | `valkyrja-docker-php`       | `Valkyrja Docker`           |
-| `benchmark`                 | `Valkyrja Benchmarking`     |
+| `valkyrja-benchmarking-php` | `Valkyrja Benchmarking`     |
 | `ci-psalm-php`              | `Valkyrja Psalm`            |
 | `ci-rector-php`             | `Valkyrja Rector`           |
 | `ci-phpstan-php`            | `Valkyrja PHPStan`          |
@@ -65,6 +59,10 @@ Package Identifier Resolution
 | `ci-phpcsfixer-php`         | `Valkyrja PHP CS Fixer`     |
 | `ci-phparkitect-php`        | `Valkyrja PHPArkitect`      |
 | `ci-phpcodesniffer-php`     | `Valkyrja PHP Code Sniffer` |
+
+The table lists each repository that exists now. A new repository takes its
+identifier from the [Pattern Rules](#pattern-rules) section. Add a row to the
+table when you create the repository.
 
 Repositories that contain only documentation, art, or GitHub configuration
 (`.github`, `architecture`, `art`) do not have source files requiring this
@@ -174,7 +172,7 @@ argument:
 
 ```php
 $header = <<<HEADER
-This file is part of the Valkyrja OpenSwoole package.
+This file is part of the Valkyrja Benchmarking package.
 
 Copyright (c) 2016-present Melech Mizrachi
 
@@ -206,11 +204,11 @@ Examples
  */
 ```
 
-**Worker integration file (`valkyrja-openswoole-php/src/OpenSwooleHttp.php`):**
+**Valkyrja-native project file (`valkyrja-benchmarking-php/benchmarking/libs/output.php`):**
 
 ```php
 /*
- * This file is part of the Valkyrja OpenSwoole package.
+ * This file is part of the Valkyrja Benchmarking package.
  *
  * Copyright (c) 2016-present Melech Mizrachi
  *
