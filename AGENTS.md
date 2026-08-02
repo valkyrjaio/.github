@@ -2,7 +2,7 @@
 
 **valkyrja `.github`** — the organization's special repo. Files here apply as
 **org-wide defaults** across every Valkyrja repository: community health files
-(`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `LICENSE.md`), the
+(`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`), the
 `profile/` org page, reusable GitHub Actions workflows, branch rulesets, and the
 project conventions (`REPOSITORY_NAMING.md`, `VOCABULARY.md`).
 
