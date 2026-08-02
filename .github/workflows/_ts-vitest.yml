@@ -141,19 +141,35 @@ jobs:
           file: "${{ inputs.ci-directory }}/coverage/lcov.info"
           format: lcov
 
+      # The gate is the run step's own outcome, never `failure()`. `failure()` is true for any
+      # failed step, so a broken checkout, a failed dependency install, or a failed token mint
+      # posted a comment that told the developer to run Vitest locally. That advice does not help,
+      # because Vitest never reported a problem. `!cancelled()` is required: a step whose `if:`
+      # holds no status check function gets `success() &&` prepended, and the job status is already
+      # `failure` here.
       - name: Report failure in PR comment
-        if: failure() && github.event.pull_request.number
+        if: ${{ !cancelled() && steps.vitest.outcome == 'failure' && github.event.pull_request.number }}
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select(.body | contains("<!-- workflow-id: vitest -->")) | .id' \
-            | head -1)
-          if [ -n "$COMMENT_ID" ]; then
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
-          fi
+          # Delete every marked comment, not the first. Two concurrent runs can race on a rapid
+          # double push and leave two marked comments, and a `head -1` left one of them behind
+          # forever. `--paginate` reaches a marked comment after the first page of 30.
+          #
+          # Warning: never let a failed delete end the step. The same race puts the same comment id
+          # in both runs' lists, so the run that deletes second gets HTTP 404 and `gh` exits 1. The
+          # runner's default shell is `bash -e`, which ends the step on that status: the success
+          # step would fail the job and turn a required check red after the check itself passed,
+          # and the failure step would never reach the `gh pr comment` call below. Comment
+          # housekeeping must never decide the job result, so report the failure and continue.
+          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | contains("<!-- workflow-id: vitest -->")) | .id')
+          for COMMENT_ID in $COMMENT_IDS; do
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
+              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
+          done
           gh pr comment "$PR_NUMBER" --body "Vitest failed. Please run \`npm run vitest\` locally, fix all the tests, and commit the changes. <!-- workflow-id: vitest -->"
 
       - name: Remove failure comment on success
@@ -163,9 +179,9 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select(.body | contains("<!-- workflow-id: vitest -->")) | .id' \
-            | head -1)
-          if [ -n "$COMMENT_ID" ]; then
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
-          fi
+          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | contains("<!-- workflow-id: vitest -->")) | .id')
+          for COMMENT_ID in $COMMENT_IDS; do
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
+              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
+          done

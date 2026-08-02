@@ -209,8 +209,18 @@ jobs:
           file: "${{ inputs.ci-directory }}/build/logs/clover.xml"
           format: "clover"
 
+      # The gate is the PHPUnit step's own outcome, never `failure()`. `failure()` is true for any
+      # failed step, so a broken checkout, a failed dependency install, or a failed token mint
+      # posted a comment that told the developer to run PHPUnit locally. That advice does not help,
+      # because PHPUnit never reported a problem. `!cancelled()` is required: a step whose `if:`
+      # holds no status check function gets `success() &&` prepended, and the job status is already
+      # `failure` here.
       - name: Report failure in PR comment
-        if: failure() && github.event.pull_request.number && inputs.post-pr-comment
+        if: >-
+          !cancelled() &&
+          (steps.phpunit.outcome == 'failure' ||
+          steps.phpunit-coverage.outcome == 'failure') &&
+          github.event.pull_request.number && inputs.post-pr-comment
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -218,12 +228,22 @@ jobs:
           PHP_VERSION: ${{ matrix.php }}
           MARKER: "<!-- workflow-id: phpunit-${{ matrix.php }} -->"
         run: |
-          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" | \
-            jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id' | \
-            head -1)
-          if [ -n "$COMMENT_ID" ]; then
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
-          fi
+          # Delete every marked comment, not the first. Two concurrent runs can race on a rapid
+          # double push and leave two marked comments, and a `head -1` left one of them behind
+          # forever. `--paginate` reaches a marked comment after the first page of 30.
+          #
+          # Warning: never let a failed delete end the step. The same race puts the same comment id
+          # in both runs' lists, so the run that deletes second gets HTTP 404 and `gh` exits 1. The
+          # runner's default shell is `bash -e`, which ends the step on that status: the success
+          # step would fail the job and turn a required check red after the check itself passed,
+          # and the failure step would never reach the `gh pr comment` call below. Comment
+          # housekeeping must never decide the job result, so report the failure and continue.
+          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" | \
+            jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id')
+          for COMMENT_ID in $COMMENT_IDS; do
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
+              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
+          done
           gh pr comment "$PR_NUMBER" --body "PHPUnit failed for PHP $PHP_VERSION. Please run \`composer phpunit\` locally, fix all the issues, and commit the changes. $MARKER"
 
       - name: Remove failure comment on success
@@ -234,9 +254,9 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           MARKER: "<!-- workflow-id: phpunit-${{ matrix.php }} -->"
         run: |
-          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" | \
-            jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id' | \
-            head -1)
-          if [ -n "$COMMENT_ID" ]; then
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
-          fi
+          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" | \
+            jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id')
+          for COMMENT_ID in $COMMENT_IDS; do
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
+              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
+          done

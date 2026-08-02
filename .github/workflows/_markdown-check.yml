@@ -108,8 +108,15 @@ jobs:
 
           echo "All Markdown files are formatted."
 
+      # The gate is the check step's own output, never `failure()`. `failure()` is true for any
+      # failed step, so a broken `actions/checkout`, `actions/setup-node`, or `npx` posted a comment
+      # that told the developer to run the formatter. That advice does not help, because no file is
+      # unformatted. The output is set only where the check names an unformatted file, so it is
+      # evidence that the check itself found a problem. `!cancelled()` is required: a step whose
+      # `if:` holds no status check function gets `success() &&` prepended, and the job status is
+      # already `failure` here.
       - name: Report failure in PR comment
-        if: failure() && github.event.pull_request.number && inputs.post-pr-comment
+        if: ${{ !cancelled() && steps.check.outputs.unformatted_files != '' && github.event.pull_request.number && inputs.post-pr-comment }}
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -117,12 +124,22 @@ jobs:
           PRETTIER_VERSION: ${{ inputs.prettier-version }}
           UNFORMATTED_FILES: ${{ steps.check.outputs.unformatted_files }}
         run: |
-          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select(.body | contains("<!-- workflow-id: markdown-check -->")) | .id' \
-            | head -1)
-          if [ -n "$COMMENT_ID" ]; then
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
-          fi
+          # Delete every marked comment, not the first. Two concurrent runs can race on a rapid
+          # double push and leave two marked comments, and a `head -1` left one of them behind
+          # forever. `--paginate` reaches a marked comment after the first page of 30.
+          #
+          # Warning: never let a failed delete end the step. The same race puts the same comment id
+          # in both runs' lists, so the run that deletes second gets HTTP 404 and `gh` exits 1. The
+          # runner's default shell is `bash -e`, which ends the step on that status: the success
+          # step would fail the job and turn a required check red after the check itself passed,
+          # and the failure step would never reach the `gh pr comment` call below. Comment
+          # housekeeping must never decide the job result, so report the failure and continue.
+          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | contains("<!-- workflow-id: markdown-check -->")) | .id')
+          for COMMENT_ID in $COMMENT_IDS; do
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
+              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
+          done
 
           BODY="The Markdown check failed. Please run this command locally and commit the changes:"$'\n\n'
           BODY+='```bash'$'\n'
@@ -134,12 +151,10 @@ jobs:
           BODY+="    --write"$'\n'
           BODY+='```'$'\n'
 
-          if [ -n "$UNFORMATTED_FILES" ]; then
-            BODY+=$'\n'"These files are not formatted:"$'\n\n'
-            while IFS= read -r f; do
-              [ -n "$f" ] && BODY+="- \`$f\`"$'\n'
-            done <<< "$UNFORMATTED_FILES"
-          fi
+          BODY+=$'\n'"These files are not formatted:"$'\n\n'
+          while IFS= read -r f; do
+            [ -n "$f" ] && BODY+="- \`$f\`"$'\n'
+          done <<< "$UNFORMATTED_FILES"
 
           BODY+=$'\n<!-- workflow-id: markdown-check -->'
           gh pr comment "$PR_NUMBER" --body "$BODY"
@@ -151,9 +166,9 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select(.body | contains("<!-- workflow-id: markdown-check -->")) | .id' \
-            | head -1)
-          if [ -n "$COMMENT_ID" ]; then
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
-          fi
+          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | contains("<!-- workflow-id: markdown-check -->")) | .id')
+          for COMMENT_ID in $COMMENT_IDS; do
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
+              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
+          done
