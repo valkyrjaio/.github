@@ -120,12 +120,14 @@ jobs:
           LINE_LENGTH_OUTCOME: ${{ steps.check-line-length.outcome }}
           PERIOD_AT_END_OUTCOME: ${{ steps.check-period-at-end.outcome }}
         run: |
-          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select(.body | contains("<!-- workflow-id: commit-message-check -->")) | .id' \
-            | head -1)
-          if [ -n "$COMMENT_ID" ]; then
+          # Delete every marked comment, not the first. Two concurrent runs can race on a rapid
+          # double push and leave two marked comments, and a `head -1` left one of them behind
+          # forever. `--paginate` reaches a marked comment after the first page of 30.
+          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | contains("<!-- workflow-id: commit-message-check -->")) | .id')
+          for COMMENT_ID in $COMMENT_IDS; do
             gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
-          fi
+          done
           BODY="One or more commit message checks failed:"$'\n\n'
           if [ "$COMMIT_TYPE_OUTCOME" = "failure" ]; then
             BODY+="- The PR title and every commit must match \`[Root] type: Description\` — e.g. \`[Http] fix: Normalize header casing.\` Types: \`feat\`, \`fix\`, \`deprecate\`, \`docs\`, \`test\`, \`refactor\`, \`perf\`, \`style\`, \`build\`, \`ci\`, \`chore\`, \`revert\`. Add \`!\` before the colon for a breaking change, and \`(#123)\` for an issue."$'\n'
@@ -149,9 +151,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select(.body | contains("<!-- workflow-id: commit-message-check -->")) | .id' \
-            | head -1)
-          if [ -n "$COMMENT_ID" ]; then
+          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | contains("<!-- workflow-id: commit-message-check -->")) | .id')
+          for COMMENT_ID in $COMMENT_IDS; do
             gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
-          fi
+          done

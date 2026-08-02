@@ -173,12 +173,14 @@ jobs:
           MARKER: ${{ steps.tool.outputs.marker }}
           COMMENT: ${{ steps.tool.outputs.comment }}
         run: |
-          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            | jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id' \
-            | head -1)
-          if [ -n "$COMMENT_ID" ]; then
+          # Delete every marked comment, not the first. Two concurrent runs can race on a rapid
+          # double push and leave two marked comments, and a `head -1` left one of them behind
+          # forever. `--paginate` reaches a marked comment after the first page of 30.
+          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            | jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id')
+          for COMMENT_ID in $COMMENT_IDS; do
             gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
-          fi
+          done
           gh pr comment "$PR_NUMBER" --body "$COMMENT"
 
       - name: Remove failure comment on success
@@ -189,9 +191,8 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           MARKER: ${{ steps.tool.outputs.marker }}
         run: |
-          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            | jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id' \
-            | head -1)
-          if [ -n "$COMMENT_ID" ]; then
+          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            | jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id')
+          for COMMENT_ID in $COMMENT_IDS; do
             gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
-          fi
+          done
