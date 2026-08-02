@@ -91,6 +91,24 @@ jobs:
           ref: ${{ steps.scripts-ref.outputs.ref }}
           path: dot-github
 
+      # The step above rejects an empty ref, and an empty ref is not the only way the pin can be
+      # wrong. A ref that resolves to some other commit is present, so that guard passes it, and
+      # the job would then run a script the caller never pinned without saying so. This compares
+      # what arrived against what was asked for, which turns that case into a failure as well.
+      - name: Verify the CI scripts are pinned
+        env:
+          EXPECTED: ${{ steps.scripts-ref.outputs.ref }}
+        run: |
+          ACTUAL="$(git -C dot-github rev-parse HEAD)"
+
+          if [[ "$ACTUAL" != "$EXPECTED" ]]; then
+            printf 'The CI scripts came from %s, and this workflow pinned %s.\n' "$ACTUAL" "$EXPECTED"
+            echo 'A script that is not the pinned one must not run, so this job stops here.'
+            exit 1
+          fi
+
+          printf 'The CI scripts are pinned to %s.\n' "$ACTUAL"
+
       - name: Export the script environment
         env:
           SCRIPT_ENV: ${{ inputs.env }}
