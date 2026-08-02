@@ -69,7 +69,7 @@ Published as `valkyrja/sindri` on Packagist.
 
 ## Code-Level Terms
 
-These terms describe what users *build* with Valkyrja and how Valkyrja's own
+These terms describe what users _build_ with Valkyrja and how Valkyrja's own
 code is organized. Using them consistently across all repos, languages, and
 documentation is critical.
 
@@ -272,7 +272,7 @@ placeholder entry with the reason the term is pending. When adding a new
 "term to avoid," briefly note which ecosystem it comes from and why it
 conflicts with Valkyrja's vocabulary.
 
-Terms should be added to this document *before* they appear in code or repo
+Terms should be added to this document _before_ they appear in code or repo
 names. If you find a new concept while working on Valkyrja that doesn't fit
 an existing term, open a discussion or PR to define it here first, then use
 the defined term in your implementation.

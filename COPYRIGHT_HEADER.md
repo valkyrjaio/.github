@@ -28,7 +28,7 @@ Package Identifier Resolution
 -----------------------------
 
 | Repository                  | Package Identifier          |
-|-----------------------------|-----------------------------|
+| --------------------------- | --------------------------- |
 | `valkyrja-php`              | `Valkyrja Framework`        |
 | `valkyrja-java`             | `Valkyrja Framework`        |
 | `valkyrja-ts`               | `Valkyrja Framework`        |
@@ -122,7 +122,7 @@ identifier:
 - **Standalone application** → no prefix (Sindri)
 - **Reusable template** → no prefix (project templates)
 
-The distinction captures what the package *is*, not who maintains it. A
+The distinction captures what the package _is_, not who maintains it. A
 Valkyrja-native project is one that exists because of Valkyrja and serves
 it directly. A CI tool package is Valkyrja-native. The package configures
 an independent tool, such as Psalm or PHPStan. The rules that the package
@@ -141,10 +141,10 @@ a mechanism that enforces the header. No repository relies on a
 contributor to add the header by hand.
 
 | Language   | Mechanism                                                            |
-|------------|----------------------------------------------------------------------|
-| PHP        | PHP CS Fixer — the `$header` argument to `Rules::getConfig()`         |
-| Java       | Spotless — `licenseHeader` in `.github/ci/spotless/build.gradle.kts`  |
-| TypeScript | ESLint — the local `copyright-header` rule                            |
+| ---------- | -------------------------------------------------------------------- |
+| PHP        | PHP CS Fixer — the `$header` argument to `Rules::getConfig()`        |
+| Java       | Spotless — `licenseHeader` in `.github/ci/spotless/build.gradle.kts` |
+| TypeScript | ESLint — the local `copyright-header` rule                           |
 
 The PHP CS Fixer configuration in `ci-phpcsfixer-php` injects the header
 into every file. Consuming repositories pass their

@@ -60,39 +60,21 @@ Community
 - [Security policy][security url] — vulnerability disclosure procedure
 
 [valkyrja url]: https://valkyrja.io
-
 [valkyrja-php url]: https://github.com/valkyrjaio/valkyrja-php
-
 [valkyrja-java url]: https://github.com/valkyrjaio/valkyrja-java
-
 [starter-php url]: https://github.com/valkyrjaio/valkyrja-starter-app-php
-
 [starter-java url]: https://github.com/valkyrjaio/valkyrja-starter-app-java
-
 [sindri url]: https://github.com/valkyrjaio/sindri-php
-
 [openswoole url]: https://github.com/valkyrjaio/valkyrja-openswoole-php
-
 [frankenphp url]: https://github.com/valkyrjaio/valkyrja-frankenphp-php
-
 [roadrunner url]: https://github.com/valkyrjaio/valkyrja-roadrunner-php
-
 [netty url]: https://github.com/valkyrjaio/valkyrja-netty-java
-
 [jetty url]: https://github.com/valkyrjaio/valkyrja-jetty-java
-
 [tomcat url]: https://github.com/valkyrjaio/valkyrja-tomcat-java
-
 [docker url]: https://github.com/valkyrjaio/valkyrja-docker-php
-
 [architecture url]: https://github.com/valkyrjaio/architecture
-
 [org repos url]: https://github.com/valkyrjaio
-
 [contributing url]: https://github.com/valkyrjaio/.github/blob/master/CONTRIBUTING.md
-
 [vocabulary url]: https://github.com/valkyrjaio/.github/blob/master/VOCABULARY.md
-
 [repository naming url]: https://github.com/valkyrjaio/.github/blob/master/REPOSITORY_NAMING.md
-
 [security url]: https://github.com/valkyrjaio/.github/blob/master/SECURITY.md

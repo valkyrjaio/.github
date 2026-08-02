@@ -59,7 +59,7 @@ with 100% line and branch coverage before you push.
 Each check has a composer script:
 
 | Check              | Command                     |
-|--------------------|-----------------------------|
+| ------------------ | --------------------------- |
 | PHPArkitect        | `composer phparkitect`      |
 | PHP Code Sniffer   | `composer phpcodesniffer`   |
 | PHP CS Fixer       | `composer phpcsfixer`       |
@@ -82,7 +82,7 @@ If your PR changes a composer file, also validate it:
 Each check is a Gradle task; `./gradlew ci` runs the full gate:
 
 | Check              | Command                   |
-|--------------------|---------------------------|
+| ------------------ | ------------------------- |
 | Spotless (format)  | `./gradlew spotlessCheck` |
 | ArchUnit           | `./gradlew archunit`      |
 | Error Prone        | `./gradlew errorprone`    |
@@ -98,7 +98,7 @@ branch coverage at 100%.
 Each check is a Poe task (`poe`); `poe ci` runs the full gate:
 
 | Check             | Command                 |
-|-------------------|-------------------------|
+| ----------------- | ----------------------- |
 | Ruff (format)     | `poe ruff-format-check` |
 | Ruff (lint)       | `poe ruff`              |
 | mypy              | `poe mypy`              |
@@ -116,7 +116,7 @@ line and branch coverage (`--cov-branch --cov-fail-under=100`).
 Each check is a Makefile target; `make ci` runs the full gate:
 
 | Check            | Command           |
-|------------------|-------------------|
+| ---------------- | ----------------- |
 | Formatting       | `make fmt-check`  |
 | golangci-lint    | `make lint`       |
 | Tests (race)     | `make test`       |
@@ -131,7 +131,7 @@ Each check is a Makefile target; `make ci` runs the full gate:
 Each check has an npm script; the `-check` variants fail without modifying files:
 
 | Check             | Command                   |
-|-------------------|---------------------------|
+| ----------------- | ------------------------- |
 | TypeScript (tsc)  | `npm run typescript`      |
 | ESLint            | `npm run eslint-check`    |
 | Prettier          | `npm run prettier-check`  |
@@ -154,7 +154,7 @@ Every subject line carries a **root** saying what the change is about and a
 ```
 
 |                                       | Ends with | Issue reference          |
-|---------------------------------------|-----------|--------------------------|
+| ------------------------------------- | --------- | ------------------------ |
 | **Working-branch commit**             | a period  | permitted, not required  |
 | **PR title**                          | no period | required when one exists |
 | **Direct push to a protected branch** | no period | —                        |
@@ -166,20 +166,20 @@ subject and the PR description becomes its body.
 
 **Types:**
 
-| Type        | Use for                                                     |
-|-------------|-------------------------------------------------------------|
-| `feat`      | A new capability or an addition to the public API           |
-| `fix`       | Corrects behavior that was broken                           |
-| `deprecate` | Marks API as deprecated without removing it yet             |
-| `docs`      | Documentation only                                          |
-| `test`      | Adds or changes tests only                                  |
-| `refactor`  | Internal restructuring with no behavior change              |
-| `perf`      | Performance improvement with no behavior change             |
-| `style`     | Formatting only — whitespace, import order, no behavior     |
-| `build`     | Build scripts, dependency manifests, packaging              |
-| `ci`        | CI workflows, tooling configuration, automated runs         |
-| `chore`     | Routine maintenance that fits nothing else                  |
-| `revert`    | Reverts an earlier change                                   |
+| Type        | Use for                                                 |
+| ----------- | ------------------------------------------------------- |
+| `feat`      | A new capability or an addition to the public API       |
+| `fix`       | Corrects behavior that was broken                       |
+| `deprecate` | Marks API as deprecated without removing it yet         |
+| `docs`      | Documentation only                                      |
+| `test`      | Adds or changes tests only                              |
+| `refactor`  | Internal restructuring with no behavior change          |
+| `perf`      | Performance improvement with no behavior change         |
+| `style`     | Formatting only — whitespace, import order, no behavior |
+| `build`     | Build scripts, dependency manifests, packaging          |
+| `ci`        | CI workflows, tooling configuration, automated runs     |
+| `chore`     | Routine maintenance that fits nothing else              |
+| `revert`    | Reverts an earlier change                               |
 
 `!` before the colon is **required** on any change that breaks a public contract.
 `feat`, `deprecate`, and `!` drive the middle version component; everything else is
@@ -279,10 +279,10 @@ why, and serves as a useful reference for anyone reading the PR months later.
 - **`_release.yml`** — added release-type detection step; sets
   `prerelease: true` and `make_latest: false` when version contains `-RC`
 - **`_update-github-workflow-refs.yml`**
-    - Split `jq | gh api PUT` into discrete steps to eliminate pipefail
-      ambiguity
-    - Changed `2>&1` to `2>/dev/null` on `gh pr create` so the `if !` handler
-      fires correctly
+  - Split `jq | gh api PUT` into discrete steps to eliminate pipefail
+    ambiguity
+  - Changed `2>&1` to `2>/dev/null` on `gh pr create` so the `if !` handler
+    fires correctly
 - **`README.md`** — updated workflow behavior description to document the
   intentional `master` skip and the rationale
 
@@ -293,7 +293,7 @@ discrete changes, fill it in.
 ### Branches for Code Changes
 
 | Branch   | Purpose                                                                                            |
-|----------|----------------------------------------------------------------------------------------------------|
+| -------- | -------------------------------------------------------------------------------------------------- |
 | `master` | Active development branch, open for backwards incompatible changes and major internal API changes. |
 | `??.x`   | Version maintenance branches. Open for bug fixes only.                                             |
 
@@ -302,7 +302,7 @@ discrete changes, fill it in.
 Choosing the right base branch depends on the type of change:
 
 | Change type     | Target branch                                                                         |
-|-----------------|---------------------------------------------------------------------------------------|
+| --------------- | ------------------------------------------------------------------------------------- |
 | Improvement     | Lowest major affected `??.x` branch                                                   |
 | Bug fix         | Lowest major affected `??.x` branch                                                   |
 | New feature     | `master`                                                                              |

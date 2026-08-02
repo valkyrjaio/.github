@@ -27,19 +27,11 @@ Learn More
 [valkyrja.io][valkyrja url] · [Contributing][contributing url] · [Vocabulary][vocabulary url] · [Security][security url]
 
 [valkyrja url]: https://valkyrja.io
-
 [valkyrja-php url]: https://github.com/valkyrjaio/valkyrja-php
-
 [valkyrja-java url]: https://github.com/valkyrjaio/valkyrja-java
-
 [starter-php url]: https://github.com/valkyrjaio/valkyrja-starter-app-php
-
 [starter-java url]: https://github.com/valkyrjaio/valkyrja-starter-app-java
-
 [org repos url]: https://github.com/orgs/valkyrjaio/repositories?type=all
-
 [contributing url]: https://github.com/valkyrjaio/.github/blob/master/CONTRIBUTING.md
-
 [vocabulary url]: https://github.com/valkyrjaio/.github/blob/master/VOCABULARY.md
-
 [security url]: https://github.com/valkyrjaio/.github/blob/master/SECURITY.md
