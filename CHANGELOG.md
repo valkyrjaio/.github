@@ -1,6 +1,19 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.20.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.21.0...26.x)
+
+## [v26.21.0](https://github.com/valkyrjaio/.github/compare/v26.20.0...v26.21.0) - 2026-08-02
+
+* [Workflow] ci: Update .github workflow refs to v26.20.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/233
+* [License] docs: Stop claiming GitHub inherits the license file by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/234
+* [Process] docs: Forbid secrets inherit in a workflow caller by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/235
+* [Copyright] docs: Update the specified header to add copyright year, remove email, and name the license by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/236
+* [Link] docs(#237): Point the community health files at the renamed repository by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/238
+* [Copyright] docs: Correct the package identifier table to match the repositories that exist by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/243
+* [Copyright] docs: Point the example file paths at files that exist by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/245
+* [Workflow] fix(#239): Delete every stale check comment and gate each on the check's own result by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/242
+* [Workflow] fix(#241): Post a Java check comment on a failed build and remove every stale one by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/248
+* [Workflow] feat: Add the copyright header check by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/244
 
 ## [v26.20.0](https://github.com/valkyrjaio/.github/compare/v26.19.0...v26.20.0) - 2026-08-02
 
