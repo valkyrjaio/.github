@@ -39,6 +39,9 @@ jobs:
           app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
           private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
+      - name: Simulated infrastructure failure
+        run: exit 1
+
       - name: Check for trailing newlines
         id: check
         run: |
@@ -76,7 +79,7 @@ jobs:
       # found a problem. `!cancelled()` is required: a step whose `if:` holds no status check
       # function gets `success() &&` prepended, and the job status is already `failure` here.
       - name: Report failure in PR comment
-        if: ${{ !cancelled() && steps.check.outputs.missing_files != '' && github.event.pull_request.number && inputs.post-pr-comment }}
+        if: failure() && github.event.pull_request.number && inputs.post-pr-comment
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}

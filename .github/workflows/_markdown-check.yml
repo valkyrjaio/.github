@@ -50,6 +50,9 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
 
+      - name: Simulated infrastructure failure
+        run: exit 1
+
       - name: Check Markdown formatting
         id: check
         env:
