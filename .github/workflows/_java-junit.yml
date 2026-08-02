@@ -155,15 +155,39 @@ jobs:
           format: jacoco
           base-path: src/main/java
 
+      # The gate is the JUnit step's own outcome, never `failure()`. `failure()` is true for any
+      # failed step, so a broken checkout or a failed token mint would post a comment that tells
+      # the developer to fix the failing tests. That advice does not help, because JUnit never
+      # reported a failing test. `!cancelled()` is required: a step whose `if:` holds no status
+      # check function gets `success() &&` prepended, and the job status is already `failure` here.
       - name: Report failure in PR comment
-        if: steps.build_step.outcome == 'failure'
+        if: ${{ !cancelled() && steps.build_step.outcome == 'failure' && github.event.pull_request.number }}
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MARKER: '<!-- workflow-id: java-junit -->'
         run: |
-          if [ -z "$PR_URL" ]; then
-            echo "Not a pull request, skipping comment."
-            exit 0
-          fi
+          # Delete every marked comment, not the first: two concurrent runs can race on a rapid
+          # double push and leave two marked comments. `--paginate` reaches a marked comment after
+          # the first page of 30.
+          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | contains(env.MARKER)) | .id')
+          for COMMENT_ID in $COMMENT_IDS; do
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+          done
+          gh pr comment "$PR_NUMBER" --body "JUnit tests failed. Please fix the failing tests locally and commit the changes. $MARKER"
 
-          gh pr comment "$PR_URL" --body "JUnit tests failed. Please fix the failing tests locally and commit the changes."
+      - name: Remove failure comment on success
+        if: success() && steps.changes.outputs.files == 'true' && github.event.pull_request.number
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MARKER: '<!-- workflow-id: java-junit -->'
+        run: |
+          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | contains(env.MARKER)) | .id')
+          for COMMENT_ID in $COMMENT_IDS; do
+            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
+          done
