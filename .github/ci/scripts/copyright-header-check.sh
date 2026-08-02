@@ -28,8 +28,10 @@
 
 set -euo pipefail
 
-CONFIG_PATH='.github/ci/copyright-header/config'
-ROOT=''
+# The environment sets each of these, and an argument overrides the environment. A workflow passes
+# the environment, because it runs the script with no arguments. A person passes an argument.
+CONFIG_PATH="${CONFIG_PATH:-.github/ci/copyright-header/config}"
+ROOT="${ROOT:-}"
 
 while [ "$#" -gt 0 ]; do
     case "$1" in

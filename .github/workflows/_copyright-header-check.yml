@@ -1,5 +1,13 @@
 name: Z Reusable Copyright Header Check
 
+# Each language enforces the copyright header with its own formatter, and a formatter reads only
+# the language it formats. A file in any other language keeps the header a person gives it, and no
+# tool reports that the header is wrong. This check covers every such file.
+#
+# The work itself is not here. `_run-script.yml` runs the script, and `_post-comment.yml` keeps the
+# report on the pull request. This workflow only names the check and wires the two together, so a
+# correction to either building block reaches every check that uses it.
+
 on:
   workflow_call:
     inputs:
@@ -22,121 +30,26 @@ on:
         required: true
 
 jobs:
-  copyright-header-check:
+  check:
     name: Check Copyright Header
+    # A relative path resolves to the same commit as this workflow, so the script this runs can
+    # never drift from the workflow that runs it, and no reference needs a bump.
+    uses: ./.github/workflows/_run-script.yml
+    with:
+      script: copyright-header-check.sh
+      env: |
+        CONFIG_PATH=${{ inputs.config-path }}
 
-    runs-on: ubuntu-latest
-
-    permissions:
-      pull-requests: write
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
-
-      # `uses: ...@<sha>` pins this workflow file, and it pins nothing else. The runner holds the
-      # caller's checkout, so a bare path reaches the caller's own tree rather than this
-      # repository. The script is checked out at the commit this workflow was loaded from, which
-      # pins the script exactly as tightly as the workflow file the caller named.
-      #
-      # Warning: an expression that names a property no context holds evaluates to an empty
-      # string, and it raises no error. `actions/checkout` reads an empty `ref` as the default
-      # branch, so the job would run the script from that branch and still report success. That
-      # turns one wrong property name into a silently unpinned script. This step fails instead,
-      # and it prints both properties so a run shows what the resolution saw.
-      - name: Resolve the CI scripts ref
-        id: scripts-ref
-        env:
-          WORKFLOW_SHA: ${{ job.workflow_sha }}
-          WORKFLOW_REF: ${{ job.workflow_ref }}
-        run: |
-          printf 'job.workflow_sha=[%s]\n' "$WORKFLOW_SHA"
-          printf 'job.workflow_ref=[%s]\n' "$WORKFLOW_REF"
-
-          if [ -z "$WORKFLOW_SHA" ]; then
-            echo 'job.workflow_sha is empty, so the script cannot be pinned to this workflow.'
-            echo 'Checking out an empty ref would read the default branch, which is not what the'
-            echo 'caller pinned. Fix the resolution rather than let the check run unpinned code.'
-            exit 1
-          fi
-
-          printf 'ref=%s\n' "$WORKFLOW_SHA" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout the CI scripts
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
-        with:
-          repository: valkyrjaio/.github
-          ref: ${{ steps.scripts-ref.outputs.ref }}
-          path: dot-github
-
-      - name: Generate a token
-        id: generate-token
-        if: github.event.pull_request.number && inputs.post-pr-comment
-        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
-        with:
-          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
-          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
-
-      - name: Check the copyright header
-        id: check
-        env:
-          CONFIG_PATH: ${{ inputs.config-path }}
-        run: |
-          # The script writes every failing file and the remediation text, so the report step
-          # quotes that output rather than building a second copy of the same message.
-          set +e
-          OUTPUT=$(dot-github/.github/ci/scripts/copyright-header-check.sh --config "$CONFIG_PATH" 2>&1)
-          STATUS=$?
-          set -e
-
-          printf '%s\n' "$OUTPUT"
-
-          if [ "$STATUS" -ne 0 ]; then
-            {
-              echo 'report<<CHECK_EOF'
-              printf '%s\n' "$OUTPUT"
-              echo 'CHECK_EOF'
-            } >> "$GITHUB_OUTPUT"
-            exit "$STATUS"
-          fi
-
-      - name: Report failure in PR comment
-        if: failure() && github.event.pull_request.number && inputs.post-pr-comment
-        env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          CONFIG_PATH: ${{ inputs.config-path }}
-          REPORT: ${{ steps.check.outputs.report }}
-        run: |
-          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select(.body | contains("<!-- workflow-id: copyright-header-check -->")) | .id' \
-            | head -1)
-          if [ -n "$COMMENT_ID" ]; then
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
-          fi
-
-          BODY="The copyright header check failed."$'\n\n'
-          if [ -n "$REPORT" ]; then
-            BODY+='```'$'\n'"$REPORT"$'\n''```'$'\n\n'
-          fi
-          BODY+="The check is closed by default. Every tracked file must carry the header, "
-          BODY+="unless \`EXCLUDED\` in \`$CONFIG_PATH\` matches it. Add the header to the file, "
-          BODY+="or add the file to \`EXCLUDED\` when the file holds no program code."$'\n'
-          BODY+=$'\n<!-- workflow-id: copyright-header-check -->'
-          gh pr comment "$PR_NUMBER" --body "$BODY"
-
-      - name: Remove failure comment on success
-        if: success() && github.event.pull_request.number && inputs.post-pr-comment
-        env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          COMMENT_ID=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select(.body | contains("<!-- workflow-id: copyright-header-check -->")) | .id' \
-            | head -1)
-          if [ -n "$COMMENT_ID" ]; then
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID"
-          fi
+  # `always()` runs this after a passing check as well as a failing one. A passing check posts no
+  # body, which removes the report it left on an earlier run.
+  comment:
+    name: Report
+    needs: check
+    if: always() && inputs.post-pr-comment && github.event.pull_request.number
+    uses: ./.github/workflows/_post-comment.yml
+    with:
+      marker: copyright-header-check
+      body: ${{ needs.check.outputs.outcome == 'failure' && needs.check.outputs.report-markdown || '' }}
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}

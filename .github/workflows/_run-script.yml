@@ -1,0 +1,157 @@
+name: Z Reusable Run Script
+
+# A building block for the workflows in this repository, not a check a repository calls directly.
+# It runs one script from `.github/ci/scripts/` against the calling repository's checkout, and it
+# reports what the script wrote. A repository calls the named check that wraps this workflow, so
+# the check carries a name that says what it checks, and so the script's environment contract
+# stays inside this repository.
+#
+# Call it by relative path, `uses: ./.github/workflows/_run-script.yml`. A relative path resolves
+# to the same commit as the calling workflow, so the script and the workflow that runs it can
+# never drift, and no reference needs a bump when either one changes.
+
+on:
+  workflow_call:
+    inputs:
+      script:
+        description: >
+          File name of the script to run, within `.github/ci/scripts/`. A name only — a path
+          separator is rejected, so a caller cannot reach outside that directory.
+        type: string
+        required: true
+      env:
+        description: >
+          Environment the script reads, as `KEY=VALUE` lines, one per line. A value is read to the
+          end of its line, so a value cannot hold a newline. A key must be a valid shell name.
+        type: string
+        default: ''
+    outputs:
+      outcome:
+        description: '`success` when the script exited 0, and `failure` when it did not'
+        value: ${{ jobs.run.outputs.outcome }}
+      report:
+        description: 'Everything the script wrote, on stdout and on stderr'
+        value: ${{ jobs.run.outputs.report }}
+      report-markdown:
+        description: >
+          The same report inside a fenced code block, ready to post as a comment. A script writes
+          its own remediation text, so a caller posts this rather than rebuilding the message in a
+          workflow expression.
+        value: ${{ jobs.run.outputs.report-markdown }}
+
+jobs:
+  run:
+    name: Run
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    outputs:
+      outcome: ${{ steps.run.outputs.outcome }}
+      report: ${{ steps.run.outputs.report }}
+      report-markdown: ${{ steps.run.outputs.report-markdown }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      # `uses: ...@<sha>` pins a workflow file, and it pins nothing else. The runner holds the
+      # calling repository's checkout, so a bare path reaches that tree rather than this
+      # repository. The script is checked out at the commit this workflow was loaded from, which
+      # pins the script exactly as tightly as the workflow.
+      #
+      # Warning: an expression that names a property no context holds evaluates to an empty
+      # string, and it raises no error. `actions/checkout` reads an empty `ref` as the default
+      # branch, so the job would run the script from that branch and still report success. That
+      # turns one wrong property name into a silently unpinned script. This step fails instead.
+      - name: Resolve the CI scripts ref
+        id: scripts-ref
+        env:
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+          WORKFLOW_REF: ${{ job.workflow_ref }}
+        run: |
+          printf 'job.workflow_sha=[%s]\n' "$WORKFLOW_SHA"
+          printf 'job.workflow_ref=[%s]\n' "$WORKFLOW_REF"
+
+          if [ -z "$WORKFLOW_SHA" ]; then
+            echo 'job.workflow_sha is empty, so the script cannot be pinned to this workflow.'
+            echo 'Checking out an empty ref would read the default branch, which is not what the'
+            echo 'caller pinned. Fix the resolution rather than let a job run unpinned code.'
+            exit 1
+          fi
+
+          printf 'ref=%s\n' "$WORKFLOW_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout the CI scripts
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          repository: valkyrjaio/.github
+          ref: ${{ steps.scripts-ref.outputs.ref }}
+          path: dot-github
+
+      - name: Export the script environment
+        env:
+          SCRIPT_ENV: ${{ inputs.env }}
+        run: |
+          # Each line becomes an environment variable for the run step. The key is checked first,
+          # because `GITHUB_ENV` takes whatever it is given, and a malformed key would define a
+          # variable no script can read, or shadow one the runner set.
+          while IFS= read -r LINE; do
+            [ -z "$LINE" ] && continue
+
+            KEY="${LINE%%=*}"
+
+            case "$KEY" in
+              "$LINE") echo "Not a KEY=VALUE line: $LINE" >&2; exit 1 ;;
+              ''|[0-9]*|*[!A-Za-z0-9_]*) echo "Not a shell name: $KEY" >&2; exit 1 ;;
+            esac
+
+            printf '%s\n' "$LINE" >> "$GITHUB_ENV"
+          done <<< "$SCRIPT_ENV"
+
+      - name: Run the script
+        id: run
+        env:
+          SCRIPT: ${{ inputs.script }}
+        run: |
+          # A name only. A separator would let a caller run a file outside the scripts directory.
+          case "$SCRIPT" in
+            */*|'.'|'..'|'') echo "Not a script name: $SCRIPT" >&2; exit 1 ;;
+          esac
+
+          SCRIPT_PATH="dot-github/.github/ci/scripts/$SCRIPT"
+
+          if [ ! -x "$SCRIPT_PATH" ]; then
+            echo "No executable script at $SCRIPT_PATH." >&2
+            echo 'A script lives in `.github/ci/scripts/`, and it carries the executable bit.' >&2
+            exit 1
+          fi
+
+          set +e
+          OUTPUT=$("$SCRIPT_PATH" 2>&1)
+          STATUS=$?
+          set -e
+
+          printf '%s\n' "$OUTPUT"
+
+          # The outputs are written before the job fails, so a later job can read the report of a
+          # run that did not pass. That is the whole reason a caller separates the two.
+          if [ "$STATUS" -eq 0 ]; then
+            printf 'outcome=success\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'outcome=failure\n' >> "$GITHUB_OUTPUT"
+          fi
+
+          {
+            echo 'report<<RUN_SCRIPT_EOF'
+            printf '%s\n' "$OUTPUT"
+            echo 'RUN_SCRIPT_EOF'
+
+            echo 'report-markdown<<RUN_SCRIPT_EOF'
+            printf '```\n%s\n```\n' "$OUTPUT"
+            echo 'RUN_SCRIPT_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+          exit "$STATUS"
