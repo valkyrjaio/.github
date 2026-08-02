@@ -4,10 +4,10 @@ This document specifies the standardized copyright header used across all
 Valkyrja organization source files. The text is the same in every language
 the framework targets (PHP, Java, Go, Python, TypeScript). PHP, Java, Go, and
 TypeScript write it as a block comment (`/* ... */`). Python writes the same
-text as a line comment (`# ...`), and a shell script does the same.
+text as a line comment (`# ...`).
 
 The first line names the package, and each repository has its own identifier
-for it. The other three lines are the same in every repository.
+for it. The two lines that follow it are the same in every repository.
 
 The year is 2016, because the first commit in `valkyrja-php` is from October
 2016. Every repository uses that year, including a port that a later year
@@ -148,20 +148,25 @@ each repository configures that tool with its own
 a mechanism that enforces the header. No repository relies on a
 contributor to add the header by hand.
 
-| Language   | Mechanism                                                                |
-| ---------- | ------------------------------------------------------------------------ |
-| PHP        | PHP CS Fixer — the `$header` argument to `Rules::getConfig()`            |
-| Java       | Spotless — `licenseHeader` in `.github/ci/spotless/build.gradle.kts`     |
-| TypeScript | ESLint — the local `copyright-header` rule                               |
-| Go         | golangci-lint — `goheader`, with the template in `license-header.txt`    |
-| Python     | Ruff — `CPY001`, with `notice-rgx` in `.github/ci/ruff/pyproject.toml`   |
+| Language   | Mechanism                                                              |
+| ---------- | ---------------------------------------------------------------------- |
+| PHP        | PHP CS Fixer — the `$header` argument to `Rules::getConfig()`          |
+| Java       | Spotless — `licenseHeader` in `.github/ci/spotless/build.gradle.kts`   |
+| TypeScript | ESLint — the local `copyright-header` rule                             |
+| Go         | golangci-lint — `goheader`, with the template in `license-header.txt`  |
+| Python     | Ruff — `CPY001`, with `notice-rgx` in `.github/ci/ruff/pyproject.toml` |
 
 Warning: a mechanism that reports a missing header does not always report a
-wrong one, and it does not always correct one. PHP CS Fixer, Spotless, and
-`goheader` compare the whole header and replace a header that differs. The
-ESLint rule only inserts a header into a file that has none, so a text
-substitution is what changes an existing TypeScript header. Ruff reports a file
-that does not match `notice-rgx`, and corrects nothing.
+wrong one, and it does not always correct one. PHP CS Fixer, Spotless,
+`goheader`, and the ESLint rule compare the whole header, and the first three
+replace a header that differs. Ruff reports a file that does not match
+`notice-rgx`, and corrects nothing.
+
+A file that the language's tool does not match keeps the header that a person
+gives it, and no tool reports that the header is wrong. A shell script is such
+a file, and it carries the same text as a line comment. `valkyrja-php` holds
+one at `.github/ci/phpunit/path-coverage-shards.sh`. A tool that matches a file
+by extension also misses a program file that has no extension.
 
 The PHP CS Fixer configuration in `ci-phpcsfixer-php` injects the header
 into every file. Consuming repositories pass their
