@@ -110,14 +110,13 @@ readonly HEADER_LINES=7
 # The extensions whose header is a block comment. Each of these languages writes the same text
 # between `/*` and `*/`. Every other file writes it as a line comment. A language that owns its own
 # header tool belongs in EXCLUDED instead, because that tool is what keeps the header correct.
-readonly BLOCK_COMMENT_GLOB='*.php|*.java|*.ts|*.tsx|*.js|*.jsx'
+BLOCK_COMMENT_EXTENSIONS=('*.php' '*.java' '*.ts' '*.tsx' '*.js' '*.jsx')
 
 is_block_comment() {
     local path="$1"
     local pattern
-    local IFS='|'
 
-    for pattern in $BLOCK_COMMENT_GLOB; do
+    for pattern in "${BLOCK_COMMENT_EXTENSIONS[@]}"; do
         # shellcheck disable=SC2053
         if [[ "$path" == $pattern ]]; then
             return 0
@@ -216,7 +215,7 @@ if [[ "$failed" -ne 0 ]]; then
     printf '\nEach file above must carry this header:\n\n' >&2
     printf '%s\n' "${LINE_COMMENT[@]}" >&2
     printf '\nA file of one of these types writes the same text as a block comment: %s\n' \
-        "$BLOCK_COMMENT_GLOB" >&2
+        "${BLOCK_COMMENT_EXTENSIONS[*]}" >&2
     printf 'The header follows the shebang, or the open tag, where the file has one.\n' >&2
     printf 'A file that holds no program code belongs in EXCLUDED in %s.\n' "$CONFIG_PATH" >&2
 
