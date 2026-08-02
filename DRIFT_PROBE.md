@@ -1,9 +1,9 @@
 # Drift Probe
 
-| Column | Another |
-| --- | --- |
-| a | b |
+| Column    | Another   |
+| --------- | --------- |
+| a         | b         |
 | ccccccccc | ddddddddd |
 
-*   A bullet with odd spacing
-*   Another bullet
+- A bullet with odd spacing
+- Another bullet
