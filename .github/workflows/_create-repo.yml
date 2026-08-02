@@ -11,6 +11,11 @@ on:
         description: 'Repository description'
         type: string
         required: true
+      package-identifier:
+        description: 'Copyright header package identifier, e.g. Valkyrja PHPStan (see COPYRIGHT_HEADER.md). Derived from the repository name when empty.'
+        type: string
+        required: false
+        default: ''
     secrets:
       VALKYRJA_GHA_APP_ID:
         description: 'App ID of the GitHub App that mints the token this workflow uses'
@@ -27,13 +32,51 @@ jobs:
 
     steps:
       - name: Validate inputs
+        id: validate
         env:
           DESCRIPTION: ${{ inputs.description }}
+          REPO_NAME: ${{ inputs.name }}
+          PACKAGE_IDENTIFIER: ${{ inputs.package-identifier }}
         run: |
           if [[ "$DESCRIPTION" == *. ]]; then
             echo "Error: description must not end with a period."
             exit 1
           fi
+
+          # Resolve the copyright header identifier here, before the repo exists. A
+          # failure after `gh repo create` would leave a repo behind that never got its
+          # rulesets, so every reason to stop must be found first.
+          # Only a repo scaffolded from a template carries a header to replace, so this
+          # repeats the template condition that the create step uses.
+          LANG_SUFFIX=$(echo "${REPO_NAME##*-}" | tr '[:upper:]' '[:lower:]')
+
+          if [[ " ${{ vars.SUPPORTED_LANGUAGES }} " != *" $LANG_SUFFIX "* || "$REPO_NAME" == project-template-* ]]; then
+            echo "No language template for '$REPO_NAME'; no copyright header to set."
+            exit 0
+          fi
+
+          IDENTIFIER="$PACKAGE_IDENTIFIER"
+
+          if [[ -z "$IDENTIFIER" ]]; then
+            # The last '-'-delimited segment is the language, so what precedes it names
+            # the package. Derive only the patterns that a name fully determines.
+            # COPYRIGHT_HEADER.md patterns 4 and 5 keep a tool's official capitalization
+            # (`PHPStan`, `OpenSwoole`), which a repository name does not record, so this
+            # step must not guess one.
+            case "${REPO_NAME%-*}" in
+              valkyrja)             IDENTIFIER='Valkyrja Framework' ;;
+              sindri)               IDENTIFIER='Sindri' ;;
+              valkyrja-starter-app) IDENTIFIER='Valkyrja Application' ;;
+              *)
+                echo "Error: cannot derive a package identifier from '$REPO_NAME'."
+                echo "Pass the package-identifier input. See COPYRIGHT_HEADER.md for the value."
+                exit 1
+                ;;
+            esac
+          fi
+
+          echo "Package identifier: $IDENTIFIER"
+          echo "package-identifier=$IDENTIFIER" >> "$GITHUB_OUTPUT"
 
       - name: Generate a token
         id: generate-token
@@ -42,6 +85,15 @@ jobs:
           app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
           private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
+
+      - name: Get bot user ID
+        id: get-bot-user-id
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
+        run: |
+          BOT_USER_ID=$(gh api "/users/$APP_SLUG[bot]" --jq '.id')
+          echo "user-id=$BOT_USER_ID" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -92,6 +144,46 @@ jobs:
           gh api --method PUT "repos/$ORG/$REPO_NAME/vulnerability-alerts" > /dev/null
           gh api --method PUT "repos/$ORG/$REPO_NAME/automated-security-fixes" > /dev/null
           gh api --method PUT "repos/$ORG/$REPO_NAME/immutable-releases" > /dev/null
+
+      # This step runs before the rulesets are applied, because it pushes to the
+      # default branch and a ruleset blocks a direct push to it.
+      - name: Set the copyright header package identifier
+        if: steps.validate.outputs.package-identifier != ''
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          ORG: ${{ github.repository_owner }}
+          REPO_NAME: ${{ inputs.name }}
+          IDENTIFIER: ${{ steps.validate.outputs.package-identifier }}
+          APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
+          BOT_USER_ID: ${{ steps.get-bot-user-id.outputs.user-id }}
+        run: |
+          # `gh repo create --template` copies the template byte for byte, so a new repo
+          # starts with the template's own identifier, `Project Template`. COPYRIGHT_HEADER.md
+          # resolves the identifier per repository, so replace it here. One replacement is
+          # sufficient for both the source files and the tool that enforces the header,
+          # because that tool stores the same sentence that it injects.
+          git clone --depth 1 "https://x-access-token:$GH_TOKEN@github.com/$ORG/$REPO_NAME.git" new-repo
+          cd new-repo
+
+          # A repo created without a template carries no header to replace.
+          if ! git grep -lq 'This file is part of the Project Template package\.'; then
+            echo "No template copyright header found; nothing to replace."
+            exit 0
+          fi
+
+          # `git grep` rather than `grep -r`: it reads only tracked files, so it never
+          # descends into .git, and its -z output is the same on every platform.
+          git grep -lz 'This file is part of the Project Template package\.' \
+            | xargs -0 perl -pi -e \
+              's/\QThis file is part of the Project Template package.\E/This file is part of the $ENV{IDENTIFIER} package./g'
+
+          git config user.name "$APP_SLUG[bot]"
+          git config user.email "$BOT_USER_ID+$APP_SLUG[bot]@users.noreply.github.com"
+          git add -A
+          # No trailing period: this commit goes onto a protected branch, so its subject
+          # is permanent rather than a working-branch ledger entry.
+          git commit -m "[CopyrightHeader] chore: Set the package identifier to $IDENTIFIER"
+          git push
 
       - name: Apply branch rulesets
         env:
