@@ -9,7 +9,8 @@ text as a line comment (`# ...`).
 The first line names the package, and each repository has its own identifier
 for it. The two lines that follow it are the same in every repository.
 
-The year is 2016, because the first commit in `valkyrja-php` is from October 2016. Every repository uses that year, including a port that a later year
+The year is 2016, because the first commit in `valkyrja-php` dates to October
+of 2016. Every repository uses that year, including a port that a later year
 created, because each port is a translation of the same work. `LICENSE.md`
 states the same year.
 
