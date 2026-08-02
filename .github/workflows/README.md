@@ -153,7 +153,7 @@ The sweep releases in tiers, and it waits for each tier to finish before it
 starts the next one. A dependency therefore always ships before the repository
 that consumes it:
 
-| Tier | Repositories                                   | Why it is here                         |
+| Release tier | Repositories                                   | Why it is here                         |
 | ---- | ---------------------------------------------- | -------------------------------------- |
 | 1    | `ci-*`                                         | The framework consumes the CI tools    |
 | 2    | `valkyrja-<lang>`                              | Everything else consumes the framework |
