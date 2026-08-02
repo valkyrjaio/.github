@@ -268,18 +268,18 @@ the ecosystem uses. Registries disagree about the `v` prefix. Packagist reports
 the tag, and Maven Central reports the bare version. The workflow compares every
 version without the prefix.
 
-A repository that never published to a registry has nothing to wait for, and
+A repository that never published to a registry has nothing to wait for.
 `skip-when-unknown` ends the wait for a package the registry does not know. Only
-`_php-create-release.yml` asks for it. Every PHP repository reaches that job and
-several are on no registry at all, so without the skip each of those releases
-would stall for the full timeout.
+`_php-create-release.yml` asks for it. Every PHP repository reaches that job, and
+several are on no registry at all. Without the skip, each of those releases would
+stall for the full timeout.
 
 A publish workflow never asks for it. The publish step just uploaded the
 package, so an unknown package there means the upload has not landed. The
-distinction decides a first release: Maven Central builds `maven-metadata.xml`
-during the same sync this waits on, so the first version of a new
-`group:artifact` has no metadata file yet. Reading that 404 as "does not publish
-here" would end the wait at the one moment it matters most.
+distinction decides a first release. Maven Central builds `maven-metadata.xml`
+during the same sync this waits on. The first version of a new `group:artifact`
+therefore has no metadata file yet. Reading that 404 as "does not publish here"
+would end the wait at the one moment it matters most.
 
 Warning: a wait that times out fails the job, and the release sweep reads that
 as a reason to stop. The release itself already succeeded — the tag, the GitHub
