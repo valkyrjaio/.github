@@ -52,7 +52,7 @@ fetch_json() {
   for attempt in 1 2 3; do
     response=$(gh api "$@" 2>/dev/null || true)
 
-    if [ -n "$response" ] && echo "$response" | jq -e . >/dev/null 2>&1; then
+    if [[ -n "$response" ]] && echo "$response" | jq -e . >/dev/null 2>&1; then
       printf '%s' "$response"
       return 0
     fi
@@ -68,7 +68,7 @@ LATEST_SHA=$(gh api "repos/$ORG/$SOURCE_REPO/commits/$LATEST_TAG" --jq '.sha')
 echo "Latest $SOURCE_REPO release: $LATEST_TAG ($LATEST_SHA)"
 
 # Escape dots in source repo name for use in sed/grep patterns
-SOURCE_REPO_ESCAPED=$(echo "$SOURCE_REPO" | sed 's/\./\\./g')
+SOURCE_REPO_ESCAPED="${SOURCE_REPO//./\\.}"
 
 # The .github repository excludes itself. It owns the templates rather than consuming
 # them, and its release bakes its own references in before it makes the tag. A pull
@@ -85,8 +85,10 @@ REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
 SKIPPED_REPOS=""
 
 skip_repo() {
-  echo "  $2, skipping"
-  SKIPPED_REPOS="$SKIPPED_REPOS"$'\n'"  - $1: $2"
+  local repo="$1" reason="$2"
+
+  echo "  $reason, skipping"
+  SKIPPED_REPOS="$SKIPPED_REPOS"$'\n'"  - $repo: $reason"
 }
 
 while IFS= read -r REPO_NAME; do
@@ -100,7 +102,7 @@ while IFS= read -r REPO_NAME; do
     | jq -r 'if type == "array" then .[].path else empty end' \
     2>/dev/null || true)
 
-  [ -z "$WORKFLOW_FILES" ] && continue
+  [[ -z "$WORKFLOW_FILES" ]] && continue
 
   BRANCH_DATA=$(fetch_json "repos/$ORG/$REPO_NAME/branches" --paginate) || {
     skip_repo "$REPO_NAME" "Could not read the branch list"
@@ -108,7 +110,7 @@ while IFS= read -r REPO_NAME; do
   }
   ALL_BRANCHES=$(echo "$BRANCH_DATA" | jq -r '.[]?.name' 2>/dev/null || true)
 
-  if [ -z "$ALL_BRANCHES" ]; then
+  if [[ -z "$ALL_BRANCHES" ]]; then
     skip_repo "$REPO_NAME" "Could not parse the branch list"
     continue
   fi
@@ -117,20 +119,20 @@ while IFS= read -r REPO_NAME; do
   while IFS= read -r b; do
     if [[ "$b" =~ ^([0-9]+)\.x$ ]]; then
       MAJOR="${BASH_REMATCH[1]}"
-      if [ -n "$SUPPORTED_VERSIONS" ] && [[ "$MAJOR" =~ $SUPPORTED_VERSIONS ]]; then
+      if [[ -n "$SUPPORTED_VERSIONS" ]] && [[ "$MAJOR" =~ $SUPPORTED_VERSIONS ]]; then
         BASE_BRANCHES="$BASE_BRANCHES"$'\n'"$b"
       fi
     fi
   done <<< "$ALL_BRANCHES"
 
-  if [ -z "$BASE_BRANCHES" ]; then
+  if [[ -z "$BASE_BRANCHES" ]]; then
     BASE_BRANCHES="master"
   fi
 
   while IFS= read -r BASE_BRANCH; do
-    [ -z "$BASE_BRANCH" ] && continue
+    [[ -z "$BASE_BRANCH" ]] && continue
 
-    if [ "$BASE_BRANCH" = "master" ]; then
+    if [[ "$BASE_BRANCH" = "master" ]]; then
       UPDATE_BRANCH="deps/update-${SOURCE_REPO}-workflow-refs"
     else
       UPDATE_BRANCH="deps/update-${SOURCE_REPO}-workflow-refs-$BASE_BRANCH"
@@ -144,41 +146,42 @@ while IFS= read -r REPO_NAME; do
 
     while IFS= read -r FILE_PATH; do
       READ_REF="$BASE_BRANCH"
-      [ -n "$BRANCH_EXISTS" ] && READ_REF="$UPDATE_BRANCH"
+      [[ -n "$BRANCH_EXISTS" ]] && READ_REF="$UPDATE_BRANCH"
       FILE_DATA=$(fetch_json "repos/$ORG/$REPO_NAME/contents/$FILE_PATH?ref=$READ_REF" || true)
-      [ -z "$FILE_DATA" ] && continue
+      [[ -z "$FILE_DATA" ]] && continue
 
       FILE_SHA=$(echo "$FILE_DATA" | jq -r '.sha // empty' 2>/dev/null || true)
-      [ -z "$FILE_SHA" ] && continue
+      [[ -z "$FILE_SHA" ]] && continue
 
       CONTENT=$(echo "$FILE_DATA" | jq -r '.content // empty' 2>/dev/null | base64 -d 2>/dev/null || true)
-      [ -z "$CONTENT" ] && continue
+      [[ -z "$CONTENT" ]] && continue
 
       if ! echo "$CONTENT" | grep -q "valkyrjaio/$SOURCE_REPO_ESCAPED/"; then
         continue
       fi
 
+      # shellcheck disable=SC2001 # A capture group carries the workflow path, and `${var//}` has none.
       NEW_CONTENT=$(echo "$CONTENT" | sed "s|valkyrjaio/$SOURCE_REPO_ESCAPED/\([^@]*\)@[^[:space:]]*|valkyrjaio/$SOURCE_REPO/\1@$LATEST_SHA|g")
 
-      if [ "$CONTENT" = "$NEW_CONTENT" ]; then
+      if [[ "$CONTENT" = "$NEW_CONTENT" ]]; then
         echo "  [$BASE_BRANCH] $FILE_PATH: already up to date"
         continue
       fi
 
       echo "  [$BASE_BRANCH] $FILE_PATH: updating to $LATEST_TAG"
 
-      if [ -z "$BRANCH_EXISTS" ]; then
+      if [[ -z "$BRANCH_EXISTS" ]]; then
         echo "  [$BASE_BRANCH] Creating branch $UPDATE_BRANCH..."
         BASE_SHA=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/$BASE_BRANCH" \
           --jq '.object.sha' 2>/dev/null || true)
-        if [ -z "$BASE_SHA" ]; then
+        if [[ -z "$BASE_SHA" ]]; then
           echo "  [$BASE_BRANCH] Could not get base branch SHA, skipping"
           break
         fi
         BRANCH_CREATE_ERR=$(gh api --method POST "repos/$ORG/$REPO_NAME/git/refs" \
           --field "ref=refs/heads/$UPDATE_BRANCH" \
           --field "sha=$BASE_SHA" 2>&1 >/dev/null || true)
-        if [ -n "$BRANCH_CREATE_ERR" ]; then
+        if [[ -n "$BRANCH_CREATE_ERR" ]]; then
           echo "  [$BASE_BRANCH] Branch creation failed: $BRANCH_CREATE_ERR"
           break
         fi
@@ -199,7 +202,7 @@ while IFS= read -r REPO_NAME; do
 
       COMMIT_ERR=$(echo "$PUT_BODY" | gh api --method PUT "repos/$ORG/$REPO_NAME/contents/$FILE_PATH" \
         --input - 2>&1 >/dev/null || true)
-      if [ -n "$COMMIT_ERR" ]; then
+      if [[ -n "$COMMIT_ERR" ]]; then
         echo "  [$BASE_BRANCH] $FILE_PATH commit failed: $COMMIT_ERR"
         continue
       fi
@@ -211,10 +214,10 @@ while IFS= read -r REPO_NAME; do
 
     PR_NEEDED=0
 
-    if [ "$FILES_UPDATED" -gt 0 ]; then
+    if [[ "$FILES_UPDATED" -gt 0 ]]; then
       PR_NEEDED=1
       echo "  [$BASE_BRANCH] $FILES_UPDATED file(s) updated — checking for existing PR..."
-    elif [ -n "$BRANCH_EXISTS" ]; then
+    elif [[ -n "$BRANCH_EXISTS" ]]; then
       # An earlier run may have committed to the update branch and then
       # died before opening the PR. Its files already carry the new ref,
       # so nothing is left to update and FILES_UPDATED stays 0 — recover
@@ -222,16 +225,19 @@ while IFS= read -r REPO_NAME; do
       COMPARE=$(fetch_json "repos/$ORG/$REPO_NAME/compare/$BASE_BRANCH...$UPDATE_BRANCH") || COMPARE=""
 
       AHEAD_BY=$(echo "$COMPARE" | jq -r '.ahead_by // 0' 2>/dev/null || echo 0)
-      case "$AHEAD_BY" in ''|*[!0-9]*) AHEAD_BY=0 ;; esac
+      case "$AHEAD_BY" in
+        ''|*[!0-9]*) AHEAD_BY=0 ;;
+        *) ;;
+      esac
 
-      if [ -n "$COMPARE" ] && [ "$AHEAD_BY" -gt 0 ]; then
+      if [[ -n "$COMPARE" ]] && [[ "$AHEAD_BY" -gt 0 ]]; then
         PR_NEEDED=1
         FILES_LIST=$(echo "$COMPARE" | jq -r '.files[]?.filename' 2>/dev/null || true)
         echo "  [$BASE_BRANCH] $UPDATE_BRANCH is ahead of $BASE_BRANCH — checking for existing PR..."
       fi
     fi
 
-    if [ "$PR_NEEDED" -eq 1 ]; then
+    if [[ "$PR_NEEDED" -eq 1 ]]; then
       EXISTING_PR=$(gh pr list --repo "$ORG/$REPO_NAME" \
         --state open \
         --json number,headRefName,title \
@@ -252,16 +258,16 @@ while IFS= read -r REPO_NAME; do
       BODY+="| File | Updated To |"$'\n'
       BODY+="|------|------------|"$'\n'
       while IFS= read -r file; do
-        [ -z "$file" ] && continue
+        [[ -z "$file" ]] && continue
         BODY+="| \`$file\` | \`$LATEST_TAG\` |"$'\n'
       done <<< "$FILES_LIST"
 
       NEW_TITLE="[Workflow] ci: Update $SOURCE_REPO workflow refs to $LATEST_TAG"
 
-      if [ -z "$EXISTING_PR" ]; then
-        REVIEWER_FLAGS=""
-        if [ -n "$REVIEWER" ]; then
-          REVIEWER_FLAGS="--assignee $REVIEWER --reviewer $REVIEWER"
+      if [[ -z "$EXISTING_PR" ]]; then
+        REVIEWER_FLAGS=()
+        if [[ -n "$REVIEWER" ]]; then
+          REVIEWER_FLAGS=(--assignee "$REVIEWER" --reviewer "$REVIEWER")
         fi
         echo "  [$BASE_BRANCH] Creating PR from $UPDATE_BRANCH → $BASE_BRANCH..."
         if ! gh pr create \
@@ -270,7 +276,7 @@ while IFS= read -r REPO_NAME; do
           --body "$BODY" \
           --base "$BASE_BRANCH" \
           --head "$UPDATE_BRANCH" \
-          $REVIEWER_FLAGS 2>/dev/null; then
+          "${REVIEWER_FLAGS[@]}" 2>/dev/null; then
           echo "  [$BASE_BRANCH] PR creation failed, skipping"
         else
           echo "  [$BASE_BRANCH] PR created."
@@ -278,9 +284,9 @@ while IFS= read -r REPO_NAME; do
       else
         PR_NUMBER=$(echo "$EXISTING_PR" | jq -r '.number // empty' 2>/dev/null || true)
         CURRENT_TITLE=$(echo "$EXISTING_PR" | jq -r '.title // empty' 2>/dev/null || true)
-        if [ -z "$PR_NUMBER" ]; then
+        if [[ -z "$PR_NUMBER" ]]; then
           echo "  [$BASE_BRANCH] Could not read the existing PR, skipping"
-        elif [ "$CURRENT_TITLE" != "$NEW_TITLE" ]; then
+        elif [[ "$CURRENT_TITLE" != "$NEW_TITLE" ]]; then
           echo "  [$BASE_BRANCH] Updating PR #$PR_NUMBER title to reflect $LATEST_TAG..."
           gh pr edit "$PR_NUMBER" --repo "$ORG/$REPO_NAME" \
             --title "$NEW_TITLE" --body "$BODY" 2>/dev/null || true
@@ -292,7 +298,7 @@ while IFS= read -r REPO_NAME; do
   done <<< "$BASE_BRANCHES"
 done <<< "$REPOS"
 
-if [ -n "$SKIPPED_REPOS" ]; then
+if [[ -n "$SKIPPED_REPOS" ]]; then
   echo "::error::Some repositories were not updated to $LATEST_TAG:$SKIPPED_REPOS"
   exit 1
 fi
