@@ -1,5 +1,16 @@
 name: Z Reusable Commit Message Check
 
+# The pull request title and every commit on the branch follow `[Root] type: Description`.
+#
+# Four checks run, and three of them are a third-party action rather than a script, so they cannot
+# be one script the way the other checks in this repository are. What they share is the report, and
+# `commit-message-report.sh` writes that from the four outcomes. The `post-comment` action then
+# keeps it on the pull request, in place of the copy of that logic this workflow used to hold.
+#
+# The actions live in this repository, and an action cannot fetch the files it is itself made of.
+# The job therefore checks this repository out at `job.workflow_sha` first, which is the commit the
+# caller pinned, and reaches the actions and the scripts through that checkout.
+
 on:
   workflow_call:
     inputs:
@@ -16,7 +27,7 @@ on:
         required: true
 
 jobs:
-  commit-message-check:
+  check:
     name: Check Commit Message
 
     runs-on: ubuntu-latest
@@ -29,26 +40,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
-      - name: Generate a token
-        id: generate-token
-        if: github.event.pull_request.number && inputs.post-pr-comment
-        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+      - name: Checkout the CI actions
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
-          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+          repository: valkyrjaio/.github
+          ref: ${{ job.workflow_sha }}
+          path: dot-github
 
+      # Every check below is `continue-on-error`, so all four report an outcome and the report names
+      # every rule that failed. Without it the first failure would end the job, and a contributor
+      # would learn of the next rule only after fixing this one.
       - name: Check Root And Type
         id: check-commit-type
         if: github.actor != 'dependabot[bot]' && !startsWith(github.event.pull_request.title, 'Revert "')
         continue-on-error: true
         uses: gsactions/commit-message-checker@16fa2d5de096ae0d35626443bcd24f1e756cafee # v2.0.0
         with:
-          # Only the shape is checked. The root vocabulary is open by design, so any
-          # bracketed word passes and root choice stays a review concern; the type
-          # list is closed and is enforced here.
-          # `g` rather than the default `gm` anchors `^` to the subject line, so a
-          # conforming line in a commit body cannot satisfy the check for a
-          # non-conforming subject.
           flags: 'g'
           pattern: '^(\[[^\]]+\])+ (feat|fix|deprecate|docs|test|refactor|perf|style|build|ci|chore|revert)(\(#[0-9]+\))?!?: .+'
           error: 'Subject must be "[Root] type: Description" — e.g. "[Http] fix: Normalize header casing." See CONTRIBUTING.md for the roots and types.'
@@ -72,17 +79,12 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          COMMITS=$(gh api \
-            "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/commits" \
-            --jq '.[].commit.message')
-
-          while IFS= read -r line; do
-            if [ ${#line} -gt 120 ]; then
-              echo "Line exceeds 120 characters: $line"
-              exit 1
-            fi
-          done <<< "$COMMITS"
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        uses: ./dot-github/.github/actions/run-script
+        with:
+          script: commit-message-line-length.sh
+          expected-ref: ${{ job.workflow_sha }}
 
       - name: Check Period at end
         id: check-period-at-end
@@ -90,10 +92,6 @@ jobs:
         continue-on-error: true
         uses: gsactions/commit-message-checker@16fa2d5de096ae0d35626443bcd24f1e756cafee # v2.0.0
         with:
-          # `excludeTitle` is what keeps the period rule correct: it applies to the
-          # branch's own commits, never the PR title, and a direct push to a protected
-          # branch never reaches a pull request at all. Working notes end in a period;
-          # permanent subject lines do not.
           pattern: '.*\.$'
           error: 'Each commit on the branch has to end in a period (the PR title must not).'
           excludeDescription: 'true'
@@ -101,79 +99,39 @@ jobs:
           checkAllCommitMessages: 'true'
           accessToken: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Assert all checks passed
-        if: |
-          steps.check-commit-type.outcome == 'failure' ||
-          steps.check-no-trailing-period-title.outcome == 'failure' ||
-          steps.check-line-length.outcome == 'failure' ||
-          steps.check-period-at-end.outcome == 'failure'
-        run: exit 1
+      # The script writes the report and decides the result, so it fails when any check above did.
+      # `continue-on-error` keeps that from ending the job here, so the report reaches the comment.
+      - name: Build the report
+        id: report
+        continue-on-error: true
+        uses: ./dot-github/.github/actions/run-script
+        with:
+          script: commit-message-report.sh
+          expected-ref: ${{ job.workflow_sha }}
+          env: |
+            COMMIT_TYPE_OUTCOME=${{ steps.check-commit-type.outcome }}
+            NO_TRAILING_PERIOD_OUTCOME=${{ steps.check-no-trailing-period-title.outcome }}
+            LINE_LENGTH_OUTCOME=${{ steps.check-line-length.outcome }}
+            PERIOD_AT_END_OUTCOME=${{ steps.check-period-at-end.outcome }}
 
-      # The gate repeats the four outcomes that `Assert all checks passed` reads, never `failure()`.
-      # `failure()` is true for any failed step, so a broken `actions/checkout` or a failed token
-      # mint posted a comment that listed no rule at all. Each of the four checks carries
-      # `continue-on-error`, so an outcome of `failure` is evidence that the check itself found a
-      # problem. `!cancelled()` is required: a step whose `if:` holds no status check function gets
-      # `success() &&` prepended, and the job status is already `failure` here.
-      - name: Report failure in PR comment
-        if: >-
-          !cancelled() &&
-          (steps.check-commit-type.outcome == 'failure' ||
-          steps.check-no-trailing-period-title.outcome == 'failure' ||
-          steps.check-line-length.outcome == 'failure' ||
-          steps.check-period-at-end.outcome == 'failure') &&
-          github.event.pull_request.number && inputs.post-pr-comment
-        env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          COMMIT_TYPE_OUTCOME: ${{ steps.check-commit-type.outcome }}
-          NO_TRAILING_PERIOD_OUTCOME: ${{ steps.check-no-trailing-period-title.outcome }}
-          LINE_LENGTH_OUTCOME: ${{ steps.check-line-length.outcome }}
-          PERIOD_AT_END_OUTCOME: ${{ steps.check-period-at-end.outcome }}
-        run: |
-          # Delete every marked comment, not the first. Two concurrent runs can race on a rapid
-          # double push and leave two marked comments, and a `head -1` left one of them behind
-          # forever. `--paginate` reaches a marked comment after the first page of 30.
-          #
-          # Warning: never let a failed delete end the step. The same race puts the same comment id
-          # in both runs' lists, so the run that deletes second gets HTTP 404 and `gh` exits 1. The
-          # runner's default shell is `bash -e`, which ends the step on that status: the success
-          # step would fail the job and turn a required check red after the check itself passed,
-          # and the failure step would never reach the `gh pr comment` call below. Comment
-          # housekeeping must never decide the job result, so report the failure and continue.
-          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select(.body | contains("<!-- workflow-id: commit-message-check -->")) | .id')
-          for COMMENT_ID in $COMMENT_IDS; do
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
-              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
-          done
-          BODY="One or more commit message checks failed:"$'\n\n'
-          if [ "$COMMIT_TYPE_OUTCOME" = "failure" ]; then
-            BODY+="- The PR title and every commit must match \`[Root] type: Description\` — e.g. \`[Http] fix: Normalize header casing.\` Types: \`feat\`, \`fix\`, \`deprecate\`, \`docs\`, \`test\`, \`refactor\`, \`perf\`, \`style\`, \`build\`, \`ci\`, \`chore\`, \`revert\`. Add \`!\` before the colon for a breaking change, and \`(#123)\` for an issue."$'\n'
-          fi
-          if [ "$NO_TRAILING_PERIOD_OUTCOME" = "failure" ]; then
-            BODY+="- PR title must not end with a period"$'\n'
-          fi
-          if [ "$LINE_LENGTH_OUTCOME" = "failure" ]; then
-            BODY+="- No commit message line may exceed 120 characters"$'\n'
-          fi
-          if [ "$PERIOD_AT_END_OUTCOME" = "failure" ]; then
-            BODY+="- Each commit message (excluding PR title) must end with a period"$'\n'
-          fi
-          BODY+=$'\n<!-- workflow-id: commit-message-check -->'
-          gh pr comment "$PR_NUMBER" --body "$BODY"
+      # A passing check posts no body, which removes the report an earlier run left behind.
+      - name: Report the result on the pull request
+        if: ${{ !cancelled() && inputs.post-pr-comment && github.event.pull_request.number }}
+        uses: ./dot-github/.github/actions/post-comment
+        with:
+          marker: commit-message-check
+          body: ${{ steps.report.outputs.outcome == 'failure' && steps.report.outputs.report || '' }}
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
-      - name: Remove failure comment on success
-        if: success() && github.event.pull_request.number && inputs.post-pr-comment
+      # Warning: `!cancelled()` rather than `always()`. With `always()` a cancelled run reaches
+      # this step, reads an empty outcome, and fails the job instead of reporting it as cancelled.
+      - name: Fail when a check failed
+        if: ${{ !cancelled() }}
         env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          OUTCOME: ${{ steps.report.outputs.outcome }}
         run: |
-          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select(.body | contains("<!-- workflow-id: commit-message-check -->")) | .id')
-          for COMMENT_ID in $COMMENT_IDS; do
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
-              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
-          done
+          if [[ "$OUTCOME" != 'success' ]]; then
+            echo 'A commit message check reported a failure. Its output is above, and on the pull request.'
+            exit 1
+          fi
