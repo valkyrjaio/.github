@@ -143,7 +143,16 @@ jobs:
 
           gh api --method PUT "repos/$ORG/$REPO_NAME/vulnerability-alerts" > /dev/null
           gh api --method PUT "repos/$ORG/$REPO_NAME/automated-security-fixes" > /dev/null
-          gh api --method PUT "repos/$ORG/$REPO_NAME/immutable-releases" > /dev/null
+
+          # Warning: an owner can enforce immutable releases for every repository it owns, and the
+          # API then rejects a per-repository PUT with 409. The step runs under `bash -e`, so an
+          # unguarded PUT ends the job, and no step below it runs. The repository then keeps the
+          # template's package identifier, and it gets no branch ruleset, while the job reports the
+          # repository as created. Read the state first, and send the PUT only where the setting is
+          # off. Any other failure is still a real one.
+          if [[ "$(gh api "repos/$ORG/$REPO_NAME/immutable-releases" --jq '.enabled')" != 'true' ]]; then
+            gh api --method PUT "repos/$ORG/$REPO_NAME/immutable-releases" > /dev/null
+          fi
 
       # This step runs before the rulesets are applied, because it pushes to the
       # default branch and a ruleset blocks a direct push to it.
