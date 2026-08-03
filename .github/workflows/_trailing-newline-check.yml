@@ -1,5 +1,11 @@
 name: Z Reusable Trailing Newline Check
 
+# Every text file a repository tracks ends with a newline.
+#
+# The work is not here. `_run-script.yml` runs the script and reports what it wrote, and
+# `_post-comment.yml` keeps that report on the pull request. This workflow names the check and
+# wires the two together, so a correction to either building block reaches every check at once.
+
 on:
   workflow_call:
     inputs:
@@ -16,106 +22,28 @@ on:
         required: true
 
 jobs:
-  trailing-newline-check:
+  check:
     name: Check Trailing Newline
+    # A relative path resolves to the same commit as this workflow, so the script this runs can
+    # never drift from the workflow that runs it, and no reference needs a bump.
+    uses: ./.github/workflows/_run-script.yml
+    with:
+      script: trailing-newline-check.sh
 
-    runs-on: ubuntu-latest
-
-    permissions:
-      pull-requests: write
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
-        with:
-          fetch-depth: 0
-
-      - name: Generate a token
-        id: generate-token
-        if: github.event.pull_request.number && inputs.post-pr-comment
-        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
-        with:
-          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
-          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
-
-      - name: Check for trailing newlines
-        id: check
-        run: |
-          mapfile -d '' files < <(git ls-files -z)
-
-          missing=()
-          for file in "${files[@]}"; do
-            [ -d "$file" ] && continue
-            [ ! -s "$file" ] && continue
-            if file --mime-encoding "$file" 2>/dev/null | grep -q 'binary'; then
-              continue
-            fi
-            if [ "$(tail -c 1 "$file" | wc -l)" -eq 0 ]; then
-              missing+=("$file")
-            fi
-          done
-
-          if [ "${#missing[@]}" -gt 0 ]; then
-            echo "The following files are missing a trailing newline:"
-            printf '  %s\n' "${missing[@]}"
-            {
-              echo 'missing_files<<EOF'
-              printf '%s\n' "${missing[@]}"
-              echo 'EOF'
-            } >> "$GITHUB_OUTPUT"
-            exit 1
-          fi
-
-          echo "All files have a trailing newline."
-
-      # The gate is the check step's own output, never `failure()`. `failure()` is true for any
-      # failed step, so a broken `actions/checkout` posted a comment that named no file and told the
-      # developer to add a newline. That advice does not help, because no file is missing one. The
-      # output is set only where the check names a file, so it is evidence that the check itself
-      # found a problem. `!cancelled()` is required: a step whose `if:` holds no status check
-      # function gets `success() &&` prepended, and the job status is already `failure` here.
-      - name: Report failure in PR comment
-        if: ${{ !cancelled() && steps.check.outputs.missing_files != '' && github.event.pull_request.number && inputs.post-pr-comment }}
-        env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          MISSING_FILES: ${{ steps.check.outputs.missing_files }}
-        run: |
-          # Delete every marked comment, not the first. Two concurrent runs can race on a rapid
-          # double push and leave two marked comments, and a `head -1` left one of them behind
-          # forever. `--paginate` reaches a marked comment after the first page of 30.
-          #
-          # Warning: never let a failed delete end the step. The same race puts the same comment id
-          # in both runs' lists, so the run that deletes second gets HTTP 404 and `gh` exits 1. The
-          # runner's default shell is `bash -e`, which ends the step on that status: the success
-          # step would fail the job and turn a required check red after the check itself passed,
-          # and the failure step would never reach the `gh pr comment` call below. Comment
-          # housekeeping must never decide the job result, so report the failure and continue.
-          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select(.body | contains("<!-- workflow-id: trailing-newline-check -->")) | .id')
-          for COMMENT_ID in $COMMENT_IDS; do
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
-              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
-          done
-          BODY="The following files are missing a trailing newline:"$'\n\n'
-          while IFS= read -r f; do
-            [ -n "$f" ] && BODY+="- \`$f\`"$'\n'
-          done <<< "$MISSING_FILES"
-          BODY+=$'\n<!-- workflow-id: trailing-newline-check -->'
-          gh pr comment "$PR_NUMBER" --body "$BODY"
-
-      - name: Remove failure comment on success
-        if: success() && github.event.pull_request.number && inputs.post-pr-comment
-        env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select(.body | contains("<!-- workflow-id: trailing-newline-check -->")) | .id')
-          for COMMENT_ID in $COMMENT_IDS; do
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
-              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
-          done
+  # `always()` runs this after a passing check as well as a failing one. A passing check posts no
+  # body, which removes the report an earlier run left behind.
+  #
+  # The body is the script's own output, and it is empty unless the script reported a failure. A
+  # job that fails before the script runs sets no output, so an infrastructure fault cannot post a
+  # report that names no file.
+  comment:
+    name: Report
+    needs: check
+    if: always() && inputs.post-pr-comment && github.event.pull_request.number
+    uses: ./.github/workflows/_post-comment.yml
+    with:
+      marker: trailing-newline-check
+      body: ${{ needs.check.outputs.outcome == 'failure' && needs.check.outputs.report || '' }}
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
