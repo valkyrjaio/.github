@@ -106,89 +106,8 @@ jobs:
           ORG: ${{ github.repository_owner }}
           REPO_NAME: ${{ inputs.name }}
           DESCRIPTION: ${{ inputs.description }}
-        run: |
-          # A repo's language is the final '-'-delimited segment of its name
-          # (see REPOSITORY_NAMING.md): valkyrja-php → php, ci-junit-java → java,
-          # sindri-ts → ts. It only counts as a language when listed in the
-          # org-level vars.SUPPORTED_LANGUAGES (space-separated), so e.g.
-          # some-global-repo resolves to nothing.
-          LANG_SUFFIX=$(echo "${REPO_NAME##*-}" | tr '[:upper:]' '[:lower:]')
-
-          # Scaffold from project-template-<lang> when the repo targets a known
-          # language — except for the project templates themselves, which have no
-          # template of their own (and must not reference one that may not exist
-          # yet when a new language is introduced).
-          TEMPLATE_FLAG=""
-          if [[ " ${{ vars.SUPPORTED_LANGUAGES }} " == *" $LANG_SUFFIX "* && "$REPO_NAME" != project-template-* ]]; then
-            echo "Detected language '$LANG_SUFFIX'; using template $ORG/project-template-$LANG_SUFFIX"
-            TEMPLATE_FLAG="--template $ORG/project-template-$LANG_SUFFIX"
-          else
-            echo "No language template for '$REPO_NAME'; creating a bare repo."
-          fi
-
-          gh repo create "$ORG/$REPO_NAME" \
-            --public \
-            --description "$DESCRIPTION" \
-            $TEMPLATE_FLAG
-
-          # Warning: `gh repo create --template` returns before GitHub finishes copying
-          # the template. The repository exists, its metadata reads back, and its
-          # contents are still empty. Every later step that reads the repository then
-          # finds nothing, takes its own "nothing to do" path, and reports success. The
-          # repository keeps the template's package identifier and gets no master
-          # branch, while the job reports the repository as created.
-          #
-          # This was measured on `valkyrja-python`. The clone three seconds after
-          # creation printed `You appear to have cloned an empty repository`, and the
-          # API still reported `master` as the default branch rather than the
-          # template's. Both steps below then did nothing.
-          #
-          # Wait for the first commit, which is what the copy produces.
-          if [[ -n "$TEMPLATE_FLAG" ]]; then
-            # Read the exit code, never the body. The endpoint answers 409 while the
-            # repository holds no commit, and 404 before it resolves at all. Both write
-            # a JSON body to stdout, and a numeric test on that body is not a test.
-            for _ in $(seq 1 60); do
-              if gh api "repos/$ORG/$REPO_NAME/commits?per_page=1" --silent 2>/dev/null; then
-                COPIED=1
-                break
-              fi
-
-              sleep 2
-            done
-
-            if [[ -z "${COPIED:-}" ]]; then
-              printf 'The template copy did not finish within 120 seconds.\n' >&2
-              printf 'The repository exists and holds no commit, so no later step can read it.\n' >&2
-              exit 1
-            fi
-
-            echo "The template copy finished."
-          fi
-
-          gh api --method PATCH "repos/$ORG/$REPO_NAME" \
-            --field allow_squash_merge=true \
-            --field allow_merge_commit=false \
-            --field allow_rebase_merge=false \
-            --field delete_branch_on_merge=true \
-            --field squash_merge_commit_title="PR_TITLE" \
-            --field squash_merge_commit_message="PR_BODY" \
-            --field has_wiki=false \
-            --field has_projects=false
-
-          gh api --method PUT "repos/$ORG/$REPO_NAME/vulnerability-alerts" > /dev/null
-          gh api --method PUT "repos/$ORG/$REPO_NAME/automated-security-fixes" > /dev/null
-
-          # Warning: an owner can enforce immutable releases for every repository it owns, and the
-          # API then rejects a per-repository PUT with 409. The step runs under `bash -e`, so an
-          # unguarded PUT ends the job, and no step below it runs. The repository then keeps the
-          # template's package identifier, and it gets no branch ruleset, while the job reports the
-          # repository as created. Read the state first, and send the PUT only where the setting is
-          # off. Any other failure is still a real one.
-          if [[ "$(gh api "repos/$ORG/$REPO_NAME/immutable-releases" --jq '.enabled')" != 'true' ]]; then
-            gh api --method PUT "repos/$ORG/$REPO_NAME/immutable-releases" > /dev/null
-          fi
-
+          SUPPORTED_LANGUAGES: ${{ vars.SUPPORTED_LANGUAGES }}
+        run: .github/ci/scripts/create-repo.sh
       # This step runs before the rulesets are applied, because it pushes to the
       # default branch and a ruleset blocks a direct push to it.
       - name: Set the copyright header package identifier
@@ -200,56 +119,7 @@ jobs:
           IDENTIFIER: ${{ steps.validate.outputs.package-identifier }}
           APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
           BOT_USER_ID: ${{ steps.get-bot-user-id.outputs.user-id }}
-        run: |
-          # `gh repo create --template` copies the template byte for byte, so a new repo
-          # starts with the template's own identifier, `Project Template`. COPYRIGHT_HEADER.md
-          # resolves the identifier per repository, so replace it here.
-          git clone --depth 1 "https://x-access-token:$GH_TOKEN@github.com/$ORG/$REPO_NAME.git" new-repo
-          cd new-repo
-
-          # Warning: this step runs only when `validate` resolved a package identifier,
-          # and `validate` resolves one only for a repository scaffolded from a language
-          # template. The template header must therefore be present. Treating its absence
-          # as "nothing to do" is what let an empty clone pass as success, so this reports
-          # a failure instead.
-          if ! git grep -lq 'the Project Template package'; then
-            printf 'This repository was scaffolded from a template, so it must carry the template header.\n' >&2
-            printf 'The clone holds no such header, so the repository is empty or the template changed.\n' >&2
-            exit 1
-          fi
-
-          # Warning: match the name and the word `package`, and stop before the period. A
-          # tool that enforces the header does not always store the sentence as prose. Ruff
-          # stores a regular expression, so it holds `package\.` with an escaped period, and
-          # a pattern that ends with a literal period never matches it. The new repository
-          # then names itself correctly in every source file while the tool still demands
-          # `Project Template`, and the gate fails on every file.
-          #
-          # `git grep` rather than `grep -r`: it reads only tracked files, so it never
-          # descends into .git, and its -z output is the same on every platform.
-          git grep -lz 'the Project Template package' \
-            | xargs -0 perl -pi -e \
-              's/\Qthe Project Template package\E/the $ENV{IDENTIFIER} package/g'
-
-          # Warning: the sentence is not the only place the identifier appears. The
-          # copyright header check reads `IDENTIFIER` from its own config, and that value is
-          # a bare name rather than the sentence, so the replacement above never reaches it.
-          # Every language template carries this file. Left alone, the check compares each
-          # file against `Project Template` and fails on all of them.
-          if git grep -lq "^IDENTIFIER='Project Template'$"; then
-            git grep -lz "^IDENTIFIER='Project Template'$" \
-              | xargs -0 perl -pi -e \
-                "s/^IDENTIFIER='Project Template'\$/IDENTIFIER='\$ENV{IDENTIFIER}'/g"
-          fi
-
-          git config user.name "$APP_SLUG[bot]"
-          git config user.email "$BOT_USER_ID+$APP_SLUG[bot]@users.noreply.github.com"
-          git add -A
-          # No trailing period: this commit goes onto a protected branch, so its subject
-          # is permanent rather than a working-branch ledger entry.
-          git commit -m "[CopyrightHeader] chore: Set the package identifier to $IDENTIFIER"
-          git push
-
+        run: .github/ci/scripts/set-copyright-identifier.sh
       # This step runs after the copyright header commit, so master carries the repository's own
       # package identifier rather than the template's. The script records why, and what it skips.
       - name: Create the master branch
@@ -264,23 +134,5 @@ jobs:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           ORG: ${{ github.repository_owner }}
           REPO_NAME: ${{ inputs.name }}
-        run: |
-          shopt -s nullglob
-
-          for ruleset_file in rulesets/*.json; do
-            echo "Applying ruleset: $(basename "$ruleset_file")"
-            jq '{name, target, enforcement, conditions, rules, bypass_actors}' "$ruleset_file" \
-              | gh api --method POST "repos/$ORG/$REPO_NAME/rulesets" --input -
-          done
-
-          # Apply language-specific rulesets from rulesets/<lang>/ for known
-          # languages (same suffix rule as the template step).
-          LANG_SUFFIX=$(echo "${REPO_NAME##*-}" | tr '[:upper:]' '[:lower:]')
-          if [[ " ${{ vars.SUPPORTED_LANGUAGES }} " == *" $LANG_SUFFIX "* && -d "rulesets/$LANG_SUFFIX" ]]; then
-            echo "Applying $LANG_SUFFIX-specific rulesets..."
-            for ruleset_file in rulesets/"$LANG_SUFFIX"/*.json; do
-              echo "Applying $LANG_SUFFIX ruleset: $(basename "$ruleset_file")"
-              jq '{name, target, enforcement, conditions, rules, bypass_actors}' "$ruleset_file" \
-                | gh api --method POST "repos/$ORG/$REPO_NAME/rulesets" --input -
-            done
-          fi
+          SUPPORTED_LANGUAGES: ${{ vars.SUPPORTED_LANGUAGES }}
+        run: .github/ci/scripts/apply-branch-rulesets.sh
