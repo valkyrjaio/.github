@@ -131,6 +131,41 @@ jobs:
             --description "$DESCRIPTION" \
             $TEMPLATE_FLAG
 
+          # Warning: `gh repo create --template` returns before GitHub finishes copying
+          # the template. The repository exists, its metadata reads back, and its
+          # contents are still empty. Every later step that reads the repository then
+          # finds nothing, takes its own "nothing to do" path, and reports success. The
+          # repository keeps the template's package identifier and gets no master
+          # branch, while the job reports the repository as created.
+          #
+          # This was measured on `valkyrja-python`. The clone three seconds after
+          # creation printed `You appear to have cloned an empty repository`, and the
+          # API still reported `master` as the default branch rather than the
+          # template's. Both steps below then did nothing.
+          #
+          # Wait for the first commit, which is what the copy produces.
+          if [[ -n "$TEMPLATE_FLAG" ]]; then
+            # Read the exit code, never the body. The endpoint answers 409 while the
+            # repository holds no commit, and 404 before it resolves at all. Both write
+            # a JSON body to stdout, and a numeric test on that body is not a test.
+            for _ in $(seq 1 60); do
+              if gh api "repos/$ORG/$REPO_NAME/commits?per_page=1" --silent 2>/dev/null; then
+                COPIED=1
+                break
+              fi
+
+              sleep 2
+            done
+
+            if [[ -z "${COPIED:-}" ]]; then
+              printf 'The template copy did not finish within 120 seconds.\n' >&2
+              printf 'The repository exists and holds no commit, so no later step can read it.\n' >&2
+              exit 1
+            fi
+
+            echo "The template copy finished."
+          fi
+
           gh api --method PATCH "repos/$ORG/$REPO_NAME" \
             --field allow_squash_merge=true \
             --field allow_merge_commit=false \
@@ -172,10 +207,15 @@ jobs:
           git clone --depth 1 "https://x-access-token:$GH_TOKEN@github.com/$ORG/$REPO_NAME.git" new-repo
           cd new-repo
 
-          # A repo created without a template carries no header to replace.
+          # Warning: this step runs only when `validate` resolved a package identifier,
+          # and `validate` resolves one only for a repository scaffolded from a language
+          # template. The template header must therefore be present. Treating its absence
+          # as "nothing to do" is what let an empty clone pass as success, so this reports
+          # a failure instead.
           if ! git grep -lq 'the Project Template package'; then
-            echo "No template copyright header found; nothing to replace."
-            exit 0
+            printf 'This repository was scaffolded from a template, so it must carry the template header.\n' >&2
+            printf 'The clone holds no such header, so the repository is empty or the template changed.\n' >&2
+            exit 1
           fi
 
           # Warning: match the name and the word `package`, and stop before the period. A
