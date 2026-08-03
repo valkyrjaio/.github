@@ -69,8 +69,12 @@ jobs:
           # Escape dots in source repo name for use in sed/grep patterns
           SOURCE_REPO_ESCAPED=$(echo "$SOURCE_REPO" | sed 's/\./\\./g')
 
+          # The .github repository excludes itself. It owns the templates rather than consuming
+          # them, and its release bakes its own references in before it makes the tag. A pull
+          # request from here would repin what the release already pinned, and it would name the
+          # release bookkeeping commit instead of the workflow-code commit the release chose.
           REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
-            --jq '.[] | select(.isArchived == false) | .name')
+            --jq '.[] | select(.isArchived == false and .name != ".github") | .name')
 
           # Repositories the sweep could not finish. A single unreadable API
           # response must never abort the loop and strand every repository after
@@ -87,23 +91,13 @@ jobs:
           while IFS= read -r REPO_NAME; do
             echo "Checking $ORG/$REPO_NAME..."
 
-            if [ "$REPO_NAME" = ".github" ]; then
-              REPO_TREE=$(fetch_json "repos/$ORG/$REPO_NAME/git/trees/HEAD?recursive=1") || {
-                skip_repo "$REPO_NAME" "Could not read the repository tree"
-                continue
-              }
-              WORKFLOW_FILES=$(echo "$REPO_TREE" \
-                | jq -r '.tree[]? | select(.type == "blob" and (.path | startswith("required-workflows/"))) | .path' \
-                2>/dev/null || true)
-            else
-              WORKFLOW_DIR=$(fetch_json "repos/$ORG/$REPO_NAME/contents/.github/workflows") || {
-                skip_repo "$REPO_NAME" "Could not read the workflow directory"
-                continue
-              }
-              WORKFLOW_FILES=$(echo "$WORKFLOW_DIR" \
-                | jq -r 'if type == "array" then .[].path else empty end' \
-                2>/dev/null || true)
-            fi
+            WORKFLOW_DIR=$(fetch_json "repos/$ORG/$REPO_NAME/contents/.github/workflows") || {
+              skip_repo "$REPO_NAME" "Could not read the workflow directory"
+              continue
+            }
+            WORKFLOW_FILES=$(echo "$WORKFLOW_DIR" \
+              | jq -r 'if type == "array" then .[].path else empty end' \
+              2>/dev/null || true)
 
             [ -z "$WORKFLOW_FILES" ] && continue
 
