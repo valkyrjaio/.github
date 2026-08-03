@@ -1,6 +1,18 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.21.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.22.0...26.x)
+
+## [v26.22.0](https://github.com/valkyrjaio/.github/compare/v26.21.0...v26.22.0) - 2026-08-02
+
+* [Workflow] ci: Update .github workflow refs to v26.21.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/249
+* [Copyright] docs: Describe the package name argument that replaced the header argument by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/250
+* [Copyright] fix: Give every block comment language the block form by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/251
+* [Copyright] fix: Give a Go file the block comment form by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/253
+* [Workflow] fix: Remove every stale marked comment by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/252
+* [Copyright] fix: Give Kotlin and the module JavaScript extensions the block form by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/254
+* [Ruleset] feat: Require the copyright header check by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/256
+* [Workflow] refactor: Build the shared blocks as composite actions by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/257
+* [Process] docs: Record how to change a required check name by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/258
 
 ## [v26.21.0](https://github.com/valkyrjaio/.github/compare/v26.20.0...v26.21.0) - 2026-08-02
 
