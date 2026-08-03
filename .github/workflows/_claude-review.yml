@@ -256,10 +256,36 @@ jobs:
             exit 0
           fi
 
+          # Warning: every field below is text a language model wrote, after reading a diff, a title,
+          # and a description that this run does not control. `GITHUB_OUTPUT` is a `key=value` file,
+          # so a newline in a value declares a second output. That is how text under review would
+          # forge the verdict this job exists to make trustworthy. Each field is therefore checked
+          # against a shape that cannot carry one, and the one field that must hold a newline gets a
+          # delimiter that cannot be predicted.
+          case "$VERDICT" in
+            approved | changes_requested | commented) ;;
+            *)
+              printf 'The review reported a verdict this workflow does not know: %s\n' "$VERDICT" >&2
+              printf 'verdict=unknown\nsummary=%s\nblocking-findings=\nadvisory-findings=\n' \
+                'The review finished, and it reported a verdict this workflow does not know.' >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+          esac
+
           # A number reaches an action output as a string, so every field is read as text.
           SUMMARY="$(jq -r '.summary // ""' <<< "$STRUCTURED_OUTPUT")"
           BLOCKING="$(jq -r '.blocking_findings // "" | tostring' <<< "$STRUCTURED_OUTPUT")"
           ADVISORY="$(jq -r '.advisory_findings // "" | tostring' <<< "$STRUCTURED_OUTPUT")"
+
+          # A count that is not a count is dropped. It is written for a reader, and a wrong one
+          # reads as fact.
+          [[ "$BLOCKING" =~ ^[0-9]+$ ]] || BLOCKING=''
+          [[ "$ADVISORY" =~ ^[0-9]+$ ]] || ADVISORY=''
+
+          # GitHub's guidance for the heredoc form is a delimiter that cannot appear in the value.
+          # A fixed word would sit in this file for anybody to read, and a summary that repeated it
+          # would close the value early and turn every later line into an output of its own.
+          DELIMITER="CLAUDE_REVIEW_EOF_$(openssl rand -hex 16)"
 
           printf 'The review reports the %s verdict.\n' "$VERDICT"
 
@@ -269,7 +295,7 @@ jobs:
             printf 'advisory-findings=%s\n' "$ADVISORY"
 
             # The summary is the reviewer's prose, so it holds newlines.
-            printf 'summary<<CLAUDE_REVIEW_EOF\n%s\nCLAUDE_REVIEW_EOF\n' "$SUMMARY"
+            printf 'summary<<%s\n%s\n%s\n' "$DELIMITER" "$SUMMARY" "$DELIMITER"
           } >> "$GITHUB_OUTPUT"
 
       # Only after a review that finished. A run that stopped early has not replaced the findings of
