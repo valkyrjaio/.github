@@ -1,5 +1,15 @@
 name: Z Reusable Markdown Check
 
+# Every Markdown file a repository tracks is formatted by Prettier.
+#
+# The work is not here. The `run-script` action runs the script and reports what it wrote, and the
+# `post-comment` action keeps that report on the pull request. This workflow names the check and
+# wires the two together, so a correction to either building block reaches every check at once.
+#
+# Both actions live in this repository, and an action cannot fetch the files it is itself made of.
+# The job therefore checks this repository out at `job.workflow_sha` first, which is the commit the
+# caller pinned, and reaches the actions through that checkout.
+
 on:
   workflow_call:
     inputs:
@@ -24,7 +34,7 @@ on:
         required: true
 
 jobs:
-  markdown-check:
+  check:
     name: Check Markdown
 
     runs-on: ubuntu-latest
@@ -37,138 +47,49 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
-      - name: Generate a token
-        id: generate-token
-        if: github.event.pull_request.number && inputs.post-pr-comment
-        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+      - name: Checkout the CI actions
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
-          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+          repository: valkyrjaio/.github
+          ref: ${{ job.workflow_sha }}
+          path: dot-github
 
+      # The script calls Prettier through `npx`, so Node comes first.
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ inputs.node-version }}
 
-      - name: Check Markdown formatting
+      # `continue-on-error` keeps a failing script from ending the job here, so the report reaches
+      # the comment below. The last step decides the result of the job.
+      - name: Run the check
         id: check
-        env:
-          PRETTIER_VERSION: ${{ inputs.prettier-version }}
-        run: |
-          # Three settings carry the whole configuration, so no repository needs a config file.
-          #
-          #   --embedded-language-formatting=off  Prettier's default rewrites the code inside every
-          #                                       fence whose tag it knows. A document shows what a
-          #                                       repository contains, so the formatter must leave
-          #                                       the example alone.
-          #   --prose-wrap=preserve               Keeps every hand-placed line break. Documentation
-          #                                       prose is wrapped by sentence and by clause, and a
-          #                                       reflow to a fixed width erases that structure.
-          #   --no-config                         Keeps the rules identical in every repository. A
-          #                                       repository's own prettier config governs its other
-          #                                       file types, never its Markdown.
-          #
-          # CHANGELOG.md is excluded because the release automation writes it.
-          #
-          # `git ls-files` names the files, rather than a `**/*.md` glob. The glob also matches a
-          # vendored document under `vendor/`, `node_modules/`, or a worktree directory, and the
-          # check must read only what the repository tracks.
-          set +e
-          DIFFERENT=$(git ls-files -z -- '*.md' ':(exclude)*CHANGELOG.md' \
-            | xargs -0 -r npx --yes "prettier@$PRETTIER_VERSION" \
-              --no-config \
-              --embedded-language-formatting=off \
-              --prose-wrap=preserve \
-              --list-different)
-          STATUS=$?
-          set -e
+        continue-on-error: true
+        uses: ./dot-github/.github/actions/run-script
+        with:
+          script: markdown-check.sh
+          expected-ref: ${{ job.workflow_sha }}
+          env: |
+            PRETTIER_VERSION=${{ inputs.prettier-version }}
 
-          # Warning: never branch on `$STATUS` before `$DIFFERENT`. `$STATUS` is the exit status of
-          # `xargs`, not of Prettier, and `xargs` does not pass the child's status through. GNU
-          # `xargs` reports 123 for any child status in 1 to 125, and BSD `xargs` reports 1, so the
-          # same drift gives a different number on a runner than on a developer's Mac. What the two
-          # agree on is the output: `--list-different` writes the unformatted files to stdout, and
-          # writes an error to stderr. So read the output first, and read the status only to catch
-          # a Prettier that failed without naming a file.
-          if [ -n "$DIFFERENT" ]; then
-            echo "The following files are not formatted:"
-            printf '  %s\n' $DIFFERENT
-            {
-              echo 'unformatted_files<<EOF'
-              printf '%s\n' "$DIFFERENT"
-              echo 'EOF'
-            } >> "$GITHUB_OUTPUT"
+      # The script writes the report as Markdown, and that report holds a fenced code block, so the
+      # body is the raw report rather than the fenced form. A passing check posts no body, which
+      # removes the report an earlier run left behind.
+      - name: Report the result on the pull request
+        if: always() && inputs.post-pr-comment && github.event.pull_request.number
+        uses: ./dot-github/.github/actions/post-comment
+        with:
+          marker: markdown-check
+          body: ${{ steps.check.outputs.outcome == 'failure' && steps.check.outputs.report || '' }}
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Fail when the check failed
+        if: always()
+        env:
+          OUTCOME: ${{ steps.check.outputs.outcome }}
+        run: |
+          if [[ "$OUTCOME" != 'success' ]]; then
+            echo 'The check reported a failure. Its output is above, and on the pull request.'
             exit 1
           fi
-
-          if [ "$STATUS" -ne 0 ]; then
-            echo "Prettier failed to run, and named no file. Exit status $STATUS."
-            exit "$STATUS"
-          fi
-
-          echo "All Markdown files are formatted."
-
-      # The gate is the check step's own output, never `failure()`. `failure()` is true for any
-      # failed step, so a broken `actions/checkout`, `actions/setup-node`, or `npx` posted a comment
-      # that told the developer to run the formatter. That advice does not help, because no file is
-      # unformatted. The output is set only where the check names an unformatted file, so it is
-      # evidence that the check itself found a problem. `!cancelled()` is required: a step whose
-      # `if:` holds no status check function gets `success() &&` prepended, and the job status is
-      # already `failure` here.
-      - name: Report failure in PR comment
-        if: ${{ !cancelled() && steps.check.outputs.unformatted_files != '' && github.event.pull_request.number && inputs.post-pr-comment }}
-        env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PRETTIER_VERSION: ${{ inputs.prettier-version }}
-          UNFORMATTED_FILES: ${{ steps.check.outputs.unformatted_files }}
-        run: |
-          # Delete every marked comment, not the first. Two concurrent runs can race on a rapid
-          # double push and leave two marked comments, and a `head -1` left one of them behind
-          # forever. `--paginate` reaches a marked comment after the first page of 30.
-          #
-          # Warning: never let a failed delete end the step. The same race puts the same comment id
-          # in both runs' lists, so the run that deletes second gets HTTP 404 and `gh` exits 1. The
-          # runner's default shell is `bash -e`, which ends the step on that status: the success
-          # step would fail the job and turn a required check red after the check itself passed,
-          # and the failure step would never reach the `gh pr comment` call below. Comment
-          # housekeeping must never decide the job result, so report the failure and continue.
-          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select(.body | contains("<!-- workflow-id: markdown-check -->")) | .id')
-          for COMMENT_ID in $COMMENT_IDS; do
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
-              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
-          done
-
-          BODY="The Markdown check failed. Please run this command locally and commit the changes:"$'\n\n'
-          BODY+='```bash'$'\n'
-          BODY+="git ls-files -z -- '*.md' ':(exclude)*CHANGELOG.md' \\"$'\n'
-          BODY+="  | xargs -0 npx --yes prettier@$PRETTIER_VERSION \\"$'\n'
-          BODY+="    --no-config \\"$'\n'
-          BODY+="    --embedded-language-formatting=off \\"$'\n'
-          BODY+="    --prose-wrap=preserve \\"$'\n'
-          BODY+="    --write"$'\n'
-          BODY+='```'$'\n'
-
-          BODY+=$'\n'"These files are not formatted:"$'\n\n'
-          while IFS= read -r f; do
-            [ -n "$f" ] && BODY+="- \`$f\`"$'\n'
-          done <<< "$UNFORMATTED_FILES"
-
-          BODY+=$'\n<!-- workflow-id: markdown-check -->'
-          gh pr comment "$PR_NUMBER" --body "$BODY"
-
-      - name: Remove failure comment on success
-        if: success() && github.event.pull_request.number && inputs.post-pr-comment
-        env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select(.body | contains("<!-- workflow-id: markdown-check -->")) | .id')
-          for COMMENT_ID in $COMMENT_IDS; do
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
-              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
-          done
