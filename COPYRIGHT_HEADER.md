@@ -39,12 +39,15 @@ Package Identifier Resolution
 | `valkyrja-php`              | `Valkyrja Framework`        |
 | `valkyrja-java`             | `Valkyrja Framework`        |
 | `valkyrja-ts`               | `Valkyrja Framework`        |
+| `valkyrja-go`               | `Valkyrja Framework`        |
 | `sindri-php`                | `Sindri`                    |
 | `sindri-java`               | `Sindri`                    |
 | `sindri-ts`                 | `Sindri`                    |
+| `sindri-go`                 | `Sindri`                    |
 | `valkyrja-starter-app-php`  | `Valkyrja Application`      |
 | `valkyrja-starter-app-java` | `Valkyrja Application`      |
 | `valkyrja-starter-app-ts`   | `Valkyrja Application`      |
+| `valkyrja-starter-app-go`   | `Valkyrja Application`      |
 | `project-template-php`      | `Project Template`          |
 | `project-template-java`     | `Project Template`          |
 | `project-template-go`       | `Project Template`          |
