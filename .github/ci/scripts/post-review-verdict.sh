@@ -32,6 +32,11 @@
 # `-u` is absent, because the block ran without it.
 set -eo pipefail
 
+# The review event GitHub accepts from anybody, including the author of the pull
+# request. Every branch below falls back to it, so it is named rather than
+# repeated.
+readonly COMMENT_EVENT='COMMENT'
+
   if [[ -z "$PR_NUMBER" ]]; then
     echo 'No pull request number, so there is no review to submit.'
     exit 0
@@ -48,21 +53,21 @@ set -eo pipefail
       if [[ "$REQUEST_CHANGES" == 'true' ]]; then
         EVENT='REQUEST_CHANGES'
       else
-        EVENT='COMMENT'
+        EVENT="$COMMENT_EVENT"
       fi
       ;;
     commented)
-      EVENT='COMMENT'
+      EVENT="$COMMENT_EVENT"
       HEADING='Commented'
       ;;
     errored)
-      EVENT='COMMENT'
+      EVENT="$COMMENT_EVENT"
       HEADING='The review did not complete'
       ;;
     *)
       # A verdict this action does not know is reported as one, never guessed at. A run whose
       # structured output was empty or malformed must not read as an approval.
-      EVENT='COMMENT'
+      EVENT="$COMMENT_EVENT"
       HEADING='No verdict'
       VERDICT='unknown'
       ;;
@@ -74,10 +79,10 @@ set -eo pipefail
   # failure would be a red job on a pull request that is otherwise fine.
   AUTHOR="$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER" --jq '.user.login')"
 
-  if [[ "$AUTHOR" == "${APP_SLUG}[bot]" && "$EVENT" != 'COMMENT' ]]; then
+  if [[ "$AUTHOR" == "${APP_SLUG}[bot]" && "$EVENT" != "$COMMENT_EVENT" ]]; then
     printf 'The pull request is authored by %s[bot], which cannot review itself.\n' "$APP_SLUG"
     echo 'The verdict is submitted as a comment instead.'
-    EVENT='COMMENT'
+    EVENT="$COMMENT_EVENT"
   fi
 
   # A count is written only when it is one. The reviewer produces these, so a value that is
@@ -103,22 +108,24 @@ set -eo pipefail
   } > review.md
 
   submit_review() {
+    local event="$1"
+
     # The body is passed as JSON rather than as a `-f` field. `gh` converts a field value that
     # looks like a number or a boolean, and a summary is arbitrary text.
-    jq -n --arg event "$1" --rawfile body review.md '{event: $event, body: $body}' \
+    jq -n --arg event "$event" --rawfile body review.md '{event: $event, body: $body}' \
       | gh api --method POST "repos/$GH_REPO/pulls/$PR_NUMBER/reviews" --input - --silent
   }
 
   if submit_review "$EVENT"; then
     printf 'Submitted a %s review carrying the %s verdict.\n' "$EVENT" "$VERDICT"
-  elif [[ "$EVENT" == 'COMMENT' ]]; then
+  elif [[ "$EVENT" == "$COMMENT_EVENT" ]]; then
     echo 'The verdict could not be submitted as a review.' >&2
     exit 1
   else
     # A refusal must not lose the verdict. Whatever GitHub declined to accept as a state, it
     # accepts as a comment, and a comment with the marker still says what the reviewer found.
     printf 'GitHub refused a %s review, so the verdict is submitted as a comment.\n' "$EVENT" >&2
-    EVENT='COMMENT'
+    EVENT="$COMMENT_EVENT"
 
     if ! submit_review "$EVENT"; then
       echo 'The verdict could not be submitted as a review.' >&2
