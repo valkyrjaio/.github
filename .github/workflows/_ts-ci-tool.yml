@@ -70,8 +70,13 @@ jobs:
           # own dependencies are needed to run it, and COMMENT the PR comment
           # posted when the tool fails.
           case "$TOOL" in
+            # Warning: this runs `eslint-check`, which never writes, and not `eslint`, which fixes.
+            # A gate that fixes cannot fail on anything it can fix. ESLint rewrote the copyright
+            # header of every file it read, reported each file as correct because the file and the
+            # configuration then agreed, and exited 0. The repository stayed wrong and the gate
+            # stayed green. `prettier-check` below is the same shape, for the same reason.
             eslint)
-              SCRIPT='eslint'; ROOT_DEPS=1
+              SCRIPT='eslint-check'; ROOT_DEPS=1
               COMMENT='ESLint failed. Please run `npm run eslint` locally, fix all the issues, and commit the changes.'
               ;;
             prettier)
