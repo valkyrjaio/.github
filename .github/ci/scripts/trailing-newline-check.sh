@@ -47,6 +47,7 @@ done < <(git ls-files -z)
 
 if [[ "${#missing[@]}" -gt 0 ]]; then
     printf 'The following files are missing a trailing newline:\n\n'
+    # shellcheck disable=SC2016 # The backticks are Markdown, not a command substitution.
     printf -- '- `%s`\n' "${missing[@]}"
 
     exit 1

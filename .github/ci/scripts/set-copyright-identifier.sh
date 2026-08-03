@@ -54,6 +54,7 @@ fi
 #
 # `git grep` rather than `grep -r`: it reads only tracked files, so it never
 # descends into .git, and its -z output is the same on every platform.
+# shellcheck disable=SC2016 # `perl` reads $ENV{IDENTIFIER}, so the shell must not expand it.
 git grep -lz 'the Project Template package' \
   | xargs -0 perl -pi -e \
     's/\Qthe Project Template package\E/the $ENV{IDENTIFIER} package/g'
@@ -69,8 +70,8 @@ if git grep -lq "^IDENTIFIER='Project Template'$"; then
       "s/^IDENTIFIER='Project Template'\$/IDENTIFIER='\$ENV{IDENTIFIER}'/g"
 fi
 
-git config user.name "$APP_SLUG[bot]"
-git config user.email "$BOT_USER_ID+$APP_SLUG[bot]@users.noreply.github.com"
+git config user.name "${APP_SLUG}[bot]"
+git config user.email "${BOT_USER_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
 git add -A
 # No trailing period: this commit goes onto a protected branch, so its subject
 # is permanent rather than a working-branch ledger entry.

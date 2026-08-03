@@ -39,10 +39,10 @@ LANG_SUFFIX=$(echo "${REPO_NAME##*-}" | tr '[:upper:]' '[:lower:]')
 # language — except for the project templates themselves, which have no
 # template of their own (and must not reference one that may not exist
 # yet when a new language is introduced).
-TEMPLATE_FLAG=""
+TEMPLATE_FLAG=()
 if [[ " $SUPPORTED_LANGUAGES " == *" $LANG_SUFFIX "* && "$REPO_NAME" != project-template-* ]]; then
   echo "Detected language '$LANG_SUFFIX'; using template $ORG/project-template-$LANG_SUFFIX"
-  TEMPLATE_FLAG="--template $ORG/project-template-$LANG_SUFFIX"
+  TEMPLATE_FLAG=(--template "$ORG/project-template-$LANG_SUFFIX")
 else
   echo "No language template for '$REPO_NAME'; creating a bare repo."
 fi
@@ -50,7 +50,7 @@ fi
 gh repo create "$ORG/$REPO_NAME" \
   --public \
   --description "$DESCRIPTION" \
-  $TEMPLATE_FLAG
+  "${TEMPLATE_FLAG[@]}"
 
 # Warning: `gh repo create --template` returns before GitHub finishes copying
 # the template. The repository exists, its metadata reads back, and its
@@ -65,7 +65,7 @@ gh repo create "$ORG/$REPO_NAME" \
 # template's. Both steps below then did nothing.
 #
 # Wait for the first commit, which is what the copy produces.
-if [[ -n "$TEMPLATE_FLAG" ]]; then
+if [[ "${#TEMPLATE_FLAG[@]}" -gt 0 ]]; then
   # Read the exit code, never the body. The endpoint answers 409 while the
   # repository holds no commit, and 404 before it resolves at all. Both write
   # a JSON body to stdout, and a numeric test on that body is not a test.
