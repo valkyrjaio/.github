@@ -44,15 +44,18 @@ is_workflow_call_only() {
   local content="$1"
   local on_value
   on_value=$(echo "$content" | grep '^on:' | sed 's/^on:[[:space:]]*//')
-  if [ "$on_value" = "workflow_call" ]; then
+  if [[ "$on_value" = "workflow_call" ]]; then
     return 0
   fi
+  # Warning: `grep -c` exits 1 when it counts nothing, and a count of zero is
+  # the answer this asks for. `|| true` keeps that status off the assignment,
+  # so the count is read rather than the exit.
   local other_triggers
   other_triggers=$(echo "$content" | awk '/^on:/{found=1; next} found && /^[^ ]/{exit} found && /^  [a-zA-Z]/{print}' \
-    | grep -v '^  workflow_call' | wc -l)
+    | grep -c -v '^  workflow_call' || true)
   local has_workflow_call
   has_workflow_call=$(echo "$content" | awk '/^on:/{found=1; next} found && /^[^ ]/{exit} found && /^  workflow_call/{print}' | wc -l)
-  [ "$other_triggers" -eq 0 ] && [ "$has_workflow_call" -gt 0 ]
+  [[ "$other_triggers" -eq 0 ]] && [[ "$has_workflow_call" -gt 0 ]]
 }
 
 REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
@@ -64,7 +67,7 @@ while IFS= read -r REPO_NAME; do
   ALL_WORKFLOW_FILES=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows" \
     --jq '[.[] | select(.type == "file" and (.name | endswith(".yml"))) | .path][]' 2>/dev/null || true)
 
-  [ -z "$ALL_WORKFLOW_FILES" ] && continue
+  [[ -z "$ALL_WORKFLOW_FILES" ]] && continue
 
   ALL_BRANCHES=$(gh api "repos/$ORG/$REPO_NAME/branches" --paginate \
     --jq '.[].name' 2>/dev/null || true)
@@ -73,20 +76,20 @@ while IFS= read -r REPO_NAME; do
   while IFS= read -r b; do
     if [[ "$b" =~ ^([0-9]+)\.x$ ]]; then
       MAJOR="${BASH_REMATCH[1]}"
-      if [ -n "$SUPPORTED_VERSIONS" ] && [[ "$MAJOR" =~ $SUPPORTED_VERSIONS ]]; then
+      if [[ -n "$SUPPORTED_VERSIONS" ]] && [[ "$MAJOR" =~ $SUPPORTED_VERSIONS ]]; then
         BASE_BRANCHES="$BASE_BRANCHES"$'\n'"$b"
       fi
     fi
   done <<< "$ALL_BRANCHES"
 
-  if [ -z "$BASE_BRANCHES" ]; then
+  if [[ -z "$BASE_BRANCHES" ]]; then
     BASE_BRANCHES="master"
   fi
 
   while IFS= read -r BASE_BRANCH; do
-    [ -z "$BASE_BRANCH" ] && continue
+    [[ -z "$BASE_BRANCH" ]] && continue
 
-    if [ "$BASE_BRANCH" = "master" ]; then
+    if [[ "$BASE_BRANCH" = "master" ]]; then
       UPDATE_BRANCH="deps/ensure-reusable-workflow-names"
     else
       UPDATE_BRANCH="deps/ensure-reusable-workflow-names-$BASE_BRANCH"
@@ -99,25 +102,25 @@ while IFS= read -r REPO_NAME; do
     FILES_LIST=""
 
     create_branch_if_needed() {
-      [ -n "$BRANCH_EXISTS" ] && return 0
+      [[ -n "$BRANCH_EXISTS" ]] && return 0
       echo "  [$BASE_BRANCH] Creating branch $UPDATE_BRANCH..."
-      local BASE_SHA
-      BASE_SHA=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/$BASE_BRANCH" \
+      local base_sha
+      base_sha=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/$BASE_BRANCH" \
         --jq '.object.sha' 2>/dev/null || true)
-      if [ -z "$BASE_SHA" ]; then
+      if [[ -z "$base_sha" ]]; then
         echo "  [$BASE_BRANCH] Could not get base branch SHA, skipping"
         return 2
       fi
-      local BRANCH_CREATE_ERR
-      BRANCH_CREATE_ERR=$(gh api --method POST "repos/$ORG/$REPO_NAME/git/refs" \
+      local branch_create_err
+      branch_create_err=$(gh api --method POST "repos/$ORG/$REPO_NAME/git/refs" \
         --field "ref=refs/heads/$UPDATE_BRANCH" \
-        --field "sha=$BASE_SHA" 2>&1 >/dev/null || true)
-      if [ -n "$BRANCH_CREATE_ERR" ]; then
-        echo "  [$BASE_BRANCH] Branch creation failed: $BRANCH_CREATE_ERR"
+        --field "sha=$base_sha" 2>&1 >/dev/null || true)
+      if [[ -n "$branch_create_err" ]]; then
+        echo "  [$BASE_BRANCH] Branch creation failed: $branch_create_err"
         return 2
       fi
       echo "  [$BASE_BRANCH] Branch $UPDATE_BRANCH created."
-      BRANCH_EXISTS="$BASE_SHA"
+      BRANCH_EXISTS="$base_sha"
     }
 
     while IFS= read -r FILE_PATH; do
@@ -125,11 +128,11 @@ while IFS= read -r REPO_NAME; do
 
       FILE_DATA=$(gh api "repos/$ORG/$REPO_NAME/contents/$FILE_PATH?ref=$BASE_BRANCH" \
         2>/dev/null || true)
-      [ -z "$FILE_DATA" ] && continue
+      [[ -z "$FILE_DATA" ]] && continue
 
       FILE_SHA=$(echo "$FILE_DATA" | jq -r '.sha')
       CONTENT=$(echo "$FILE_DATA" | jq -r '.content // empty' | tr -d '\n' | base64 -d)
-      [ -z "$CONTENT" ] && continue
+      [[ -z "$CONTENT" ]] && continue
 
       # Fix name prefix on _-prefixed files missing "Z Reusable"
       if [[ "$FILE_BASENAME" == _* ]]; then
@@ -139,6 +142,7 @@ while IFS= read -r REPO_NAME; do
         fi
 
         echo "  [$BASE_BRANCH] $FILE_PATH: missing Z prefix in name, will update"
+        # shellcheck disable=SC2001 # `^` anchors each line, and `${var//}` anchors nothing.
         NEW_CONTENT=$(echo "$CONTENT" | sed 's/^name: Reusable/name: Z Reusable/')
 
         create_branch_if_needed || continue
@@ -153,7 +157,7 @@ while IFS= read -r REPO_NAME; do
           '{message: $message, content: $content, sha: $sha, branch: $branch}')
         COMMIT_ERR=$(echo "$PUT_BODY" | gh api --method PUT "repos/$ORG/$REPO_NAME/contents/$FILE_PATH" \
           --input - 2>&1 >/dev/null || true)
-        if [ -n "$COMMIT_ERR" ]; then
+        if [[ -n "$COMMIT_ERR" ]]; then
           echo "  [$BASE_BRANCH] $FILE_PATH commit failed: $COMMIT_ERR"
           continue
         fi
@@ -173,6 +177,7 @@ while IFS= read -r REPO_NAME; do
         # Also fix name prefix if needed
         NEW_CONTENT="$CONTENT"
         if echo "$CONTENT" | grep -q '^name: Reusable'; then
+          # shellcheck disable=SC2001 # `^` anchors each line, and `${var//}` anchors nothing.
           NEW_CONTENT=$(echo "$CONTENT" | sed 's/^name: Reusable/name: Z Reusable/')
         fi
 
@@ -188,7 +193,7 @@ while IFS= read -r REPO_NAME; do
           '{message: $message, content: $content, branch: $branch}')
         COMMIT_ERR=$(echo "$PUT_BODY" | gh api --method PUT "repos/$ORG/$REPO_NAME/contents/$NEW_FILE_PATH" \
           --input - 2>&1 >/dev/null || true)
-        if [ -n "$COMMIT_ERR" ]; then
+        if [[ -n "$COMMIT_ERR" ]]; then
           echo "  [$BASE_BRANCH] $NEW_FILE_PATH create failed: $COMMIT_ERR"
           continue
         fi
@@ -202,7 +207,7 @@ while IFS= read -r REPO_NAME; do
           '{message: $message, sha: $sha, branch: $branch}')
         DEL_ERR=$(echo "$DEL_BODY" | gh api --method DELETE "repos/$ORG/$REPO_NAME/contents/$FILE_PATH" \
           --input - 2>&1 >/dev/null || true)
-        if [ -n "$DEL_ERR" ]; then
+        if [[ -n "$DEL_ERR" ]]; then
           echo "  [$BASE_BRANCH] $FILE_PATH delete failed: $DEL_ERR"
           continue
         fi
@@ -213,7 +218,7 @@ while IFS= read -r REPO_NAME; do
       fi
     done <<< "$ALL_WORKFLOW_FILES"
 
-    if [ "$FILES_UPDATED" -gt 0 ]; then
+    if [[ "$FILES_UPDATED" -gt 0 ]]; then
       echo "  [$BASE_BRANCH] $FILES_UPDATED file(s) updated — checking for existing PR..."
 
       EXISTING_PR=$(gh pr list --repo "$ORG/$REPO_NAME" \
@@ -222,10 +227,10 @@ while IFS= read -r REPO_NAME; do
         --jq "[.[] | select(.headRefName == \"$UPDATE_BRANCH\")] | first | .headRefName // \"\"" \
         2>/dev/null || true)
 
-      if [ -z "$EXISTING_PR" ]; then
-        REVIEWER_FLAGS=""
-        if [ -n "$REVIEWER" ]; then
-          REVIEWER_FLAGS="--assignee $REVIEWER --reviewer $REVIEWER"
+      if [[ -z "$EXISTING_PR" ]]; then
+        REVIEWER_FLAGS=()
+        if [[ -n "$REVIEWER" ]]; then
+          REVIEWER_FLAGS=(--assignee "$REVIEWER" --reviewer "$REVIEWER")
         fi
 
         BODY="# Description"$'\n'$'\n'
@@ -250,7 +255,7 @@ while IFS= read -r REPO_NAME; do
           --body "$BODY" \
           --base "$BASE_BRANCH" \
           --head "$UPDATE_BRANCH" \
-          $REVIEWER_FLAGS 2>/dev/null; then
+          "${REVIEWER_FLAGS[@]}" 2>/dev/null; then
           echo "  [$BASE_BRANCH] PR creation failed, skipping"
         else
           echo "  [$BASE_BRANCH] PR created."
