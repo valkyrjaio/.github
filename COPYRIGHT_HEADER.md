@@ -271,7 +271,7 @@ The PHP CS Fixer configuration in `ci-phpcsfixer-php` injects the header into
 every file. The package holds the header text, and `Rules::getHeader()` builds
 the header from a package name. A consuming repository therefore passes its
 `{PACKAGE_IDENTIFIER}` value to `Rules::getConfig()`, and states nothing else.
-The `$package` argument requires `valkyrja/phpcsfixer` v26.3.0 or later.
+The `$package` argument requires `valkyrja/ci-phpcsfixer` v26.3.0 or later.
 
 Warning: pass the package name, never the assembled header. `getHeader()` puts
 the argument into the first line of the header, so an assembled header names the
