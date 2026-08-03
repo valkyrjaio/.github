@@ -511,9 +511,27 @@ workflow — they are the cost of the conversion, and worth knowing before start
 
 A mechanical rule does not finish this decision. Many workflows here _could_ be actions and gain
 nothing by it: a job called once from a dispatcher pays a runner start either way, and its name
-reaches no ruleset. Convert when the job boundary costs something — a pinned name, a `needs:` chain
-that carries only a value, a building block used inside another job's work. Leave it alone when the
-boundary is merely there.
+reaches no ruleset.
+
+Two things decide whether converting one is worth it, and both were learned by trying.
+
+**An action is only cheaper when the caller already holds this repository.** An action reaches the
+runner through a checkout, so a caller with no other reason to check this repository out pays about
+eight lines of preamble to use one. A reusable workflow that returns a value costs the caller a
+four-line job and one `needs:` line. Converting such a workflow therefore makes every caller larger,
+not smaller. `_get-version.yml` looked like an obvious candidate — one job, no matrix, existing only
+to return two outputs, with eleven callers each writing `needs:` plumbing — and converting it would
+have added lines to all eleven.
+
+**A job that calls a reusable workflow cannot hold a step.** A job is `uses:` or `steps:`, never
+both, so a caller whose consuming job is itself a `uses:` job cannot host an action at all. Giving
+it one means adding a third job to run the action and re-expose its outputs, which restores the
+boundary the conversion set out to remove. `_create-version-branch.yml` is such a caller.
+
+So convert when the job boundary costs something specific: a name a ruleset pins, or a building
+block used inside a job that already checks this repository out. That is why `run-script` and
+`post-comment` were worth converting — not because they were small, but because the job each one
+added renamed every check built on it. Leave the boundary alone when it is merely there.
 
 ---
 
