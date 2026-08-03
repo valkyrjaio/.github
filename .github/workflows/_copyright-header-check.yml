@@ -70,7 +70,7 @@ jobs:
       # body is empty unless the script itself reported a failure, so a fault before the script ran
       # cannot post a report that names no file.
       - name: Report the result on the pull request
-        if: always() && inputs.post-pr-comment && github.event.pull_request.number
+        if: ${{ !cancelled() && inputs.post-pr-comment && github.event.pull_request.number }}
         uses: ./dot-github/.github/actions/post-comment
         with:
           marker: copyright-header-check
@@ -78,8 +78,10 @@ jobs:
           app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
           private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
 
+      # Warning: `!cancelled()` rather than `always()`. With `always()` a cancelled run reaches
+      # this step, reads an empty outcome, and fails the job instead of reporting it as cancelled.
       - name: Fail when the check failed
-        if: always()
+        if: ${{ !cancelled() }}
         env:
           OUTCOME: ${{ steps.check.outputs.outcome }}
         run: |
