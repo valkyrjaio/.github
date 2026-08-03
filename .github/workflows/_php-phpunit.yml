@@ -35,6 +35,13 @@ on:
         description: 'PHP version that runs with coverage (all others run plain phpunit)'
         type: string
         default: '8.4'
+      coverage-floor:
+        description: >
+          Minimum line coverage percentage the coverage run must reach, as a whole number. The
+          check reads the clover report the coverage run writes. Set it to 0 to report the number
+          and gate nothing.
+        type: number
+        default: 100
       source-paths:
         description: >
           The repository's own source globs, one per line and unquoted — for example
@@ -207,6 +214,51 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: "${{ inputs.ci-directory }}/build/logs/clover.xml"
           format: "clover"
+
+      # Only the coverage leg of the matrix writes a report, so only that leg can read one. A
+      # floor of 0 reports the number and gates nothing, which is how a repository opts out.
+      #
+      # `continue-on-error` keeps a failing check from ending the job here, so the report reaches
+      # the comment below. The last step decides the result of the job.
+      - name: Check the coverage floor
+        id: coverage-floor
+        if: >-
+          matrix.php == inputs.coverage-php-version &&
+          steps.changes.outputs.files == 'true' &&
+          inputs.coverage-floor > 0
+        continue-on-error: true
+        uses: ./dot-github/.github/actions/run-script
+        with:
+          script: coverage-floor-check.sh
+          expected-ref: ${{ job.workflow_sha }}
+          env: |
+            CLOVER_PATH=${{ inputs.ci-directory }}/build/logs/clover.xml
+            REQUIRE_LINE=${{ inputs.coverage-floor }}
+
+      # The script writes its own remediation text, so the report is posted as it stands.
+      #
+      # Warning: `!cancelled()` rather than `always()`. A cancelled run has no outcome, so the body
+      # would be empty and the report of the run before it would be removed while it still held.
+      - name: Report the coverage floor on the pull request
+        if: ${{ !cancelled() && matrix.php == inputs.coverage-php-version && steps.changes.outputs.files == 'true' && github.event.pull_request.number && inputs.post-pr-comment }}
+        uses: ./dot-github/.github/actions/post-comment
+        with:
+          marker: coverage-floor-check
+          body: ${{ steps.coverage-floor.outcome == 'failure' && steps.coverage-floor.outputs.report-markdown || '' }}
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      # A skipped check has an empty outcome, and an empty outcome is not a failure. Only the value
+      # `failure` fails the job, so a matrix leg that measured no coverage still passes.
+      - name: Fail when the coverage floor was not met
+        if: ${{ !cancelled() }}
+        env:
+          OUTCOME: ${{ steps.coverage-floor.outcome }}
+        run: |
+          if [[ "$OUTCOME" == 'failure' ]]; then
+            echo 'Line coverage is below the floor. The report is above, and on the pull request.'
+            exit 1
+          fi
 
       # The gate is the PHPUnit step's own outcome, never `failure()`. `failure()` is true for any
       # failed step, so a broken checkout, a failed dependency install, or a failed token mint

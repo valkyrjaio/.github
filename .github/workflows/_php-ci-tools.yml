@@ -48,6 +48,12 @@ on:
         description: 'PHP version PHPUnit measures coverage on'
         type: string
         default: '8.4'
+      coverage-floor:
+        description: >
+          Minimum line coverage percentage the coverage run must reach, as a whole number. Set it
+          to 0 to report the number and gate nothing.
+        type: number
+        default: 100
       post-pr-comment:
         description: 'Whether to post a PR comment on failure (and delete it on success)'
         type: boolean
@@ -162,6 +168,7 @@ jobs:
       composer-options: ${{ inputs.composer-options }}
       additional-directory: ${{ inputs.additional-directory }}
       coverage-php-version: ${{ inputs.coverage-php-version }}
+      coverage-floor: ${{ inputs.coverage-floor }}
       source-paths: ${{ inputs.source-paths }}
       post-pr-comment: ${{ inputs.post-pr-comment }}
     secrets:
