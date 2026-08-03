@@ -61,6 +61,7 @@ Package Identifier Resolution
 | `ci-phpcodesniffer-php`     | `Valkyrja PHP Code Sniffer` |
 | `ci-eslint-ts`              | `Valkyrja ESLint`           |
 | `ci-spotless-java`          | `Valkyrja Spotless`         |
+| `ci-golangcilint-go`        | `Valkyrja golangci-lint`    |
 | `.github`                   | `Valkyrja GitHub`           |
 | `architecture`              | `Valkyrja Architecture`     |
 | `art`                       | `Valkyrja Art`              |
@@ -114,7 +115,9 @@ runtime.
 
 `{Tool}` is the tool's official name, preserving its capitalization and
 spacing convention (`PHPStan` without a space, `PHP CS Fixer` with
-spaces). These packages ship the rules, the configurations, the custom
+spaces). A tool that spells its own name in lower case keeps that spelling,
+so `ci-golangcilint-go` resolves to `Valkyrja golangci-lint`. These
+packages ship the rules, the configurations, the custom
 expressions, the helper classes, and the reusable workflows that run the
 tool. The rules encode Valkyrja's own conventions, so each package is
 Valkyrja-native and takes the prefix.
