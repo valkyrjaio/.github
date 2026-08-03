@@ -126,156 +126,156 @@ REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
   --jq '.[] | select(.isArchived == false and .name != ".github") | .name')
 
 create_branch_if_needed() {
-  local BASE_BRANCH="$1"
-  local UPDATE_BRANCH="$2"
-  local REPO_NAME="$3"
+  local base_branch="$1"
+  local update_branch="$2"
+  local repo_name="$3"
 
-  [ -n "$BRANCH_EXISTS" ] && return 0
+  [[ -n "$BRANCH_EXISTS" ]] && return 0
 
-  echo "  [$BASE_BRANCH] Creating branch $UPDATE_BRANCH..."
-  local BASE_SHA
-  BASE_SHA=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/$BASE_BRANCH" \
+  echo "  [$base_branch] Creating branch $update_branch..."
+  local base_sha
+  base_sha=$(gh api "repos/$ORG/$repo_name/git/refs/heads/$base_branch" \
     --jq '.object.sha' 2>/dev/null || true)
-  if [ -z "$BASE_SHA" ]; then
-    echo "  [$BASE_BRANCH] Could not get base branch SHA, skipping"
+  if [[ -z "$base_sha" ]]; then
+    echo "  [$base_branch] Could not get base branch SHA, skipping"
     return 2
   fi
-  local BRANCH_CREATE_ERR
-  BRANCH_CREATE_ERR=$(gh api --method POST "repos/$ORG/$REPO_NAME/git/refs" \
-    --field "ref=refs/heads/$UPDATE_BRANCH" \
-    --field "sha=$BASE_SHA" 2>&1 >/dev/null || true)
-  if [ -n "$BRANCH_CREATE_ERR" ]; then
-    echo "  [$BASE_BRANCH] Branch creation failed: $BRANCH_CREATE_ERR"
+  local branch_create_err
+  branch_create_err=$(gh api --method POST "repos/$ORG/$repo_name/git/refs" \
+    --field "ref=refs/heads/$update_branch" \
+    --field "sha=$base_sha" 2>&1 >/dev/null || true)
+  if [[ -n "$branch_create_err" ]]; then
+    echo "  [$base_branch] Branch creation failed: $branch_create_err"
     return 2
   fi
-  echo "  [$BASE_BRANCH] Branch $UPDATE_BRANCH created."
-  BRANCH_EXISTS="$BASE_SHA"
+  echo "  [$base_branch] Branch $update_branch created."
+  BRANCH_EXISTS="$base_sha"
 }
 
 ensure_workflow() {
-  local WORKFLOW="$1"
-  local TMPL_FILE="$2"
-  local BASE_BRANCH="$3"
-  local UPDATE_BRANCH="$4"
-  local REPO_NAME="$5"
+  local workflow="$1"
+  local tmpl_file="$2"
+  local base_branch="$3"
+  local update_branch="$4"
+  local repo_name="$5"
 
-  local FILE_PATH=".github/workflows/$WORKFLOW"
+  local file_path=".github/workflows/$workflow"
 
-  local EXISTING
-  EXISTING=$(gh api "repos/$ORG/$REPO_NAME/contents/$FILE_PATH?ref=$BASE_BRANCH" \
-    --jq '.name' 2>/dev/null) || EXISTING=""
+  local existing
+  existing=$(gh api "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch" \
+    --jq '.name' 2>/dev/null) || existing=""
 
-  if [ -n "$EXISTING" ]; then
-    echo "  [$BASE_BRANCH] $FILE_PATH: already exists, skipping"
+  if [[ -n "$existing" ]]; then
+    echo "  [$base_branch] $file_path: already exists, skipping"
     return 0
   fi
 
-  echo "  [$BASE_BRANCH] $FILE_PATH: missing, will create"
+  echo "  [$base_branch] $file_path: missing, will create"
 
-  local CONTENT
-  CONTENT=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$TMPL_FILE")
+  local content
+  content=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$tmpl_file")
 
-  create_branch_if_needed "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || return $?
+  create_branch_if_needed "$base_branch" "$update_branch" "$repo_name" || return $?
 
-  echo "  [$BASE_BRANCH] Committing $FILE_PATH to $UPDATE_BRANCH..."
+  echo "  [$base_branch] Committing $file_path to $update_branch..."
 
-  local CONTENT_B64
-  CONTENT_B64=$(printf '%s\n' "$CONTENT" | base64 | tr -d '\n')
+  local content_b64
+  content_b64=$(printf '%s\n' "$content" | base64 | tr -d '\n')
 
-  local PUT_BODY
-  PUT_BODY=$(jq -cn \
-    --arg message "[Workflow] ci: Add the missing $WORKFLOW workflow." \
-    --arg content "$CONTENT_B64" \
-    --arg branch "$UPDATE_BRANCH" \
+  local put_body
+  put_body=$(jq -cn \
+    --arg message "[Workflow] ci: Add the missing $workflow workflow." \
+    --arg content "$content_b64" \
+    --arg branch "$update_branch" \
     '{message: $message, content: $content, branch: $branch}')
 
-  local COMMIT_ERR
-  COMMIT_ERR=$(echo "$PUT_BODY" | gh api --method PUT "repos/$ORG/$REPO_NAME/contents/$FILE_PATH" \
+  local commit_err
+  commit_err=$(echo "$put_body" | gh api --method PUT "repos/$ORG/$repo_name/contents/$file_path" \
     --input - 2>&1 >/dev/null || true)
-  if [ -n "$COMMIT_ERR" ]; then
-    echo "  [$BASE_BRANCH] $FILE_PATH commit failed: $COMMIT_ERR"
+  if [[ -n "$commit_err" ]]; then
+    echo "  [$base_branch] $file_path commit failed: $commit_err"
     return 1
   fi
 
-  echo "  [$BASE_BRANCH] $FILE_PATH committed."
-  FILES_LIST+="| \`.github/workflows/$WORKFLOW\` | Added |"$'\n'
+  echo "  [$base_branch] $file_path committed."
+  FILES_LIST+="| \`.github/workflows/$workflow\` | Added |"$'\n'
   FILES_ADDED=$((FILES_ADDED + 1))
 }
 
 ensure_ci_jobs() {
-  local BASE_BRANCH="$1"
-  local UPDATE_BRANCH="$2"
-  local REPO_NAME="$3"
-  local TMPL_FILE="$4"
+  local base_branch="$1"
+  local update_branch="$2"
+  local repo_name="$3"
+  local tmpl_file="$4"
 
-  local FILE_PATH=".github/workflows/ci.yml"
-  local TMPL_WITH_SHA
-  TMPL_WITH_SHA=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$TMPL_FILE" 2>/dev/null || true)
-  if [ -z "$TMPL_WITH_SHA" ]; then
-    echo "  [$BASE_BRANCH] Could not read template $TMPL_FILE, skipping ci.yml"
+  local file_path=".github/workflows/ci.yml"
+  local tmpl_with_sha
+  tmpl_with_sha=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$tmpl_file" 2>/dev/null || true)
+  if [[ -z "$tmpl_with_sha" ]]; then
+    echo "  [$base_branch] Could not read template $tmpl_file, skipping ci.yml"
     return 1
   fi
 
-  local FILE_DATA
-  FILE_DATA=$(gh api "repos/$ORG/$REPO_NAME/contents/$FILE_PATH?ref=$BASE_BRANCH" 2>/dev/null || true)
+  local file_data
+  file_data=$(gh api "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch" 2>/dev/null || true)
 
-  if [ -z "$FILE_DATA" ]; then
-    echo "  [$BASE_BRANCH] $FILE_PATH: missing, will create"
-    create_branch_if_needed "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || return $?
+  if [[ -z "$file_data" ]]; then
+    echo "  [$base_branch] $file_path: missing, will create"
+    create_branch_if_needed "$base_branch" "$update_branch" "$repo_name" || return $?
 
-    local CONTENT_B64
-    CONTENT_B64=$(printf '%s\n' "$TMPL_WITH_SHA" | base64 | tr -d '\n')
-    local PUT_BODY
-    PUT_BODY=$(jq -cn \
+    local content_b64
+    content_b64=$(printf '%s\n' "$tmpl_with_sha" | base64 | tr -d '\n')
+    local put_body
+    put_body=$(jq -cn \
       --arg message "[Workflow] ci: Add the missing ci.yml workflow." \
-      --arg content "$CONTENT_B64" \
-      --arg branch "$UPDATE_BRANCH" \
+      --arg content "$content_b64" \
+      --arg branch "$update_branch" \
       '{message: $message, content: $content, branch: $branch}')
-    local COMMIT_ERR
-    COMMIT_ERR=$(echo "$PUT_BODY" | gh api --method PUT "repos/$ORG/$REPO_NAME/contents/$FILE_PATH" \
+    local commit_err
+    commit_err=$(echo "$put_body" | gh api --method PUT "repos/$ORG/$repo_name/contents/$file_path" \
       --input - 2>&1 >/dev/null || true)
-    if [ -n "$COMMIT_ERR" ]; then
-      echo "  [$BASE_BRANCH] $FILE_PATH commit failed: $COMMIT_ERR"
+    if [[ -n "$commit_err" ]]; then
+      echo "  [$base_branch] $file_path commit failed: $commit_err"
       return 1
     fi
-    echo "  [$BASE_BRANCH] $FILE_PATH committed."
+    echo "  [$base_branch] $file_path committed."
     FILES_LIST+="| \`.github/workflows/ci.yml\` | Added |"$'\n'
     FILES_ADDED=$((FILES_ADDED + 1))
     return 0
   fi
 
-  local FILE_SHA CONTENT_B64
-  FILE_SHA=$(echo "$FILE_DATA" | jq -r '.sha')
-  CONTENT_B64=$(echo "$FILE_DATA" | jq -r '.content // empty' | tr -d '\n')
-  echo "$CONTENT_B64" | base64 -d > /tmp/ci_existing.yml
-  printf '%s\n' "$TMPL_WITH_SHA" > /tmp/ci_template.yml
+  local file_sha content_b64
+  file_sha=$(echo "$file_data" | jq -r '.sha')
+  content_b64=$(echo "$file_data" | jq -r '.content // empty' | tr -d '\n')
+  echo "$content_b64" | base64 -d > /tmp/ci_existing.yml
+  printf '%s\n' "$tmpl_with_sha" > /tmp/ci_template.yml
 
-  local UPDATED_CONTENT
-  if ! UPDATED_CONTENT=$(python3 /tmp/merge_ci_jobs.py /tmp/ci_existing.yml /tmp/ci_template.yml 2>/dev/null); then
-    echo "  [$BASE_BRANCH] $FILE_PATH: all required jobs present"
+  local updated_content
+  if ! updated_content=$(python3 /tmp/merge_ci_jobs.py /tmp/ci_existing.yml /tmp/ci_template.yml 2>/dev/null); then
+    echo "  [$base_branch] $file_path: all required jobs present"
     return 0
   fi
 
-  echo "  [$BASE_BRANCH] $FILE_PATH: missing required jobs, will update"
-  create_branch_if_needed "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || return $?
+  echo "  [$base_branch] $file_path: missing required jobs, will update"
+  create_branch_if_needed "$base_branch" "$update_branch" "$repo_name" || return $?
 
-  local NEW_CONTENT_B64
-  NEW_CONTENT_B64=$(printf '%s\n' "$UPDATED_CONTENT" | base64 | tr -d '\n')
-  local PUT_BODY
-  PUT_BODY=$(jq -cn \
+  local new_content_b64
+  new_content_b64=$(printf '%s\n' "$updated_content" | base64 | tr -d '\n')
+  local put_body
+  put_body=$(jq -cn \
     --arg message "[Workflow] ci: Add the missing required jobs to ci.yml." \
-    --arg content "$NEW_CONTENT_B64" \
-    --arg sha "$FILE_SHA" \
-    --arg branch "$UPDATE_BRANCH" \
+    --arg content "$new_content_b64" \
+    --arg sha "$file_sha" \
+    --arg branch "$update_branch" \
     '{message: $message, content: $content, sha: $sha, branch: $branch}')
-  local COMMIT_ERR
-  COMMIT_ERR=$(echo "$PUT_BODY" | gh api --method PUT "repos/$ORG/$REPO_NAME/contents/$FILE_PATH" \
+  local commit_err
+  commit_err=$(echo "$put_body" | gh api --method PUT "repos/$ORG/$repo_name/contents/$file_path" \
     --input - 2>&1 >/dev/null || true)
-  if [ -n "$COMMIT_ERR" ]; then
-    echo "  [$BASE_BRANCH] $FILE_PATH commit failed: $COMMIT_ERR"
+  if [[ -n "$commit_err" ]]; then
+    echo "  [$base_branch] $file_path commit failed: $commit_err"
     return 1
   fi
-  echo "  [$BASE_BRANCH] $FILE_PATH updated with missing jobs."
+  echo "  [$base_branch] $file_path updated with missing jobs."
   FILES_LIST+="| \`.github/workflows/ci.yml\` | Updated (added missing jobs) |"$'\n'
   FILES_ADDED=$((FILES_ADDED + 1))
 }
@@ -290,13 +290,13 @@ while IFS= read -r REPO_NAME; do
   while IFS= read -r b; do
     if [[ "$b" =~ ^([0-9]+)\.x$ ]]; then
       MAJOR="${BASH_REMATCH[1]}"
-      if [ -n "$SUPPORTED_VERSIONS" ] && [[ "$MAJOR" =~ $SUPPORTED_VERSIONS ]]; then
+      if [[ -n "$SUPPORTED_VERSIONS" ]] && [[ "$MAJOR" =~ $SUPPORTED_VERSIONS ]]; then
         BASE_BRANCHES="$BASE_BRANCHES"$'\n'"$b"
       fi
     fi
   done <<< "$ALL_BRANCHES"
 
-  if [ -z "$BASE_BRANCHES" ]; then
+  if [[ -z "$BASE_BRANCHES" ]]; then
     BASE_BRANCHES="master"
   fi
 
@@ -320,9 +320,9 @@ while IFS= read -r REPO_NAME; do
   fi
 
   while IFS= read -r BASE_BRANCH; do
-    [ -z "$BASE_BRANCH" ] && continue
+    [[ -z "$BASE_BRANCH" ]] && continue
 
-    if [ "$BASE_BRANCH" = "master" ]; then
+    if [[ "$BASE_BRANCH" = "master" ]]; then
       UPDATE_BRANCH="deps/ensure-workflows"
     else
       UPDATE_BRANCH="deps/ensure-workflows-$BASE_BRANCH"
@@ -337,14 +337,14 @@ while IFS= read -r REPO_NAME; do
     for WORKFLOW in "${REQUIRED_WORKFLOWS[@]}"; do
       ensure_workflow "$WORKFLOW" "$TEMPLATE_DIR/$WORKFLOW" \
         "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || \
-        { [ $? -eq 2 ] && break; }
+        { [[ $? -eq 2 ]] && break; }
     done
 
-    if [ -n "$LANG_DIR" ]; then
+    if [[ -n "$LANG_DIR" ]]; then
       for WORKFLOW in "${LANG_WORKFLOWS[@]}"; do
         ensure_workflow "$WORKFLOW" "$TEMPLATE_DIR/$LANG_DIR/$WORKFLOW" \
           "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || \
-          { [ $? -eq 2 ] && break; }
+          { [[ $? -eq 2 ]] && break; }
       done
       ensure_workflow "create-version-branch.yml" "$TEMPLATE_DIR/$LANG_DIR/create-version-branch.yml" \
         "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
@@ -361,7 +361,7 @@ while IFS= read -r REPO_NAME; do
         "$TEMPLATE_DIR/ci.yml" || true
     fi
 
-    if [ "$FILES_ADDED" -gt 0 ]; then
+    if [[ "$FILES_ADDED" -gt 0 ]]; then
       echo "  [$BASE_BRANCH] $FILES_ADDED file(s) added/updated — checking for existing PR..."
 
       EXISTING_PR=$(gh pr list --repo "$ORG/$REPO_NAME" \
@@ -370,10 +370,10 @@ while IFS= read -r REPO_NAME; do
         --jq "[.[] | select(.headRefName == \"$UPDATE_BRANCH\")] | first | .headRefName // \"\"" \
         2>/dev/null || true)
 
-      if [ -z "$EXISTING_PR" ]; then
-        REVIEWER_FLAGS=""
-        if [ -n "$REVIEWER" ]; then
-          REVIEWER_FLAGS="--assignee $REVIEWER --reviewer $REVIEWER"
+      if [[ -z "$EXISTING_PR" ]]; then
+        REVIEWER_FLAGS=()
+        if [[ -n "$REVIEWER" ]]; then
+          REVIEWER_FLAGS=(--assignee "$REVIEWER" --reviewer "$REVIEWER")
         fi
 
         BODY="# Description"$'\n'$'\n'
@@ -401,7 +401,7 @@ while IFS= read -r REPO_NAME; do
           --body "$BODY" \
           --base "$BASE_BRANCH" \
           --head "$UPDATE_BRANCH" \
-          $REVIEWER_FLAGS 2>/dev/null; then
+          "${REVIEWER_FLAGS[@]}" 2>/dev/null; then
           echo "  [$BASE_BRANCH] PR creation failed, skipping"
         else
           echo "  [$BASE_BRANCH] PR created."
