@@ -156,9 +156,55 @@ contributor to add the header by hand.
 
 Warning: a mechanism that reports a missing header does not always report a
 wrong one, and it does not always correct one. PHP CS Fixer, Spotless,
-`goheader`, and the ESLint rule compare the whole header, and the first three
-replace a header that differs. Ruff and `_copyright-header-check.yml` report a
-header that does not match, and correct nothing.
+`goheader`, and the ESLint rule compare the whole header. PHP CS Fixer,
+Spotless, and the ESLint rule also replace a header that differs. Ruff and
+`_copyright-header-check.yml` report a header that does not match, and correct
+nothing. `goheader` writes a replacement, but the replacement is not correct.
+The next warning gives the detail.
+
+Warning: do not correct a Go header with `golangci-lint run --fix`. The
+`goheader` linter writes the expected text, but it also changes the indentation
+of the comment. It adds a space to each line after the first, and it removes
+the space before the closing `*/`. Correct a Go header by hand.
+
+The damage is quiet, which is what makes it dangerous. `--fix` reports `0
+issues` on the file it just broke, and it reports `0 issues` on every later run.
+The gate calls `golangci-lint run` without `--fix`, and that command fails on
+the same file. A developer therefore reads green on a Mac and red in CI. A
+second `--fix` does not repair the indentation, so the file stays broken until a
+person edits it. `golangci-lint fmt` also reports nothing, because a formatter
+does not read the inside of a comment.
+
+This is what `--fix` writes. Each line after the first carries two spaces, and
+the closing `*/` carries none:
+
+```go
+// Wrong — `--fix` wrote this, and reported `0 issues`. The gate rejects it.
+/*
+ * This file is part of the Project Template package.
+  *
+  * Copyright (c) 2016-present Melech Mizrachi
+  *
+  * Released under the MIT License. See LICENSE.md for details.
+*/
+```
+
+This is the form that `goheader` accepts. Write it by hand:
+
+```go
+// Right — one space on each line, and one space before the closing `*/`.
+/*
+ * This file is part of the Project Template package.
+ *
+ * Copyright (c) 2016-present Melech Mizrachi
+ *
+ * Released under the MIT License. See LICENSE.md for details.
+ */
+```
+
+Measured in `project-template-go` with golangci-lint v2.12.2 and go-header
+v0.5.0. The `ci` target and the `lint` target in the `Makefile` pass no
+`--fix`, so the gate itself does not damage a file.
 
 A formatter reads only the language it formats, so a file in any other language
 keeps the header that a person gives it. A shell script is such a file, and it
