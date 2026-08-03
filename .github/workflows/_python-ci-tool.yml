@@ -97,20 +97,19 @@ jobs:
           {
             echo "ci-directory=${CI_DIRECTORY:-.github/ci/$DIR}"
             echo "tasks=$TASKS"
-            echo "marker=<!-- workflow-id: $TOOL -->"
-            echo "comment=$COMMENT <!-- workflow-id: $TOOL -->"
+            echo "marker=$TOOL"
+            echo "comment=$COMMENT"
           } >> "$GITHUB_OUTPUT"
 
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
-      - name: Generate a token
-        id: generate-token
-        if: github.event.pull_request.number
-        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+      - name: Checkout the CI actions
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
-          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+          repository: valkyrjaio/.github
+          ref: ${{ job.workflow_sha }}
+          path: dot-github
 
       - name: Derive the path filters
         id: filters
@@ -184,44 +183,18 @@ jobs:
       # because the tool never reported a problem. `!cancelled()` is required: a step whose `if:`
       # holds no status check function gets `success() &&` prepended, and the job status is already
       # `failure` here.
-      - name: Report failure in PR comment
-        if: ${{ !cancelled() && steps.run.outcome == 'failure' && github.event.pull_request.number }}
-        env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          MARKER: ${{ steps.tool.outputs.marker }}
-          COMMENT: ${{ steps.tool.outputs.comment }}
-        run: |
-          # Delete every marked comment, not the first. Two concurrent runs can race on a rapid
-          # double push and leave two marked comments, and a `head -1` left one of them behind
-          # forever. `--paginate` reaches a marked comment after the first page of 30.
-          #
-          # Warning: never let a failed delete end the step. The same race puts the same comment id
-          # in both runs' lists, so the run that deletes second gets HTTP 404 and `gh` exits 1. The
-          # runner's default shell is `bash -e`, which ends the step on that status: the success
-          # step would fail the job and turn a required check red after the check itself passed,
-          # and the failure step would never reach the `gh pr comment` call below. Comment
-          # housekeeping must never decide the job result, so report the failure and continue.
-          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            | jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id')
-          for COMMENT_ID in $COMMENT_IDS; do
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
-              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
-          done
-          gh pr comment "$PR_NUMBER" --body "$COMMENT"
-
-      - name: Remove failure comment on success
-        if: success() && steps.changes.outputs.files == 'true' && github.event.pull_request.number
-        env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          MARKER: ${{ steps.tool.outputs.marker }}
-        run: |
-          COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-            | jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id')
-          for COMMENT_ID in $COMMENT_IDS; do
-            gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
-              || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
-          done
+      # The `post-comment` action keeps one comment per marker: it removes every stale one, and it
+      # posts a new one only when given a body. A passing run gives none, which clears the report an
+      # earlier run left behind. The marker is the tool name, so one tool's report never removes
+      # another's.
+      #
+      # Warning: `!cancelled()` rather than `always()`. A cancelled run has no outcome, so the body
+      # would be empty and the report of the run before it would be removed while it still held.
+      - name: Report the result on the pull request
+        if: ${{ !cancelled() && steps.changes.outputs.files == 'true' && github.event.pull_request.number }}
+        uses: ./dot-github/.github/actions/post-comment
+        with:
+          marker: ${{ steps.tool.outputs.marker }}
+          body: ${{ steps.run.outcome == 'failure' && steps.tool.outputs.comment || '' }}
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
