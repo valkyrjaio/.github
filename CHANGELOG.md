@@ -1,6 +1,11 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.23.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.23.1...26.x)
+
+## [v26.23.1](https://github.com/valkyrjaio/.github/compare/v26.23.0...v26.23.1) - 2026-08-03
+
+* [Shell] style: Make every CI script shellcheck clean by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/299
+* [CopyrightHeader] docs: Name the renamed PHP CS Fixer package by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/302
 
 ## [v26.23.0](https://github.com/valkyrjaio/.github/compare/v26.22.0...v26.23.0) - 2026-08-03
 
