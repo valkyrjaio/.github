@@ -14,6 +14,7 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 - [Version Branches](#version-branches)
 - [Workflow Reference Pinning](#workflow-reference-pinning)
 - [Composite Actions](#composite-actions)
+- [Choosing a Workflow or an Action](#choosing-a-workflow-or-an-action)
 - [Repository Enforcement](#repository-enforcement)
 - [Rulesets](#rulesets)
 - [Changing a Required Check Name](#changing-a-required-check-name)
@@ -470,6 +471,49 @@ compares it against the commit it was checked out at, so an empty or wrong value
 Warning: mark the step that runs a check `continue-on-error: true`, and end the job with a step that
 fails on the outcome. Without it a failing script ends the job before the comment is posted, and the
 report never reaches the pull request.
+
+---
+
+## Choosing a Workflow or an Action
+
+A reusable workflow is a **job**. A composite action is a **step**. Everything else follows from
+that, so decide which one a thing is before deciding where to put it.
+
+Write a reusable workflow when the thing needs something only a job has:
+
+- A **matrix**, such as PHPUnit across several PHP versions.
+- Its **own runner**, because it needs a different `runs-on`, or because it must run beside another
+  job rather than after it.
+- A **name a consumer depends on**. A check name is every job name down the call chain, and
+  `rulesets/*.json` pins those names. See
+  [Changing a Required Check Name](#changing-a-required-check-name).
+- **Several jobs** it orchestrates.
+
+Write a composite action when the thing is a piece of work **inside** somebody else's job:
+
+- A building block a check is assembled from, such as `run-script` or `post-comment`.
+- Anything whose only reason to be a job is to hand a value back. A workflow that exists to return
+  an output forces every caller into `needs:` plumbing for a string.
+
+Warning: a job boundary is not free. Each one adds a segment to the check name, a row in the pull
+request check list, and a runner start. The name is the expensive part: a job added or removed
+inside a chain renames the check, and a required check that never reports blocks every pull request
+in the organization.
+
+That is what settled the shape of the checks in this repository. `run-script` and `post-comment`
+were reusable workflows first, which forced every check into two jobs, which renamed every check,
+which would have required a ruleset change for each one. As composite actions they add no job, so a
+check keeps its name however its insides are rearranged.
+
+Warning: an action cannot declare `permissions`, and it has no `secrets` context. The calling job
+declares the permissions, and a secret reaches an action as an input. Neither is a reason to keep a
+workflow — they are the cost of the conversion, and worth knowing before starting one.
+
+A mechanical rule does not finish this decision. Many workflows here _could_ be actions and gain
+nothing by it: a job called once from a dispatcher pays a runner start either way, and its name
+reaches no ruleset. Convert when the job boundary costs something — a pinned name, a `needs:` chain
+that carries only a value, a building block used inside another job's work. Leave it alone when the
+boundary is merely there.
 
 ---
 
