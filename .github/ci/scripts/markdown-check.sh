@@ -70,7 +70,14 @@ if [[ -n "$DIFFERENT" ]]; then
     printf '    --write\n'
     printf '```\n\n'
     printf 'These files are not formatted:\n\n'
-    printf -- '- `%s`\n' $DIFFERENT
+
+    # Warning: read the list line by line. Unquoted, `$DIFFERENT` is word split on spaces and then
+    # glob expanded, so a path holding a space would break across two bullets, and a path matching
+    # a pattern in the working directory would be replaced by whatever it matched. `mapfile` would
+    # read it in one call, and macOS ships bash 3.2, which has no `mapfile`.
+    while IFS= read -r FILE; do
+        [[ -n "$FILE" ]] && printf -- '- `%s`\n' "$FILE"
+    done <<< "$DIFFERENT"
 
     exit 1
 fi
