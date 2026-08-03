@@ -425,9 +425,25 @@ time to force a refresh across all repos.
 
 ## Scripts
 
-`.github/ci/scripts/` holds the shell that a workflow runs. A script in a file is a file a person
-reads in an editor, a formatter formats, and a linter reads. Shell inside a `run:` block is none of
+`.github/ci/scripts/` holds the code that a workflow runs. A script in a file is a file a person
+reads in an editor, a formatter formats, and a linter reads. Code inside a `run:` block is none of
 those things, so put the work in a script and let the workflow name it.
+
+Most of these scripts are shell, and the rule reaches every language. A heredoc that writes a
+program to `/tmp` and then runs it hides that program from the same tools, so the program gets its
+own file beside the script that calls it. `merge_ci_jobs.py` is such a file, and
+`ensure-workflows.sh` names it:
+
+```bash
+# The caller runs this script from the workspace root, not from this directory.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+python3 "$SCRIPT_DIR/merge_ci_jobs.py" /tmp/ci_existing.yml /tmp/ci_template.yml
+```
+
+Warning: a script cannot assume the working directory is its own. A `run:` step starts in the
+workspace root, and a workflow may check this repository out under a path such as `dot-github`.
+Derive the directory from `BASH_SOURCE`, so the sibling is reachable from either one.
 
 A workflow reaches a script in one of two ways, and the caller decides which one:
 
