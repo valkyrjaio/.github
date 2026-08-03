@@ -82,6 +82,7 @@ if [[ -n "$DIFFERENT" ]]; then
     # a pattern in the working directory would be replaced by whatever it matched. `mapfile` would
     # read it in one call, and macOS ships bash 3.2, which has no `mapfile`.
     while IFS= read -r FILE; do
+        # shellcheck disable=SC2016 # The backticks are Markdown, not a command substitution.
         [[ -n "$FILE" ]] && printf -- '- `%s`\n' "$FILE"
     done <<< "$DIFFERENT"
 

@@ -162,6 +162,7 @@ header_offset() {
     local index=0
     local line
 
+    # shellcheck disable=SC2094 # The loop only reads the file. Nothing in this script writes it.
     while IFS= read -r line || [[ -n "$line" ]]; do
         if is_block_comment "$path"; then
                 case "$line" in

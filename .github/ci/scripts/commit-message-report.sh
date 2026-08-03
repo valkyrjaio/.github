@@ -39,6 +39,7 @@ set -euo pipefail
 FAILURES=()
 
 if [[ "$COMMIT_TYPE_OUTCOME" == 'failure' ]]; then
+    # shellcheck disable=SC2016 # The backticks are Markdown, and the text is a literal.
     FAILURES+=('- The PR title and every commit must match `[Root] type: Description` — e.g. `[Http] fix: Normalize header casing.` Types: `feat`, `fix`, `deprecate`, `docs`, `test`, `refactor`, `perf`, `style`, `build`, `ci`, `chore`, `revert`. Add `!` before the colon for a breaking change, and `(#123)` for an issue.')
 fi
 
