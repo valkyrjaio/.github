@@ -72,7 +72,7 @@ table when you create the repository.
 Every repository is in the table, including one that holds mostly documentation
 or art. Such a repository still holds a shell script, a task runner, or a
 workflow helper, and that file carries the header as a line comment. This
-repository is the example: it ships no language a formatter reads, and its four
+repository is the example: it ships no language a formatter reads, and its five
 shell scripts carried no header until the check reported them. A repository that
 holds no program code today still needs an identifier, because the check is
 closed by default and the first program file it gains must have one to name.
