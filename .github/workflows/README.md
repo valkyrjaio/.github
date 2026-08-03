@@ -453,10 +453,28 @@ Warning: a job that reaches the GitHub API alone still needs the checkout. The o
 read and write every repository through `gh`, so several of them checked nothing out. A job with no
 checkout has no `.github/ci/scripts/` on disk, and the step fails with `No such file or directory`.
 
-Warning: a `run:` block runs under `bash -e` alone. GitHub sets neither `-u` nor `pipefail`. A
-script that adds them does not do what the block did, so check every pipeline before you add either
-one. A pipeline that ends in a command which always succeeds hides a failing stage today, and
-`pipefail` stops hiding it.
+Warning: a `run:` block that names no shell runs under `bash -e` alone, so a script that adds `-u`
+or `pipefail` does not do what the block did. GitHub runs a different command for each of the two
+spellings, and the difference is `pipefail`:
+
+| `shell` value                   | Command GitHub runs                        | Used by                          |
+| ------------------------------- | ------------------------------------------ | -------------------------------- |
+| unspecified (the Linux default) | `bash -e {0}`                              | every `run:` block in this repo  |
+| `bash`                          | `bash --noprofile --norc -eo pipefail {0}` | every step of a composite action |
+
+The [shell documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstepsshell)
+states this on the default row: "Note that this runs a different command to when `bash` is specified
+explicitly."
+
+That table is why the two families of script differ, and neither is the odd one out:
+
+- A script a **bare `run:`** invokes sets `set -e`, because that is the shell that ran the block.
+- A script **`run-script`** invokes sets `set -euo pipefail`, because `action.yml` sets `shell: bash`
+  and `pipefail` is already on.
+
+So read the shell before you copy a `set` line from a neighboring script. Then check every pipeline:
+one that ends in a command which always succeeds hides a failing stage today, and `pipefail` stops
+hiding it.
 
 ---
 
