@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 #
+# This file is part of the Valkyrja GitHub package.
+#
+# Copyright (c) 2016-present Melech Mizrachi
+#
+# Released under the MIT License. See LICENSE.md for details.
+#
 # ---------------------------------------------------------------------------
 # Required workflow reference update.
 #

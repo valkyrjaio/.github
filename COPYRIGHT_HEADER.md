@@ -59,14 +59,24 @@ Package Identifier Resolution
 | `ci-phpcsfixer-php`         | `Valkyrja PHP CS Fixer`     |
 | `ci-phparkitect-php`        | `Valkyrja PHPArkitect`      |
 | `ci-phpcodesniffer-php`     | `Valkyrja PHP Code Sniffer` |
+| `ci-eslint-ts`              | `Valkyrja ESLint`           |
+| `ci-spotless-java`          | `Valkyrja Spotless`         |
+| `ci-golangcilint-go`        | `Valkyrja golangci-lint`    |
+| `.github`                   | `Valkyrja GitHub`           |
+| `architecture`              | `Valkyrja Architecture`     |
+| `art`                       | `Valkyrja Art`              |
 
 The table lists each repository that exists now. A new repository takes its
 identifier from the [Pattern Rules](#pattern-rules) section. Add a row to the
 table when you create the repository.
 
-Repositories that contain only documentation, art, or GitHub configuration
-(`.github`, `architecture`, `art`) do not have source files requiring this
-header and are not listed above.
+Every repository is in the table, including one that holds mostly documentation
+or art. Such a repository still holds a shell script, a task runner, or a
+workflow helper, and that file carries the header as a line comment. This
+repository is the example: it ships no language a formatter reads, and its five
+shell scripts carried no header until the check reported them. A repository that
+holds no program code today still needs an identifier, because the check is
+closed by default and the first program file it gains must have one to name.
 
 Pattern Rules
 -------------
@@ -105,7 +115,9 @@ runtime.
 
 `{Tool}` is the tool's official name, preserving its capitalization and
 spacing convention (`PHPStan` without a space, `PHP CS Fixer` with
-spaces). These packages ship the rules, the configurations, the custom
+spaces). A tool that spells its own name in lower case keeps that spelling,
+so `ci-golangcilint-go` resolves to `Valkyrja golangci-lint`. These
+packages ship the rules, the configurations, the custom
 expressions, the helper classes, and the reusable workflows that run the
 tool. The rules encode Valkyrja's own conventions, so each package is
 Valkyrja-native and takes the prefix.
@@ -115,6 +127,14 @@ Valkyrja-native and takes the prefix.
 No Valkyrja prefix. Sindri is a standalone Norse-mythology-named project
 that can be used alongside Valkyrja but is not part of it.
 
+**7. Language-agnostic infrastructure (no language suffix)** →
+`Valkyrja {Name}`
+
+`{Name}` is the repository name, title-cased. `.github` keeps the
+capitalization that GitHub uses, so it resolves to `Valkyrja GitHub`.
+`REPOSITORY_NAMING.md` names these three repositories, and each one is
+Valkyrja-native, so each takes the prefix.
+
 Naming Modes
 ------------
 
@@ -123,7 +143,7 @@ identifier:
 
 - **Valkyrja-native** → prefixed with `Valkyrja` (framework, starter
   application, worker integrations, docker, benchmarking, CI tool
-  packages)
+  packages, language-agnostic infrastructure)
 - **Standalone application** → no prefix (Sindri)
 - **Reusable template** → no prefix (project templates)
 

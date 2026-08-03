@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 #
+# This file is part of the Valkyrja GitHub package.
+#
+# Copyright (c) 2016-present Melech Mizrachi
+#
+# Released under the MIT License. See LICENSE.md for details.
+#
 # Dispatch the `rebase-to-master` workflow on every repository in the org,
 # bringing each repo's `master` up to date with its latest `N.x` version branch.
 #

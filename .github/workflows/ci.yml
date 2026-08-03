@@ -41,3 +41,20 @@ jobs:
     secrets:
       VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
       VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+  # This repository holds the check, and it held itself to nothing. It ships no language a formatter
+  # reads, so its shell scripts had no mechanism that read their headers. The check is closed by
+  # default: it requires the header in every tracked file that `EXCLUDED` does not match, so a file
+  # of a type no tool reads cannot pass in silence. `.github/ci/copyright-header/config` holds that
+  # list. A relative path resolves to the same commit as this workflow, so the check can never drift
+  # from the script it runs.
+  copyright-header-check:
+    name: Copyright Header Check
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/_copyright-header-check.yml
+    permissions:
+      pull-requests: write
+      contents: read
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
