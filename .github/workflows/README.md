@@ -45,6 +45,8 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 | `MAVEN_CENTRAL_PASSWORD`     | Maven Central (Sonatype) user-token password — publishing Java releases |
 | `MAVEN_SIGNING_KEY`          | In-memory PGP signing key for Java release artifacts                    |
 | `MAVEN_SIGNING_KEY_PASSWORD` | Passphrase for the PGP signing key                                      |
+| `GRADLE_PUBLISH_KEY`         | Gradle Plugin Portal API key — publishing a Java Gradle plugin          |
+| `GRADLE_PUBLISH_SECRET`      | Gradle Plugin Portal API secret — publishing a Java Gradle plugin       |
 | `PYPI_API_TOKEN`             | PyPI API token for Python releases (`uv publish`)                       |
 | `CLAUDE_CODE_OAUTH_TOKEN`    | Claude Code OAuth token used by the pull-request review workflow        |
 
@@ -52,7 +54,8 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 **Dependabot secrets** in org settings so Dependabot PRs can access them.
 
 The `MAVEN_*` and `PYPI_API_TOKEN` secrets are consumed only by the Java and
-Python publish workflows respectively, and `CLAUDE_CODE_OAUTH_TOKEN` only by
+Python publish workflows respectively, the `GRADLE_PUBLISH_*` secrets only by
+`_java-release-plugin-portal-publish.yml`, and `CLAUDE_CODE_OAUTH_TOKEN` only by
 `_claude-review.yml`. TypeScript/npm releases use npm
 [trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC), so no npm
 token secret is required.
