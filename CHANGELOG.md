@@ -1,6 +1,48 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.22.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.23.0...26.x)
+
+## [v26.23.0](https://github.com/valkyrjaio/.github/compare/v26.22.0...v26.23.0) - 2026-08-03
+
+* [Workflow] feat: Bake the required workflow refs into the release by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/261
+* [Workflow] ci: Update .github workflow refs to v26.22.0 by [@valkyrja-volundr](https://github.com/valkyrja-volundr)[bot] in https://github.com/valkyrjaio/.github/pull/259
+* [Workflow] refactor: Build the Markdown check from the composite actions by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/260
+* [Copyright] docs: Warn that the goheader fix corrupts the comment indentation by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/262
+* [Workflow] fix: Keep the template mode when rewriting a reference by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/264
+* [Process] fix: Correct the check name example and cover the schedule by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/263
+* [Copyright] ci: Add the copyright header check by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/265
+* [Workflow] fix: Skip the immutable releases call where the owner enforces it by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/267
+* [Process] docs: Record when to write a workflow and when an action by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/275
+* [Workflow] refactor: Build the CI tool comments from the composite action by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/272
+* [Workflow] refactor: Build the test runner comments from the composite action by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/270
+* [Workflow] fix: Leave a report alone when a run is cancelled by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/269
+* [Workflow] refactor: Build the commit message check from the composite actions by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/266
+* [Copyright] docs: Add the ci-ruff-python row to the resolution table by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/274
+* [Workflow] fix: Replace the package identifier where a tool stores it by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/273
+* [Copyright] docs: Add the Ruff repository row by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/276
+* [Process] fix: Record what makes an action conversion worth doing by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/277
+* [Coverage] ci: Gate the PHPUnit job on a line coverage floor by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/271
+* [Workflow] fix: Create the master branch on a new repository by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/282
+* [Workflow] refactor: Move the required workflow check into a script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/283
+* [Workflow] refactor: Move the auto release sweep into a script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/281
+* [Workflow] refactor: Move the bot pull request auto merge into a script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/280
+* [Workflow] refactor: Move the workflow reference update into a script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/279
+* [Workflow] refactor: Move the reusable workflow name check into a script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/278
+* [Workflow] refactor: Move the master branch creation into a script file by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/284
+* [Workflow] style: Answer the linters on the required workflow script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/290
+* [Workflow] style: Answer the linters on the auto release sweep script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/289
+* [Workflow] style: Answer the linters on the bot auto merge script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/288
+* [Workflow] style: Answer the linters on the workflow reference script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/286
+* [Workflow] style: Answer the linters on the reusable workflow name script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/285
+* [Workflow] ci: Give a Claude review an explicit verdict by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/287
+* [Workflow] fix: Wait for the template copy before reading the new repository by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/294
+* [Workflow] refactor: Move the ci.yml job merge into a Python file by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/291
+* [Workflow] refactor: Move the repository creation steps into scripts by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/295
+* [Copyright] docs: Add the Go package identifiers by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/296
+* [Workflow] refactor: Move the repository settings enforcement into a script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/293
+* [Workflow] refactor: Move the trailing newline repair into a script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/292
+* [Shell] docs: Point at the shell script conventions by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/297
+* [Workflow] fix: Run the eslint check in CI rather than the fixer by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/298
 
 ## [v26.22.0](https://github.com/valkyrjaio/.github/compare/v26.21.0...v26.22.0) - 2026-08-02
 
