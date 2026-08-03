@@ -1,0 +1,146 @@
+name: Run Script
+description: Runs one script from this repository's .github/ci/scripts against the calling repository
+
+# A building block for the workflows in this repository, not something a repository calls directly.
+# A repository calls the named check that wraps this action, so the check carries a name that says
+# what it checks, and so the script's environment contract stays inside this repository.
+#
+# The action reads its own scripts through `github.action_path`, so it finds them wherever the
+# calling workflow checked this repository out. That checkout must happen first: an action cannot
+# fetch the files it is itself made of.
+
+inputs:
+  script:
+    description: >
+      File name of the script to run, within `.github/ci/scripts/`. A name only — a path separator
+      is rejected, so a caller cannot reach outside that directory.
+    required: true
+  expected-ref:
+    description: >
+      The commit this repository was checked out at, which is `job.workflow_sha` in the calling
+      workflow. The action fails unless the checkout it runs from is that commit, so a workflow
+      cannot run a script from a commit its caller never pinned.
+    required: true
+  env:
+    description: >
+      Environment the script reads, as `KEY=VALUE` lines, one per line. A value is read to the end
+      of its line, so a value cannot hold a newline. A key must be a valid shell name.
+    required: false
+    default: ''
+
+outputs:
+  outcome:
+    description: '`success` when the script exited 0, and `failure` when it did not'
+    value: ${{ steps.run.outputs.outcome }}
+  report:
+    description: 'Everything the script wrote, on stdout and on stderr'
+    value: ${{ steps.run.outputs.report }}
+  report-markdown:
+    description: >
+      The same report inside a fenced code block. A script writes its own remediation text, so a
+      caller posts this rather than rebuilding the message in a workflow expression.
+    value: ${{ steps.run.outputs.report-markdown }}
+
+runs:
+  using: composite
+
+  steps:
+    # `uses: ...@<sha>` pins a workflow file, and it pins nothing else. The calling workflow checks
+    # this repository out at `job.workflow_sha` and passes that commit here, and this step proves
+    # the checkout is the commit that was asked for.
+    #
+    # Warning: an expression that names a property no context holds evaluates to an empty string,
+    # and it raises no error. `actions/checkout` reads an empty `ref` as the default branch, so a
+    # caller with a wrong property name would run a script from that branch and still report
+    # success. An empty value fails here for that reason.
+    - name: Verify the CI scripts are pinned
+      shell: bash
+      env:
+        EXPECTED: ${{ inputs.expected-ref }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        if [[ -z "$EXPECTED" ]]; then
+          echo 'No expected ref was given, so the scripts cannot be shown to be pinned.'
+          echo 'A caller passes `job.workflow_sha`. An empty value means the property is wrong.'
+          exit 1
+        fi
+
+        ACTUAL="$(git -C "$ACTION_PATH" rev-parse HEAD)"
+
+        if [[ "$ACTUAL" != "$EXPECTED" ]]; then
+          printf 'The CI scripts came from %s, and the workflow pinned %s.\n' "$ACTUAL" "$EXPECTED"
+          echo 'A script that is not the pinned one must not run, so this stops here.'
+          exit 1
+        fi
+
+        printf 'The CI scripts are pinned to %s.\n' "$ACTUAL"
+
+    - name: Export the script environment
+      shell: bash
+      env:
+        SCRIPT_ENV: ${{ inputs.env }}
+      run: |
+        # Each line becomes an environment variable for the run step. The key is checked first,
+        # because `GITHUB_ENV` takes whatever it is given, and a malformed key would define a
+        # variable no script can read, or shadow one the runner set.
+        while IFS= read -r LINE; do
+          [[ -z "$LINE" ]] && continue
+
+          KEY="${LINE%%=*}"
+
+          case "$KEY" in
+            "$LINE") echo "Not a KEY=VALUE line: $LINE" >&2; exit 1 ;;
+            ''|[0-9]*|*[!A-Za-z0-9_]*) echo "Not a shell name: $KEY" >&2; exit 1 ;;
+            *) ;;
+          esac
+
+          printf '%s\n' "$LINE" >> "$GITHUB_ENV"
+        done <<< "$SCRIPT_ENV"
+
+    - name: Run the script
+      id: run
+      shell: bash
+      env:
+        SCRIPT: ${{ inputs.script }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        # A name only. A separator would let a caller run a file outside the scripts directory.
+        case "$SCRIPT" in
+          */*|'.'|'..'|'') echo "Not a script name: $SCRIPT" >&2; exit 1 ;;
+          *) ;;
+        esac
+
+        SCRIPT_PATH="$ACTION_PATH/../../ci/scripts/$SCRIPT"
+
+        if [[ ! -x "$SCRIPT_PATH" ]]; then
+          echo "No executable script at $SCRIPT_PATH." >&2
+          echo 'A script lives in `.github/ci/scripts/`, and it carries the executable bit.' >&2
+          exit 1
+        fi
+
+        set +e
+        OUTPUT=$("$SCRIPT_PATH" 2>&1)
+        STATUS=$?
+        set -e
+
+        printf '%s\n' "$OUTPUT"
+
+        # The outputs are written before the step fails, so a later step can read the report of a
+        # run that did not pass. That is why a caller marks this step `continue-on-error`.
+        if [[ "$STATUS" -eq 0 ]]; then
+          printf 'outcome=success\n' >> "$GITHUB_OUTPUT"
+        else
+          printf 'outcome=failure\n' >> "$GITHUB_OUTPUT"
+        fi
+
+        {
+          echo 'report<<RUN_SCRIPT_EOF'
+          printf '%s\n' "$OUTPUT"
+          echo 'RUN_SCRIPT_EOF'
+
+          echo 'report-markdown<<RUN_SCRIPT_EOF'
+          printf '```\n%s\n```\n' "$OUTPUT"
+          echo 'RUN_SCRIPT_EOF'
+        } >> "$GITHUB_OUTPUT"
+
+        exit "$STATUS"

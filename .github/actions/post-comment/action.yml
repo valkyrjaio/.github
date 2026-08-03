@@ -1,0 +1,93 @@
+name: Post Comment
+description: Keeps one comment per marker on a pull request
+
+# A building block for the workflows in this repository, not something a repository calls directly.
+# Twelve workflows held their own copy of this logic, so a correction to it needed twelve identical
+# edits, and any one of them could be missed without a failure to show it.
+#
+# Post and remove are not two modes. The action always removes the comment that carries the marker,
+# and it then posts a new one only when it is given a body. An empty body therefore means "clear
+# it", which is what a check does when it starts passing again.
+
+inputs:
+  marker:
+    description: >
+      Identifies the comment this action owns, for example `copyright-header-check`. It is written
+      into an HTML comment in the body, which is how a later run finds the comment it wrote before.
+      One marker per check.
+    required: true
+  body:
+    description: >
+      Markdown to post. Leave it empty to remove the comment and post nothing, which is how a check
+      clears its own report once it passes.
+    required: false
+    default: ''
+  app-id:
+    description: 'App ID of the GitHub App that mints the token this action uses'
+    required: true
+  private-key:
+    description: 'Private key of the GitHub App that mints the token this action uses'
+    required: true
+  pr-number:
+    description: 'Pull request to comment on. Leave empty to use the one the event carries.'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+
+  steps:
+    - name: Generate a token
+      id: generate-token
+      uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+
+    - name: Keep one comment for the marker
+      shell: bash
+      env:
+        GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        GH_REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ inputs.pr-number || github.event.pull_request.number }}
+        MARKER: ${{ inputs.marker }}
+        BODY: ${{ inputs.body }}
+      run: |
+        if [[ -z "$PR_NUMBER" ]]; then
+          echo 'No pull request number, so there is nothing to comment on.'
+          exit 0
+        fi
+
+        TAG="<!-- workflow-id: $MARKER -->"
+
+        # Remove first, then post. A run that now passes removes its old report and stops, and a
+        # run that still fails replaces the report rather than adding a second one.
+        #
+        # Warning: remove EVERY marked comment, not the first one. Two runs racing on a double push
+        # each leave a marked comment, and deleting one of them leaves the other on the pull
+        # request forever.
+        #
+        # Warning: `--paginate` is required. The API returns 30 comments per page, so a marked
+        # comment on a busy pull request sits past the first page and is never found without it.
+        COMMENT_IDS=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+          --jq ".[] | select(.body | contains(\"$TAG\")) | .id")
+
+        # Warning: never let a failed delete end the step. The same race puts one comment id in
+        # both runs' lists, so whichever run deletes second gets HTTP 404 and `gh` exits 1. The
+        # runner's shell is `bash -e`, which would end the step on that status — a check that
+        # passed would go red, or a failing check would never reach the comment it must post.
+        # Comment housekeeping must never decide the job result, so report and continue.
+        for COMMENT_ID in $COMMENT_IDS; do
+          gh api --method DELETE "repos/$GH_REPO/issues/comments/$COMMENT_ID" \
+            && echo "Removed a previous $MARKER comment." \
+            || echo "Comment $COMMENT_ID is already gone. A concurrent run deleted it."
+        done
+
+        if [[ -z "$BODY" ]]; then
+          echo "No body given, so no $MARKER comment was posted."
+          exit 0
+        fi
+
+        printf '%s\n\n%s\n' "$BODY" "$TAG" > comment.md
+        gh pr comment "$PR_NUMBER" --body-file comment.md
+        echo "Posted the $MARKER comment."
