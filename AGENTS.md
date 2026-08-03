@@ -16,7 +16,19 @@ applies.
 It governs the parts that **do** apply here: the `[Root] type:` commit / PR-title
 format, the branch → commit → push → open-PR workflow (with confirmation before
 each write action), the current-working-branch policy (`.github` uses `26.x`),
-trailing newlines, and American English.
+trailing newlines, American English, and the **shell script conventions**.
+
+That last one carries the most weight in this repo, because this repo holds more
+shell than any other. `.github/ci/scripts/` is where the work of a check lives,
+and the canonical guide states how a script is written: `[[ ]]` rather than
+`[ ]`, a default branch on every `case`, `lower_case` for a local, an array
+rather than a string for a list of arguments, and a reason on every suppression.
+
+Warning: SonarCloud and `shellcheck` both read a `.sh` file, and neither reads a
+`run:` block. A rule above goes unenforced while the shell sits inline in a
+workflow, so moving the shell into a script is what puts it under a linter. See
+[Scripts](.github/workflows/README.md#scripts) for how a workflow reaches one,
+and for the `set` line each kind of caller needs.
 
 ## What does NOT apply
 
