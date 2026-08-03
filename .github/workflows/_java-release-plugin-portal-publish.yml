@@ -1,4 +1,4 @@
-name: Z Reusable Java Release Gradle Plugin Portal Publish
+name: Z Reusable Java Release Plugin Portal Publish
 
 # Publishes a Gradle plugin to the Gradle Plugin Portal.
 #

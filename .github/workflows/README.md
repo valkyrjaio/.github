@@ -68,6 +68,7 @@ regardless of need.
 | ----------------------------------------- | ---------------------------------------------------- |
 | `_claude-review.yml`                      | `VALKYRJA_GHA_*` and `CLAUDE_CODE_OAUTH_TOKEN`       |
 | `_java-release-maven-publish.yml`         | `MAVEN_CENTRAL_*` and `MAVEN_SIGNING_KEY*`           |
+| `_java-release-plugin-portal-publish.yml` | `GRADLE_PUBLISH_KEY` and `GRADLE_PUBLISH_SECRET`     |
 | `_python-release-pypi-publish.yml`        | `PYPI_API_TOKEN`                                     |
 | `_<lang>-check-outdated-dependencies.yml` | none — omit the `secrets:` key                       |
 | `_ts-release-npm-publish.yml`             | none — omit the `secrets:` key                       |
@@ -317,12 +318,21 @@ language's info file (`_update-<lang>-info-files`). These orchestrators end at
 orchestrators. Each language repo wires the appropriate one into its own release
 workflow (typically triggered on release publish):
 
-| Language   | Publish workflow                          | Credentials                              |
-| ---------- | ----------------------------------------- | ---------------------------------------- |
-| PHP        | — (released via tag; no publish workflow) | none                                     |
-| Java       | `_java-release-maven-publish.yml`         | `MAVEN_CENTRAL_*`, `MAVEN_SIGNING_KEY*`  |
-| Python     | `_python-release-pypi-publish.yml`        | `PYPI_API_TOKEN`                         |
-| TypeScript | `_ts-release-npm-publish.yml`             | npm trusted publishing (OIDC), no secret |
+| Language   | Publish workflow                          | Credentials                                   |
+| ---------- | ----------------------------------------- | --------------------------------------------- |
+| PHP        | — (released via tag; no publish workflow) | none                                          |
+| Java       | `_java-release-maven-publish.yml`         | `MAVEN_CENTRAL_*`, `MAVEN_SIGNING_KEY*`       |
+| Java       | `_java-release-plugin-portal-publish.yml` | `GRADLE_PUBLISH_KEY`, `GRADLE_PUBLISH_SECRET` |
+| Python     | `_python-release-pypi-publish.yml`        | `PYPI_API_TOKEN`                              |
+| TypeScript | `_ts-release-npm-publish.yml`             | npm trusted publishing (OIDC), no secret      |
+
+Java has two publish workflows, and a repository that publishes a Gradle plugin
+calls both. Maven Central receives the jar, which a
+`buildscript { classpath(...) }` consumer and a dependency scanner resolve. The
+Gradle Plugin Portal receives the plugin marker and the jar, and it is Gradle's
+default plugin repository, so a consuming build resolves the plugin with no
+`pluginManagement` block. A repository that publishes no plugin calls the Maven
+Central workflow alone.
 
 ---
 
@@ -1303,6 +1313,7 @@ reusable workflows (leading `_`) are `workflow_call` only.
 | `_version-branch.yml`                             | Create branch, rewrite `README`/`CHANGELOG`/`VERSION`, set default, bump `LATEST_MAJOR_VERSION`               |
 | `_{php,java,python,ts}-create-release.yml`        | Per-language release orchestrators (outdated check → version → info files → release). Publishing is separate. |
 | `_java-release-maven-publish.yml`                 | Publish Java artifacts to Maven Central (`MAVEN_*` secrets)                                                   |
+| `_java-release-plugin-portal-publish.yml`         | Publish a Java Gradle plugin to the Gradle Plugin Portal (`GRADLE_PUBLISH_*` secrets)                         |
 | `_python-release-pypi-publish.yml`                | Publish Python package to PyPI (`PYPI_API_TOKEN`)                                                             |
 | `_ts-release-npm-publish.yml`                     | Publish TypeScript package to npm (trusted publishing, no token)                                              |
 | `_wait-for-package-availability.yml`              | Hold the release open until the registry serves the published version                                         |
