@@ -13,6 +13,7 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 - [Release Process](#release-process)
 - [Version Branches](#version-branches)
 - [Workflow Reference Pinning](#workflow-reference-pinning)
+- [Composite Actions](#composite-actions)
 - [Repository Enforcement](#repository-enforcement)
 - [Rulesets](#rulesets)
 - [Commit Message Rules](#commit-message-rules)
@@ -374,6 +375,58 @@ Behavior:
 
 Run **Actions → Update .github Workflow References → workflow_dispatch** at any
 time to force a refresh across all repos.
+
+---
+
+## Composite Actions
+
+`.github/actions/` holds the building blocks a check is assembled from. A check is a **job**, and a
+building block is a **step**, which is why these are actions rather than reusable workflows. A
+reusable workflow adds a job, and a job adds a segment to the check name that consumers see and that
+rulesets pin. A composite action adds a step to the job that already exists, so the check keeps its
+name however the work inside it is arranged.
+
+| Action                         | Purpose                                                              |
+| ------------------------------ | -------------------------------------------------------------------- |
+| `.github/actions/run-script`   | Runs one script from `.github/ci/scripts/` and reports what it wrote |
+| `.github/actions/post-comment` | Keeps one comment per marker on a pull request                       |
+
+An action cannot fetch the files it is itself made of, so a workflow checks this repository out
+before it uses one:
+
+```yaml
+- name: Checkout code
+  uses: actions/checkout@<sha>
+
+- name: Checkout the CI actions
+  uses: actions/checkout@<sha>
+  with:
+      repository: valkyrjaio/.github
+      ref: ${{ job.workflow_sha }}
+      path: dot-github
+
+- name: Run the check
+  id: check
+  continue-on-error: true
+  uses: ./dot-github/.github/actions/run-script
+  with:
+      script: trailing-newline-check.sh
+      expected-ref: ${{ job.workflow_sha }}
+```
+
+`job.workflow_sha` is the commit the caller pinned, so the actions and the scripts come from the
+same commit as the workflow that names them. Nothing needs a reference bump, and the two can never
+drift.
+
+Warning: the property is `job.workflow_sha`, on the `job` context. `github.job_workflow_sha` does
+not exist, and an expression naming a property no context holds evaluates to an empty string without
+raising an error. `actions/checkout` reads an empty `ref` as the default branch, so the wrong name
+gives a job that runs unpinned code and reports success. `run-script` takes `expected-ref` and
+compares it against the commit it was checked out at, so an empty or wrong value fails the step.
+
+Warning: mark the step that runs a check `continue-on-error: true`, and end the job with a step that
+fails on the outcome. Without it a failing script ends the job before the comment is posted, and the
+report never reaches the pull request.
 
 ---
 

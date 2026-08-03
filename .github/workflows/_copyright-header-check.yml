@@ -4,9 +4,13 @@ name: Z Reusable Copyright Header Check
 # the language it formats. A file in any other language keeps the header a person gives it, and no
 # tool reports that the header is wrong. This check covers every such file.
 #
-# The work itself is not here. `_run-script.yml` runs the script, and `_post-comment.yml` keeps the
-# report on the pull request. This workflow only names the check and wires the two together, so a
-# correction to either building block reaches every check that uses it.
+# The work is not here. The `run-script` action runs the script and reports what it wrote, and the
+# `post-comment` action keeps that report on the pull request. This workflow names the check and
+# wires the two together, so a correction to either building block reaches every check at once.
+#
+# Both actions live in this repository, and an action cannot fetch the files it is itself made of.
+# The job therefore checks this repository out at `job.workflow_sha` first, which is the commit the
+# caller pinned, and reaches the actions through that checkout.
 
 on:
   workflow_call:
@@ -32,24 +36,54 @@ on:
 jobs:
   check:
     name: Check Copyright Header
-    # A relative path resolves to the same commit as this workflow, so the script this runs can
-    # never drift from the workflow that runs it, and no reference needs a bump.
-    uses: ./.github/workflows/_run-script.yml
-    with:
-      script: copyright-header-check.sh
-      env: |
-        CONFIG_PATH=${{ inputs.config-path }}
 
-  # `always()` runs this after a passing check as well as a failing one. A passing check posts no
-  # body, which removes the report it left on an earlier run.
-  comment:
-    name: Report
-    needs: check
-    if: always() && inputs.post-pr-comment && github.event.pull_request.number
-    uses: ./.github/workflows/_post-comment.yml
-    with:
-      marker: copyright-header-check
-      body: ${{ needs.check.outputs.outcome == 'failure' && needs.check.outputs.report-markdown || '' }}
-    secrets:
-      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
-      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Checkout the CI actions
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          repository: valkyrjaio/.github
+          ref: ${{ job.workflow_sha }}
+          path: dot-github
+
+      # `continue-on-error` keeps a failing script from ending the job here, so the report reaches
+      # the comment below. The last step decides the result of the job.
+      - name: Run the check
+        id: check
+        continue-on-error: true
+        uses: ./dot-github/.github/actions/run-script
+        with:
+          script: copyright-header-check.sh
+          expected-ref: ${{ job.workflow_sha }}
+          env: |
+            CONFIG_PATH=${{ inputs.config-path }}
+
+      # A passing check posts no body, which removes the report an earlier run left behind. The
+      # body is empty unless the script itself reported a failure, so a fault before the script ran
+      # cannot post a report that names no file.
+      - name: Report the result on the pull request
+        if: always() && inputs.post-pr-comment && github.event.pull_request.number
+        uses: ./dot-github/.github/actions/post-comment
+        with:
+          marker: copyright-header-check
+          body: ${{ steps.check.outputs.outcome == 'failure' && steps.check.outputs.report-markdown || '' }}
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+      - name: Fail when the check failed
+        if: always()
+        env:
+          OUTCOME: ${{ steps.check.outputs.outcome }}
+        run: |
+          if [[ "$OUTCOME" != 'success' ]]; then
+            echo 'The check reported a failure. Its output is above, and on the pull request.'
+            exit 1
+          fi
