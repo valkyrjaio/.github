@@ -59,6 +59,7 @@ Package Identifier Resolution
 | `ci-phpcsfixer-php`         | `Valkyrja PHP CS Fixer`     |
 | `ci-phparkitect-php`        | `Valkyrja PHPArkitect`      |
 | `ci-phpcodesniffer-php`     | `Valkyrja PHP Code Sniffer` |
+| `ci-golangcilint-go`        | `Valkyrja golangci-lint`    |
 
 The table lists each repository that exists now. A new repository takes its
 identifier from the [Pattern Rules](#pattern-rules) section. Add a row to the
@@ -105,10 +106,12 @@ runtime.
 
 `{Tool}` is the tool's official name, preserving its capitalization and
 spacing convention (`PHPStan` without a space, `PHP CS Fixer` with
-spaces). These packages ship the rules, the configurations, the custom
-expressions, the helper classes, and the reusable workflows that run the
-tool. The rules encode Valkyrja's own conventions, so each package is
-Valkyrja-native and takes the prefix.
+spaces, `golangci-lint` in lower case). A tool whose own name is lower
+case keeps it, so `Valkyrja golangci-lint` is correct and is not a
+mistake to correct. These packages ship the rules, the configurations,
+the custom expressions, the helper classes, and the reusable workflows
+that run the tool. The rules encode Valkyrja's own conventions, so each
+package is Valkyrja-native and takes the prefix.
 
 **6. Standalone application (`sindri-{lang}`)** → `Sindri`
 
