@@ -14,7 +14,9 @@
 # writes the outcome for the job that reads it.
 #
 # Reads GH_TOKEN, GH_REPO, PR_NUMBER, APP_SLUG, VERDICT, SUMMARY, BLOCKING,
-# ADVISORY, REQUEST_CHANGES, and GITHUB_OUTPUT from the environment.
+# ADVISORY, REQUEST_CHANGES, GITHUB_OUTPUT, and GITHUB_STEP_SUMMARY from the
+# environment. It writes the verdict to GITHUB_OUTPUT, and the report a person
+# reads to GITHUB_STEP_SUMMARY.
 #
 # Usage:
 #
