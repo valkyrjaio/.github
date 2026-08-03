@@ -16,6 +16,7 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 - [Composite Actions](#composite-actions)
 - [Repository Enforcement](#repository-enforcement)
 - [Rulesets](#rulesets)
+- [Changing a Required Check Name](#changing-a-required-check-name)
 - [Commit Message Rules](#commit-message-rules)
 - [Trailing Newline Check](#trailing-newline-check)
 - [Markdown Check](#markdown-check)
@@ -520,6 +521,53 @@ All rulesets allow bypass for:
 
 - `OrganizationAdmin` (always)
 - Integration ID `2462900` (the Valkyrja GitHub App — always)
+
+---
+
+## Changing a Required Check Name
+
+A check name is a public contract. `rulesets/Required Default PR Checks.json` and each
+`rulesets/<lang>/*.json` pin a check by its **exact** name, and a required check that never reports
+leaves a pull request pending for good. Renaming a check therefore stops every repository merging
+until the ruleset agrees again.
+
+### How a name is built
+
+A check name is every job name down the call chain, joined by `/`. A repository's `ci.yml` names a
+job, the reusable workflow it calls names another, and so on:
+
+```
+CI  /  Trailing Newline Check  /  Check Trailing Newline
+^      ^                          ^
+|      ci.yml job name            job name in _trailing-newline-check.yml
+workflow name
+```
+
+**Every reusable workflow in the chain adds a segment**, because a reusable workflow is a job. That
+is why a building block belongs in [`.github/actions/`](#composite-actions) rather than in a
+reusable workflow: a composite action is a step, so it adds no segment, and a check keeps its name
+however the work inside it is arranged. Prefer that over a rename.
+
+### The procedure, when a name must change
+
+A consumer repository pins this repository by SHA, so a rename reaches a repository only when its
+reference is bumped. No single ruleset state suits every repository while that is in progress, which
+is why the ruleset is applied last:
+
+1. Open a pull request that changes the context in the ruleset JSON to the new name. Merge it. The
+   file is declarative, so nothing changes yet.
+2. Open a pull request that changes the workflow. Merge it.
+3. Release this repository.
+4. Let the reference bump reach every repository, and merge those pull requests.
+5. Only now run `enforce-repo-settings.yml`, which applies the ruleset.
+6. Rebase every open pull request, so each one runs the workflow that reports the new name.
+
+Warning: never run `enforce-repo-settings.yml` between step 1 and step 4. The ruleset would require a
+name that no repository reports yet, and every pull request in the organization would block.
+
+Warning: a repository must already run the job before the ruleset reaches it. Adding a context for a
+check a repository does not have blocks that repository as surely as a rename does. Roll the check
+out first, and require it afterwards.
 
 ---
 
