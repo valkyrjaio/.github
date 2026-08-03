@@ -447,19 +447,19 @@ The JSON structure follows the GitHub Rulesets REST API response format. The
 Stored in `rulesets/` (org-wide) and `rulesets/<lang>/` (language-specific) and
 auto-applied by enforce and create-repo.
 
-| File                                                      | Scope        | Purpose                                                                                 |
-| --------------------------------------------------------- | ------------ | --------------------------------------------------------------------------------------- |
-| `rulesets/Protect Against Force Pushes and Deletion.json` | All repos    | Prevents force pushes and deletion on version branches (`??.x`)                         |
-| `rulesets/Protect Master At All Times.json`               | All repos    | Prevents force pushes and deletion on `master`                                          |
-| `rulesets/Protect Release Tags.json`                      | All repos    | Prevents deletion or non-fast-forward of `*.*.*` tags                                   |
-| `rulesets/Require Pull Request.json`                      | All repos    | Requires squash-merge PRs with code-owner review on `master`/`??.x`                     |
-| `rulesets/Required Default PR Checks.json`                | All repos    | Requires `Commit Message Check`, `Markdown Check`, and `Trailing Newline Check` to pass |
-| `rulesets/Restrict Changes to Unsupported Branches.json`  | All repos    | Locks backup branches (`*-backup`) against all changes                                  |
-| `rulesets/php/Required PHP PR Checks.json`                | PHP repos    | Requires PHP CS Fixer, PHPCS, PHPArkitect, PHPStan, PHPUnit (8.4–8.6), Psalm, Rector    |
-| `rulesets/java/Required Java PR Checks.json`              | Java repos   | Requires Spotless, ArchUnit, Error Prone, SpotBugs, JUnit                               |
-| `rulesets/python/Required Python PR Checks.json`          | Python repos | Requires Ruff, mypy, import-linter, Bandit, pytest                                      |
-| `rulesets/ts/Required TypeScript PR Checks.json`          | TS repos     | Requires ESLint, TypeScript (`tsc`), Vitest, Prettier                                   |
-| `rulesets/go/Required Go PR Checks.json`                  | Go repos     | Requires golangci-lint, go test                                                         |
+| File                                                      | Scope        | Purpose                                                                                                           |
+| --------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `rulesets/Protect Against Force Pushes and Deletion.json` | All repos    | Prevents force pushes and deletion on version branches (`??.x`)                                                   |
+| `rulesets/Protect Master At All Times.json`               | All repos    | Prevents force pushes and deletion on `master`                                                                    |
+| `rulesets/Protect Release Tags.json`                      | All repos    | Prevents deletion or non-fast-forward of `*.*.*` tags                                                             |
+| `rulesets/Require Pull Request.json`                      | All repos    | Requires squash-merge PRs with code-owner review on `master`/`??.x`                                               |
+| `rulesets/Required Default PR Checks.json`                | All repos    | Requires `Commit Message Check`, `Copyright Header Check`, `Markdown Check`, and `Trailing Newline Check` to pass |
+| `rulesets/Restrict Changes to Unsupported Branches.json`  | All repos    | Locks backup branches (`*-backup`) against all changes                                                            |
+| `rulesets/php/Required PHP PR Checks.json`                | PHP repos    | Requires PHP CS Fixer, PHPCS, PHPArkitect, PHPStan, PHPUnit (8.4–8.6), Psalm, Rector                              |
+| `rulesets/java/Required Java PR Checks.json`              | Java repos   | Requires Spotless, ArchUnit, Error Prone, SpotBugs, JUnit                                                         |
+| `rulesets/python/Required Python PR Checks.json`          | Python repos | Requires Ruff, mypy, import-linter, Bandit, pytest                                                                |
+| `rulesets/ts/Required TypeScript PR Checks.json`          | TS repos     | Requires ESLint, TypeScript (`tsc`), Vitest, Prettier                                                             |
+| `rulesets/go/Required Go PR Checks.json`                  | Go repos     | Requires golangci-lint, go test                                                                                   |
 
 ### Bypass actors
 
