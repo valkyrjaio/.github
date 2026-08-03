@@ -52,6 +52,7 @@ jobs:
       # would learn of the next rule only after fixing this one.
       - name: Check Root And Type
         id: check-commit-type
+        if: github.actor != 'dependabot[bot]' && !startsWith(github.event.pull_request.title, 'Revert "')
         continue-on-error: true
         uses: gsactions/commit-message-checker@16fa2d5de096ae0d35626443bcd24f1e756cafee # v2.0.0
         with:
@@ -64,6 +65,7 @@ jobs:
 
       - name: Check No Trailing Period on PR Title
         id: check-no-trailing-period-title
+        if: github.actor != 'dependabot[bot]' && !startsWith(github.event.pull_request.title, 'Revert "')
         continue-on-error: true
         uses: gsactions/commit-message-checker@16fa2d5de096ae0d35626443bcd24f1e756cafee # v2.0.0
         with:
@@ -73,15 +75,20 @@ jobs:
 
       - name: Check Line Length
         id: check-line-length
+        if: '!startsWith(github.event.pull_request.title, ''Revert "'')'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: dot-github/.github/ci/scripts/commit-message-line-length.sh
+        uses: ./dot-github/.github/actions/run-script
+        with:
+          script: commit-message-line-length.sh
+          expected-ref: ${{ job.workflow_sha }}
 
       - name: Check Period at end
         id: check-period-at-end
+        if: github.actor != 'dependabot[bot]' && !startsWith(github.event.pull_request.title, 'Revert "')
         continue-on-error: true
         uses: gsactions/commit-message-checker@16fa2d5de096ae0d35626443bcd24f1e756cafee # v2.0.0
         with:
