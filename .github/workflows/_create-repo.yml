@@ -211,51 +211,13 @@ jobs:
           git push
 
       # This step runs after the copyright header commit, so master carries the repository's own
-      # package identifier rather than the template's. No ruleset blocks the creation itself: only
-      # `Restrict Changes to Unsupported Branches` holds a `creation` rule, and it targets the
-      # `*-backup` branches.
+      # package identifier rather than the template's. The script records why, and what it skips.
       - name: Create the master branch
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           ORG: ${{ github.repository_owner }}
           REPO_NAME: ${{ inputs.name }}
-        run: |
-          # `gh repo create --template` copies the template's default branch and nothing else, so a
-          # new repository starts with `26.x` alone. Every other repository in the organization
-          # also holds `master`, and three workflows this repository ships require it:
-          # `rebase-to-master`, `rebase-from-master`, and `create-version-branch`, which is how the
-          # next year's version branch gets cut. A repository without `master` fails all three, and
-          # the failure appears a year later rather than at creation.
-          #
-          # `--include-all-branches` is the other way to fix this, and it takes too much. It copies
-          # `master-backup`, which is a transient artifact of the rebase tooling, and it copies
-          # whatever working branches the template happens to hold that day. This creates the one
-          # branch that is wanted.
-          DEFAULT_BRANCH=$(gh api "repos/$ORG/$REPO_NAME" --jq '.default_branch')
-
-          if [ "$DEFAULT_BRANCH" = 'master' ]; then
-            echo "The default branch is already master; nothing to create."
-            exit 0
-          fi
-
-          # A repository created without a template holds no commit, so it has no branch to copy
-          # master from. `gh repo create` leaves it empty, and the first push creates its default
-          # branch.
-          if ! SHA=$(gh api "repos/$ORG/$REPO_NAME/git/ref/heads/$DEFAULT_BRANCH" --jq '.object.sha' 2>/dev/null); then
-            echo "No $DEFAULT_BRANCH branch yet, so the repository holds no commit; skipping master."
-            exit 0
-          fi
-
-          if gh api "repos/$ORG/$REPO_NAME/git/ref/heads/master" --silent 2>/dev/null; then
-            echo "master already exists; leaving it alone."
-            exit 0
-          fi
-
-          gh api --method POST "repos/$ORG/$REPO_NAME/git/refs" \
-            -f ref='refs/heads/master' \
-            -f sha="$SHA" > /dev/null
-
-          echo "Created master at $SHA, matching $DEFAULT_BRANCH."
+        run: .github/ci/scripts/create-master-branch.sh
 
       - name: Apply branch rulesets
         env:
