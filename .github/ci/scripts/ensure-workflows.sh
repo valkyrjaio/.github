@@ -37,6 +37,11 @@
 # `run-script` invokes sets `pipefail` and this one does not.
 set -e
 
+# The script names a sibling file below, and the caller runs it from the workspace root
+# rather than from this directory. `BASH_SOURCE` is what makes the sibling reachable from
+# either one.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
 LATEST_TAG=$(gh api "repos/$ORG/.github/releases/latest" --jq '.tag_name')
 LATEST_SHA=$(gh api "repos/$ORG/.github/commits/$LATEST_TAG" --jq '.sha')
 echo "Latest .github release: $LATEST_TAG ($LATEST_SHA)"
@@ -59,64 +64,6 @@ LANG_WORKFLOWS=(
 )
 
 PHP_EXCLUDED_REPOS="valkyrja-benchmarking-php valkyrja-docker-php"
-
-cat > /tmp/merge_ci_jobs.py << 'PYEOF'
-import re, sys
-
-existing = open(sys.argv[1]).read()
-template = open(sys.argv[2]).read()
-
-def get_job_ids_ordered(content):
-    return re.findall(r'^\s{2}([a-zA-Z][a-zA-Z0-9_-]*):\s*$', content, re.MULTILINE)
-
-def get_job_block(content, job_id):
-    pattern = rf'(  {re.escape(job_id)}:.*?)(?=\n\n  [a-zA-Z]|\Z)'
-    m = re.search(pattern, content, re.DOTALL)
-    return m.group(1) if m else None
-
-existing_jobs_ordered = get_job_ids_ordered(existing)
-existing_jobs = set(existing_jobs_ordered)
-template_job_order = get_job_ids_ordered(template)
-missing = [j for j in template_job_order if j not in existing_jobs]
-
-if not missing:
-    sys.exit(1)
-
-if not existing_jobs:
-    sys.stdout.write(template if template.endswith('\n') else template + '\n')
-    sys.exit(0)
-
-result = existing.rstrip('\n')
-
-for job_id in missing:
-    block = get_job_block(template, job_id)
-    if not block:
-        continue
-
-    job_pos = template_job_order.index(job_id)
-
-    # Find the last existing job that precedes this one in the template order
-    predecessor = None
-    for i in range(job_pos - 1, -1, -1):
-        if template_job_order[i] in existing_jobs:
-            predecessor = template_job_order[i]
-            break
-
-    if predecessor:
-        pred_pattern = rf'(  {re.escape(predecessor)}:.*?)(\n\n  [a-zA-Z]|\n*\Z)'
-        insertion = r'\1' + '\n\n' + block.rstrip('\n') + r'\2'
-        result = re.sub(pred_pattern, insertion, result, count=1, flags=re.DOTALL)
-    else:
-        jobs_start = re.search(r'^jobs:\s*\n', result, re.MULTILINE)
-        if jobs_start:
-            pos = jobs_start.end()
-            result = result[:pos] + block.rstrip('\n') + '\n\n' + result[pos:]
-
-    existing_jobs.add(job_id)
-
-result += '\n'
-sys.stdout.write(result)
-PYEOF
 
 # The .github repo excludes itself on purpose. Its own callers use local
 # `./` refs, so a synced template pinned to a release SHA would be wrong
@@ -251,7 +198,7 @@ ensure_ci_jobs() {
   printf '%s\n' "$tmpl_with_sha" > /tmp/ci_template.yml
 
   local updated_content
-  if ! updated_content=$(python3 /tmp/merge_ci_jobs.py /tmp/ci_existing.yml /tmp/ci_template.yml 2>/dev/null); then
+  if ! updated_content=$(python3 "$SCRIPT_DIR/merge_ci_jobs.py" /tmp/ci_existing.yml /tmp/ci_template.yml 2>/dev/null); then
     echo "  [$base_branch] $file_path: all required jobs present"
     return 0
   fi
