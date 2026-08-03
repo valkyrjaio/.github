@@ -116,16 +116,22 @@ UNCHANGED=0
 while IFS= read -r FILE; do
     [[ -n "$FILE" ]] || continue
 
-    TMP="$(mktemp)"
-    sed "s|$MATCH|$REPLACE|g" "$FILE" > "$TMP"
+    # Warning: write through the file, and never move a temporary one over it. `mktemp` makes a
+    # file with mode 600, and `mv` carries that mode onto the template. Git records only the
+    # executable bit, so a template that is executable would silently lose it, and one that is not
+    # would still end the run readable by its owner alone.
+    #
+    # A command substitution drops trailing newlines, and both sides here lose them equally, so the
+    # comparison is fair. The write then puts back exactly one, which is what the trailing newline
+    # check in this repository requires of every file.
+    UPDATED="$(sed "s|$MATCH|$REPLACE|g" "$FILE")"
 
-    if cmp -s "$FILE" "$TMP"; then
-        rm -f "$TMP"
+    if [[ "$UPDATED" == "$(cat "$FILE")" ]]; then
         UNCHANGED=$((UNCHANGED + 1))
         continue
     fi
 
-    mv "$TMP" "$FILE"
+    printf '%s\n' "$UPDATED" > "$FILE"
     printf 'Updated %s\n' "$FILE"
     CHANGED=$((CHANGED + 1))
 done < <(git ls-files "$TEMPLATE_DIR")
