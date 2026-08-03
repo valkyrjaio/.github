@@ -41,7 +41,13 @@ set -e
 
 shopt -s nullglob
 
-if [ -n "$TARGET_REPO" ]; then
+# The fields a ruleset comparison reads. A ruleset carries more than these, and
+# the extra fields are ones the API sets rather than ones this repository
+# declares, so a comparison that read them would report a difference on every
+# run. Named once, because four calls read the same list.
+RULESET_FIELDS='{name, target, enforcement, conditions, rules, bypass_actors}'
+
+if [[ -n "$TARGET_REPO" ]]; then
   REPOS=$(gh repo list "$ORG" --limit 200 --json name,description,isArchived \
     --jq ".[] | select(.name == \"$TARGET_REPO\") | [.name, (.description // \"\")] | @json")
 else
@@ -61,20 +67,20 @@ fi
 # it.
 apply_labels() {
   local label_dir="$1"
-  local label_file label_json LABEL_NAME LABEL_COLOR LABEL_DESC
+  local label_file label_json label_name label_color label_desc
 
   for label_file in "$label_dir"/*.json; do
     while IFS= read -r label_json; do
-      LABEL_NAME=$(echo "$label_json" | jq -r '.name')
-      LABEL_COLOR=$(echo "$label_json" | jq -r '.color')
-      LABEL_DESC=$(echo "$label_json" | jq -r '.description // ""')
+      label_name=$(echo "$label_json" | jq -r '.name')
+      label_color=$(echo "$label_json" | jq -r '.color')
+      label_desc=$(echo "$label_json" | jq -r '.description // ""')
 
-      if gh label create "$LABEL_NAME" --repo "$ORG/$REPO_NAME" \
-           --color "$LABEL_COLOR" --description "$LABEL_DESC" --force \
+      if gh label create "$label_name" --repo "$ORG/$REPO_NAME" \
+           --color "$label_color" --description "$label_desc" --force \
            > /dev/null 2>&1; then
-        echo "  Label ensured: $LABEL_NAME"
+        echo "  Label ensured: $label_name"
       else
-        echo "  Failed to ensure label: $LABEL_NAME" >&2
+        echo "  Failed to ensure label: $label_name" >&2
         exit 1
       fi
     done < <(jq -c '.[]' "$label_file")
@@ -83,26 +89,26 @@ apply_labels() {
 
 apply_or_update_ruleset() {
   local ruleset_file="$1"
-  local RULESET_NAME
-  RULESET_NAME=$(jq -r '.name' "$ruleset_file")
-  local RULESET_ID
-  RULESET_ID=$(echo "$EXISTING" | jq -r --arg n "$RULESET_NAME" '.[] | select(.name == $n) | .id')
+  local ruleset_name
+  ruleset_name=$(jq -r '.name' "$ruleset_file")
+  local ruleset_id
+  ruleset_id=$(echo "$EXISTING" | jq -r --arg n "$ruleset_name" '.[] | select(.name == $n) | .id')
 
-  if [ -z "$RULESET_ID" ]; then
-    echo "  Applying ruleset: $RULESET_NAME"
-    jq '{name, target, enforcement, conditions, rules, bypass_actors}' "$ruleset_file" \
+  if [[ -z "$ruleset_id" ]]; then
+    echo "  Applying ruleset: $ruleset_name"
+    jq "$RULESET_FIELDS" "$ruleset_file" \
       | gh api --method POST "repos/$ORG/$REPO_NAME/rulesets" --input - > /dev/null
   else
-    local DESIRED CURRENT
-    DESIRED=$(jq -S '{name, target, enforcement, conditions, rules, bypass_actors}' "$ruleset_file")
-    CURRENT=$(gh api "repos/$ORG/$REPO_NAME/rulesets/$RULESET_ID" \
-      --jq '{name, target, enforcement, conditions, rules, bypass_actors}' | jq -S .)
-    if [ "$DESIRED" != "$CURRENT" ]; then
-      echo "  Updating ruleset: $RULESET_NAME"
-      jq '{name, target, enforcement, conditions, rules, bypass_actors}' "$ruleset_file" \
-        | gh api --method PUT "repos/$ORG/$REPO_NAME/rulesets/$RULESET_ID" --input - > /dev/null
+    local desired current
+    desired=$(jq -S "$RULESET_FIELDS" "$ruleset_file")
+    current=$(gh api "repos/$ORG/$REPO_NAME/rulesets/$ruleset_id" \
+      --jq "$RULESET_FIELDS" | jq -S .)
+    if [[ "$desired" != "$current" ]]; then
+      echo "  Updating ruleset: $ruleset_name"
+      jq "$RULESET_FIELDS" "$ruleset_file" \
+        | gh api --method PUT "repos/$ORG/$REPO_NAME/rulesets/$ruleset_id" --input - > /dev/null
     else
-      echo "  Ruleset up to date: $RULESET_NAME"
+      echo "  Ruleset up to date: $ruleset_name"
     fi
   fi
 }
