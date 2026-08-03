@@ -43,17 +43,17 @@ set -e
 # would decide, silently and org-wide, which author's pull requests
 # merge without a human — the one decision that must never be
 # inherited from a workflow file nobody re-reads.
-if [ -z "$BOT_LOGIN" ]; then
+if [[ -z "$BOT_LOGIN" ]]; then
   echo "bot-login is empty. Refusing to merge without an explicit author to match."
   exit 1
 fi
 
-if [ -z "$ENABLED_TYPES" ]; then
+if [[ -z "$ENABLED_TYPES" ]]; then
   echo "types is empty. Refusing to merge without an explicit set of title roots."
   exit 1
 fi
 
-if [ -z "$SUPPORTED_VERSIONS" ]; then
+if [[ -z "$SUPPORTED_VERSIONS" ]]; then
   echo "SUPPORTED_VERSIONS is not set. Refusing to sweep without a version filter."
   exit 1
 fi
@@ -71,7 +71,7 @@ fetch_json() {
   for attempt in 1 2 3; do
     response=$(gh api "$@" 2>/dev/null || true)
 
-    if [ -n "$response" ] && echo "$response" | jq -e . >/dev/null 2>&1; then
+    if [[ -n "$response" ]] && echo "$response" | jq -e . >/dev/null 2>&1; then
       printf '%s' "$response"
       return 0
     fi
@@ -83,15 +83,21 @@ fetch_json() {
 }
 
 type_enabled() {
+  local type="$1"
+
   case ",$ENABLED_TYPES," in
-    *",$1,"*) return 0 ;;
+    *",$type,"*) return 0 ;;
+    *) ;;
   esac
   return 1
 }
 
 repo_excluded() {
+  local repo="$1"
+
   case ",$EXCLUDE_REPOS," in
-    *",$1,"*) return 0 ;;
+    *",$repo,"*) return 0 ;;
+    *) ;;
   esac
   return 1
 }
@@ -124,14 +130,16 @@ path_allowed() {
         build.gradle.kts) return 0 ;;
         pyproject.toml|uv.lock) return 0 ;;
         go.mod|go.sum) return 0 ;;
+        *) ;;
       esac
       ;;
+    *) ;;
   esac
 
   return 1
 }
 
-if [ -n "$SINGLE_REPO" ]; then
+if [[ -n "$SINGLE_REPO" ]]; then
   REPOS="$SINGLE_REPO"
 else
   REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
@@ -151,23 +159,32 @@ ATTENTION_LIST=""
 # chase. A bare `#213` is a number to copy into a search box, so both
 # tables carry the repository and the pull request as links instead.
 repo_link() {
-  printf '[`%s`](https://github.com/%s/%s)' "$1" "$ORG" "$1"
+  local repo="$1"
+
+  # shellcheck disable=SC2016 # The backticks are Markdown, not a command substitution.
+  printf '[`%s`](https://github.com/%s/%s)' "$repo" "$ORG" "$repo"
 }
 
 pr_link() {
-  printf '[#%s](https://github.com/%s/%s/pull/%s)' "$2" "$ORG" "$1" "$2"
+  local repo="$1" number="$2"
+
+  printf '[#%s](https://github.com/%s/%s/pull/%s)' "$number" "$ORG" "$repo" "$number"
 }
 
 note_merged() {
-  MERGED_LIST="$MERGED_LIST"$'\n'"| $(repo_link "$1") | $(pr_link "$1" "$2") | $3 |"
+  local repo="$1" number="$2" note="$3"
+
+  MERGED_LIST="$MERGED_LIST"$'\n'"| $(repo_link "$repo") | $(pr_link "$repo" "$number") | $note |"
 }
 
 note_attention() {
-  ATTENTION_LIST="$ATTENTION_LIST"$'\n'"| $(repo_link "$1") | $(pr_link "$1" "$2") | $3 |"
+  local repo="$1" number="$2" note="$3"
+
+  ATTENTION_LIST="$ATTENTION_LIST"$'\n'"| $(repo_link "$repo") | $(pr_link "$repo" "$number") | $note |"
 }
 
 while IFS= read -r REPO_NAME; do
-  [ -z "$REPO_NAME" ] && continue
+  [[ -z "$REPO_NAME" ]] && continue
 
   if repo_excluded "$REPO_NAME"; then
     echo "$ORG/$REPO_NAME: excluded, skipping."
@@ -179,12 +196,12 @@ while IFS= read -r REPO_NAME; do
     --jq '.[] | select(.author.is_bot == true and .author.login == env.BOT_LOGIN and .isDraft == false) | @json' \
     2>/dev/null || true)
 
-  [ -z "$OPEN_PRS" ] && continue
+  [[ -z "$OPEN_PRS" ]] && continue
 
   echo "$ORG/$REPO_NAME:"
 
   while IFS= read -r PR_JSON; do
-    [ -z "$PR_JSON" ] && continue
+    [[ -z "$PR_JSON" ]] && continue
 
     PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number')
     PR_TITLE=$(echo "$PR_JSON" | jq -r '.title')
@@ -196,7 +213,7 @@ while IFS= read -r REPO_NAME; do
     # shape the repository guarantees rather than one assumed here.
     PR_TYPE=$(echo "$PR_TITLE" | sed -n 's/^\[\([A-Za-z]*\)\].*/\1/p')
 
-    if [ -z "$PR_TYPE" ] || ! type_enabled "$PR_TYPE"; then
+    if [[ -z "$PR_TYPE" ]] || ! type_enabled "$PR_TYPE"; then
       continue
     fi
 
@@ -227,13 +244,13 @@ while IFS= read -r REPO_NAME; do
 
     OFFENDING=""
     while IFS= read -r CHANGED_PATH; do
-      [ -z "$CHANGED_PATH" ] && continue
+      [[ -z "$CHANGED_PATH" ]] && continue
       if ! path_allowed "$PR_TYPE" "$CHANGED_PATH"; then
         OFFENDING="$OFFENDING $CHANGED_PATH"
       fi
     done < <(echo "$CHANGED" | jq -r '.[]?.filename')
 
-    if [ -n "$OFFENDING" ]; then
+    if [[ -n "$OFFENDING" ]]; then
       echo "  #$PR_NUMBER touches paths outside the $PR_TYPE allowlist:$OFFENDING"
       note_attention "$REPO_NAME" "$PR_NUMBER" "Touches \`$(echo "$OFFENDING" | xargs | tr ' ' ',')\`"
       VIOLATIONS=$((VIOLATIONS + 1))
@@ -255,7 +272,7 @@ while IFS= read -r REPO_NAME; do
       | jq -r '[.[]? | select(.type == "required_status_checks")
           | .parameters.required_status_checks[]?.context] | unique | .[]')
 
-    if [ -z "$REQUIRED_CONTEXTS" ]; then
+    if [[ -z "$REQUIRED_CONTEXTS" ]]; then
       echo "  #$PR_NUMBER: $BASE_BRANCH requires no status checks, leaving it alone."
       note_attention "$REPO_NAME" "$PR_NUMBER" "No required status checks on \`$BASE_BRANCH\`"
       BLOCKED=$((BLOCKED + 1))
@@ -267,7 +284,7 @@ while IFS= read -r REPO_NAME; do
       --jq '[.statusCheckRollup[]? | {name: (.name // .context), result: (.conclusion // .state)}]' \
       2>/dev/null || true)
 
-    if [ -z "$ROLLUP" ]; then
+    if [[ -z "$ROLLUP" ]]; then
       echo "  #$PR_NUMBER: no checks reported yet, waiting."
       WAITING=$((WAITING + 1))
       continue
@@ -276,7 +293,7 @@ while IFS= read -r REPO_NAME; do
     PENDING=""
     FAILING=""
     while IFS= read -r CONTEXT; do
-      [ -z "$CONTEXT" ] && continue
+      [[ -z "$CONTEXT" ]] && continue
       RESULT=$(echo "$ROLLUP" | jq -r --arg c "$CONTEXT" \
         '[.[] | select(.name == $c) | .result] | last // "MISSING"')
       case "$RESULT" in
@@ -286,20 +303,20 @@ while IFS= read -r REPO_NAME; do
       esac
     done <<< "$REQUIRED_CONTEXTS"
 
-    if [ -n "$FAILING" ]; then
+    if [[ -n "$FAILING" ]]; then
       echo "  #$PR_NUMBER: required checks failing:$FAILING"
       note_attention "$REPO_NAME" "$PR_NUMBER" "Failing:$FAILING"
       BLOCKED=$((BLOCKED + 1))
       continue
     fi
 
-    if [ -n "$PENDING" ]; then
+    if [[ -n "$PENDING" ]]; then
       echo "  #$PR_NUMBER: waiting on$PENDING"
       WAITING=$((WAITING + 1))
       continue
     fi
 
-    if [ "$DRY_RUN" = "true" ]; then
+    if [[ "$DRY_RUN" = "true" ]]; then
       echo "  [dry run] would merge #$PR_NUMBER — $PR_TITLE"
       note_merged "$REPO_NAME" "$PR_NUMBER" "$PR_TITLE"
       MERGED=$((MERGED + 1))
@@ -312,7 +329,7 @@ while IFS= read -r REPO_NAME; do
     # that cannot merge fails here and is reported.
     MERGE_ERR=$(gh pr merge "$PR_NUMBER" --repo "$ORG/$REPO_NAME" --squash 2>&1 >/dev/null || true)
 
-    if [ -n "$MERGE_ERR" ]; then
+    if [[ -n "$MERGE_ERR" ]]; then
       echo "  #$PR_NUMBER: merge failed: $MERGE_ERR"
       note_attention "$REPO_NAME" "$PR_NUMBER" "Merge failed"
       BLOCKED=$((BLOCKED + 1))
@@ -328,7 +345,7 @@ done <<< "$REPOS"
 {
   echo "### Auto merge bot pull requests"
   echo
-  if [ "$DRY_RUN" = "true" ]; then
+  if [[ "$DRY_RUN" = "true" ]]; then
     echo "Dry run — nothing was merged."
     echo
   fi
@@ -342,7 +359,7 @@ done <<< "$REPOS"
   echo "| Outside the allowlist | $VIOLATIONS |"
   echo "| Errors | $ERRORS |"
 
-  if [ -n "$MERGED_LIST" ]; then
+  if [[ -n "$MERGED_LIST" ]]; then
     echo
     echo "#### Merged"
     echo
@@ -351,7 +368,7 @@ done <<< "$REPOS"
     printf '%s\n' "${MERGED_LIST#$'\n'}"
   fi
 
-  if [ -n "$ATTENTION_LIST" ]; then
+  if [[ -n "$ATTENTION_LIST" ]]; then
     echo
     echo "#### Needs a look"
     echo
@@ -366,7 +383,7 @@ done <<< "$REPOS"
 # over. Checks that merely fail are the gate doing its job, and a
 # transient API error resolves itself on the next run, so neither
 # fails the sweep.
-if [ "$VIOLATIONS" -gt 0 ]; then
+if [[ "$VIOLATIONS" -gt 0 ]]; then
   echo "$VIOLATIONS pull request(s) touched paths outside the allowlist."
   exit 1
 fi
