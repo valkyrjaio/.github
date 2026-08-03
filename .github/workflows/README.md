@@ -486,10 +486,12 @@ reusable workflow adds a job, and a job adds a segment to the check name that co
 rulesets pin. A composite action adds a step to the job that already exists, so the check keeps its
 name however the work inside it is arranged.
 
-| Action                         | Purpose                                                              |
-| ------------------------------ | -------------------------------------------------------------------- |
-| `.github/actions/run-script`   | Runs one script from `.github/ci/scripts/` and reports what it wrote |
-| `.github/actions/post-comment` | Keeps one comment per marker on a pull request                       |
+| Action                                   | Purpose                                                              |
+| ---------------------------------------- | -------------------------------------------------------------------- |
+| `.github/actions/run-script`             | Runs one script from `.github/ci/scripts/` and reports what it wrote |
+| `.github/actions/post-comment`           | Keeps one comment per marker on a pull request                       |
+| `.github/actions/post-review-verdict`    | Submits one review that carries the verdict of a Claude review       |
+| `.github/actions/resolve-review-threads` | Resolves the review threads an earlier automated review left behind  |
 
 An action cannot fetch the files it is itself made of, so a workflow checks this repository out
 before it uses one:
@@ -995,6 +997,73 @@ The `prompt` input overrides the review instructions wholesale; the default asks
 for an independent, defect-hunting review against the guides, inline and
 concrete, with no praise or restatement of the diff.
 
+### The verdict
+
+`anthropics/claude-code-action` writes each finding with `pulls.createReviewComment`, which posts a
+loose review comment. GitHub gathers loose comments into a review of its own, and that review is
+always `COMMENTED` with an empty body. So a review that found a blocking defect and a review that
+found nothing arrive in the same state, and only the prose tells them apart.
+
+The reviewer therefore reports a verdict, and the workflow turns it into a state and a check:
+
+| Verdict             | Review submitted | `Claude Review / Verdict` |
+| :------------------ | :--------------- | :------------------------ |
+| `approved`          | `APPROVE`        | passes                    |
+| `commented`         | `COMMENT`        | passes                    |
+| `changes_requested` | `COMMENT`        | fails                     |
+| `errored`           | `COMMENT`        | fails                     |
+| none                | `COMMENT`        | fails                     |
+
+`--json-schema` in `claude_args` is what carries the verdict back. It fills the action's
+`structured_output`, which the workflow reads with `jq`, so nothing parses the reviewer's prose. The
+body of the review ends with `<!-- claude-review-verdict: <verdict> -->`, which reads the verdict
+back without parsing prose either.
+
+Warning: no verdict is not an approval. A run whose structured output is empty or malformed reports
+`unknown` and fails the check. A contract the reviewer did not meet must never read as a clean
+review.
+
+Two jobs report, and they answer different questions. `Claude Review / Claude Review` says whether
+the review ran, so a broken runner is red there. `Claude Review / Verdict` says what the review
+concluded. Keeping them apart is what lets a person trust a red check: it means a finding, not an
+outage. `fail-on-blocking` turns the second one off, and leaves the review state as the only signal.
+
+`blocking-verdict` submits a `changes_requested` verdict as `REQUEST_CHANGES` rather than `COMMENT`.
+It is off.
+
+Warning: `REQUEST_CHANGES` blocks the merge until the reviewer approves or somebody dismisses the
+review. `rulesets/Require Pull Request.json` turns the pull request rule on, and that rule blocks on
+requested changes even though `required_approving_review_count` is `0` — the count governs approvals,
+not blocks. The rule's only bypass actor is one integration, so an organization admin does not merge
+past it either. A wrong finding would hold the pull request until a person dismissed the review by
+hand. Turn the input on only when that is the behavior that is wanted.
+
+Warning: keep `Claude Review / Verdict` out of `rulesets/`. A review is opt in, so the job does not
+run on a pull request that carries no label, and a required check that never reports blocks the pull
+request for good. See [Changing a Required Check Name](#changing-a-required-check-name).
+
+### Findings that an earlier run left behind
+
+A review runs again on every push. GitHub re-anchors an inline comment onto the new head commit
+rather than retiring it, so a finding the author has already fixed still reads as outstanding,
+against code that no longer exists. Its own `isOutdated` flag does not help: a thread whose diff hunk
+is plainly pre-rebase reports `isOutdated: false`, because the re-anchor is what GitHub considers
+current.
+
+So each run retires the threads of the run before it, and the reviewer states every finding that is
+still outstanding. Each review is then a complete account of the head commit.
+
+The rule needs no judgment from the reviewer. The workflow stamps the time before the review starts,
+and afterwards resolves each unresolved thread where every comment is the reviewer's own and every
+comment predates the stamp. Two threads are left alone by that rule:
+
+- A thread somebody replied to, because it is a live conversation. The reviewer is told to leave
+  that finding to its thread, so the finding is not lost.
+- A thread from this run, because the stamp predates it.
+
+Warning: a run that did not complete resolves nothing. It has not replaced the findings of the run
+before it, so retiring those threads would drop them and put nothing in their place.
+
 ### Adding to a consumer repo
 
 [`required-workflows/claude-review.yml`](../../required-workflows/claude-review.yml)
@@ -1002,7 +1071,8 @@ is a required workflow, so `ensure-workflows.yml` adds it to every repo that is
 missing it via a PR, pinned to the latest `.github` release. A repo that already
 has the file is left alone. It is a standalone entry point rather than a `ci.yml`
 job: a review that comments is not a pass/fail gate and should not sit among the
-required status checks that gate merges.
+required status checks that gate merges. `Claude Review / Verdict` reports a
+result, and it is reported for a reader rather than for a ruleset.
 
 All three conditions are in the reusable workflow, not in the caller. Every
 caller gets them, and a repo cannot spend Claude usage by accident when it wires

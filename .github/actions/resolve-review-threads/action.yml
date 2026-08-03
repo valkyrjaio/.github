@@ -1,0 +1,144 @@
+name: Resolve Review Threads
+description: Resolves the review threads an earlier automated review left behind
+
+# A building block for the workflows in this repository, not something a repository calls directly.
+#
+# A review runs again on every push, and the findings of the run before it stay on the pull request
+# as open threads. GitHub re-anchors a thread onto the new head commit rather than retiring it, so a
+# finding that the author has already fixed still reads as outstanding, against code that no longer
+# exists. Its own `isOutdated` flag does not help: a thread whose diff hunk is plainly pre-rebase
+# reports `isOutdated: false`, because the re-anchor is what GitHub considers current.
+#
+# So the run retires its own earlier threads, and the reviewer restates every finding that is still
+# outstanding. Each review is then a complete picture of the head commit rather than a difference
+# laid over threads that may no longer be true.
+#
+# A thread is retired only when every comment on it is the reviewer's own and every one of them
+# predates this run. A thread somebody replied to is a live conversation, and the reviewer is told
+# not to raise a finding again while its thread is still open, so resolving it would end the
+# exchange and drop the finding at the same time.
+
+inputs:
+  before:
+    description: >
+      Threads are retired only when every comment on them was written before this instant, as
+      `YYYY-MM-DDTHH:MM:SSZ`. Stamp it before the review starts, so a comment the review itself
+      wrote is never mistaken for one an earlier run left.
+    required: true
+  app-id:
+    description: 'App ID of the GitHub App that mints the token this action uses'
+    required: true
+  private-key:
+    description: 'Private key of the GitHub App that mints the token this action uses'
+    required: true
+  pr-number:
+    description: 'Pull request to read. Leave empty to use the one the event carries.'
+    required: false
+    default: ''
+
+outputs:
+  resolved:
+    description: 'How many threads were resolved'
+    value: ${{ steps.resolve.outputs.resolved }}
+
+runs:
+  using: composite
+
+  steps:
+    - name: Generate a token
+      id: generate-token
+      uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+
+    - name: Resolve the threads of earlier runs
+      id: resolve
+      shell: bash
+      env:
+        GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        OWNER: ${{ github.repository_owner }}
+        REPO: ${{ github.event.repository.name }}
+        PR_NUMBER: ${{ inputs.pr-number || github.event.pull_request.number }}
+        APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
+        BEFORE: ${{ inputs.before }}
+      run: |
+        if [[ -z "$PR_NUMBER" ]]; then
+          echo 'No pull request number, so there are no threads to resolve.'
+          printf 'resolved=0\n' >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        if [[ ! "$BEFORE" =~ ^[0-9]{4}(-[0-9]{2}){2}T([0-9]{2}:){2}[0-9]{2}Z$ ]]; then
+          echo "Not a UTC timestamp: $BEFORE" >&2
+          echo 'Threads are compared against it as text, so a different shape would compare wrong.' >&2
+          exit 1
+        fi
+
+        # A thread is a review thread, and REST has no notion of resolving one. `resolveReviewThread`
+        # is a GraphQL mutation, so the read is GraphQL too, for the node ids it takes.
+        #
+        # Warning: `--paginate` needs both the `$endCursor` variable and `pageInfo` in the selection.
+        # Without them a pull request with more than 100 threads silently reports its first page.
+        # shellcheck disable=SC2016 # `$owner` and the rest are GraphQL variables, not shell ones.
+        QUERY='
+          query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
+            repository(owner: $owner, name: $repo) {
+              pullRequest(number: $number) {
+                reviewThreads(first: 100, after: $endCursor) {
+                  pageInfo { hasNextPage endCursor }
+                  nodes {
+                    id
+                    isResolved
+                    comments(first: 100) { nodes { createdAt author { login } } }
+                  }
+                }
+              }
+            }
+          }
+        '
+
+        # A bot reports its slug as its login here, without the `[bot]` suffix the REST API adds.
+        #
+        # Warning: `all` over an empty list is true, so a thread with no comments would match every
+        # test below. There should be no such thread, and one must not be resolved on that basis.
+        THREAD_IDS="$(
+          gh api graphql --paginate \
+            -f owner="$OWNER" -f repo="$REPO" -F number="$PR_NUMBER" -f query="$QUERY" \
+            | jq -r --arg bot "$APP_SLUG" --arg before "$BEFORE" '
+                .data.repository.pullRequest.reviewThreads.nodes[]
+                | select(.isResolved | not)
+                | select((.comments.nodes | length) > 0)
+                | select(all(.comments.nodes[]; .author.login == $bot and .createdAt < $before))
+                | .id
+              '
+        )"
+
+        if [[ -z "$THREAD_IDS" ]]; then
+          echo 'No thread from an earlier run is still open.'
+          printf 'resolved=0\n' >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        # shellcheck disable=SC2016 # `$threadId` is a GraphQL variable, not a shell one.
+        MUTATION='
+          mutation($threadId: ID!) {
+            resolveReviewThread(input: {threadId: $threadId}) { thread { id } }
+          }
+        '
+
+        RESOLVED=0
+
+        # Warning: never let one failure end the step. Housekeeping must not decide the job result,
+        # and a thread another run resolved first would otherwise turn a finished review red.
+        while IFS= read -r THREAD_ID; do
+          if gh api graphql -f threadId="$THREAD_ID" -f query="$MUTATION" --silent; then
+            RESOLVED=$((RESOLVED + 1))
+            echo "Resolved $THREAD_ID, which an earlier run left open."
+          else
+            echo "Could not resolve $THREAD_ID." >&2
+          fi
+        done <<< "$THREAD_IDS"
+
+        printf 'Resolved %s of the threads earlier runs left open.\n' "$RESOLVED"
+        printf 'resolved=%s\n' "$RESOLVED" >> "$GITHUB_OUTPUT"
