@@ -62,6 +62,7 @@ Package Identifier Resolution
 | `ci-eslint-ts`              | `Valkyrja ESLint`           |
 | `ci-spotless-java`          | `Valkyrja Spotless`         |
 | `ci-golangcilint-go`        | `Valkyrja golangci-lint`    |
+| `ci-ruff-python`            | `Valkyrja Ruff`             |
 | `.github`                   | `Valkyrja GitHub`           |
 | `architecture`              | `Valkyrja Architecture`     |
 | `art`                       | `Valkyrja Art`              |
