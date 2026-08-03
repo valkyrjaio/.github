@@ -13,6 +13,7 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 - [Release Process](#release-process)
 - [Version Branches](#version-branches)
 - [Workflow Reference Pinning](#workflow-reference-pinning)
+- [Scripts](#scripts)
 - [Composite Actions](#composite-actions)
 - [Choosing a Workflow or an Action](#choosing-a-workflow-or-an-action)
 - [Repository Enforcement](#repository-enforcement)
@@ -419,6 +420,61 @@ Behavior:
 
 Run **Actions → Update .github Workflow References → workflow_dispatch** at any
 time to force a refresh across all repos.
+
+---
+
+## Scripts
+
+`.github/ci/scripts/` holds the shell that a workflow runs. A script in a file is a file a person
+reads in an editor, a formatter formats, and a linter reads. Shell inside a `run:` block is none of
+those things, so put the work in a script and let the workflow name it.
+
+A workflow reaches a script in one of two ways, and the caller decides which one:
+
+- **This repository calls the workflow.** The job checks this repository out, so the script is
+  already on disk. Name it directly.
+- **A consumer repository calls the workflow.** The runner holds the consumer's tree, which does not
+  hold this repository's scripts. Use the [`run-script`](#composite-actions) action, which checks
+  this repository out at `job.workflow_sha` and runs the script from there.
+
+The org-management workflows are the first case. Each one runs only from this repository:
+
+```yaml
+- name: Checkout code
+  uses: actions/checkout@<sha>
+
+- name: Ensure reusable workflow names and filenames are correct
+  env:
+      GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+  run: .github/ci/scripts/ensure-reusable-workflow-names.sh
+```
+
+Warning: a job that reaches the GitHub API alone still needs the checkout. The org-management jobs
+read and write every repository through `gh`, so several of them checked nothing out. A job with no
+checkout has no `.github/ci/scripts/` on disk, and the step fails with `No such file or directory`.
+
+Warning: a `run:` block that names no shell runs under `bash -e` alone, so a script that adds `-u`
+or `pipefail` does not do what the block did. GitHub runs a different command for each of the two
+spellings, and the difference is `pipefail`:
+
+| `shell` value                   | Command GitHub runs                        | Used by                          |
+| ------------------------------- | ------------------------------------------ | -------------------------------- |
+| unspecified (the Linux default) | `bash -e {0}`                              | every `run:` block in this repo  |
+| `bash`                          | `bash --noprofile --norc -eo pipefail {0}` | every step of a composite action |
+
+The [shell documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstepsshell)
+states this on the default row: "Note that this runs a different command to when `bash` is specified
+explicitly."
+
+That table is why the two families of script differ, and neither is the odd one out:
+
+- A script a **bare `run:`** invokes sets `set -e`, because that is the shell that ran the block.
+- A script **`run-script`** invokes sets `set -euo pipefail`, because `action.yml` sets `shell: bash`
+  and `pipefail` is already on.
+
+So read the shell before you copy a `set` line from a neighboring script. Then check every pipeline:
+one that ends in a command which always succeeds hides a failing stage today, and `pipefail` stops
+hiding it.
 
 ---
 
