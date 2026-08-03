@@ -159,10 +159,15 @@ version-branch workflows are consumed by the corresponding language repos.
 Consumer repos reference `valkyrjaio/.github` reusable workflows by commit SHA.
 These workflows keep those pins current.
 
+This repository owns the templates under `required-workflows/`, so its own
+release updates their references before it makes the tag. A consumer repo is
+outside that release, so a pull request updates it afterward.
+
 | Workflow                                                                               | Trigger                                                                    | Description                                                                                                                                                                |
 | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`update-github-workflow-refs.yml`](.github/workflows/update-github-workflow-refs.yml) | `release` (stable only) / `schedule` (Mon 10:00 UTC) / `workflow_dispatch` | Repins every org repo's workflow references to the latest `.github` release SHA. Delegates to `_update-workflow-refs.yml` with `source-repo: .github`. Skips pre-releases. |
-| [`_update-workflow-refs.yml`](.github/workflows/_update-workflow-refs.yml)             | `workflow_call`                                                            | Scans all non-archived repos for `<source-repo>` workflow refs and opens PRs bumping them to the latest release SHA. Takes a `source-repo` input.                          |
+| [`_update-workflow-refs.yml`](.github/workflows/_update-workflow-refs.yml)             | `workflow_call`                                                            | Scans all non-archived repos for `<source-repo>` workflow refs and opens PRs bumping them to the latest release SHA. Takes a `source-repo` input. Excludes `.github`.      |
+| [`_release.yml`](.github/workflows/_release.yml)                                       | `workflow_call`                                                            | Before making the tag, rewrites this repo's own `required-workflows/` references to the last workflow-code commit, so the tag ships a current template. No-op elsewhere.   |
 
 ### Required Secrets and Variables
 

@@ -341,6 +341,46 @@ latest workflow code as version branches advance.
 Reusable workflows in consumer repos reference `valkyrjaio/.github` by **commit
 SHA** (not by tag or branch) for security and reproducibility.
 
+Two mechanisms keep those references current, and each one covers a different
+side of the boundary. This repository owns the templates, so its release updates
+its own references before it makes the tag. Every other repository consumes the
+templates from the outside, so a pull request updates it after the release
+publishes.
+
+### The release updates this repository's own references
+
+`_release.yml` runs `.github/ci/scripts/update-required-workflow-refs.sh`
+before it makes the tag. The script rewrites every
+`valkyrjaio/.github/.github/workflows/*@<sha>` reference under
+`required-workflows/`, and the release commits the result. The tag then holds a
+template that names the workflow code of that same release.
+
+The script names **the last commit that changed the workflow code**, and not a
+commit that the release makes. A commit cannot name itself, so the release
+cannot pin the commit it is creating. The last workflow-code commit is an
+ancestor of every release commit, and no release commit touches the workflow
+code, so the script reads the same value at each step of the release.
+
+Two properties follow from that choice:
+
+- A second run finds each reference already correct and writes no file, so a
+  re-run of the release produces no second commit.
+- A release that changes no workflow code names the commit that is already
+  pinned, so it adds no commit at all.
+
+The pinned paths are `.github/workflows/`, `.github/actions/`, and
+`.github/ci/`, and Markdown is excluded. A reference loads the workflow file
+from the commit it names, and a relative `uses:` inside that file loads from the
+same commit. A workflow also checks this repository out at that commit to reach
+the composite actions, and an action runs a script from `.github/ci/`. A change
+to any of them changes what the reference runs, so each one moves the
+references. A Markdown file is documentation that a reference never reaches, so
+a change to a document does not move the references.
+
+Warning: the script reads the git history, and `actions/checkout` fetches one
+commit. `_release.yml` deepens the checkout first, and the script stops on a
+shallow checkout rather than write a wrong reference.
+
 ### `update-github-workflow-refs.yml`
 
 Public entry point that delegates to the reusable `_update-workflow-refs.yml`
@@ -356,7 +396,8 @@ Triggers:
 
 Behavior:
 
-- Iterates all non-archived repos in the org (excluding `.github` itself).
+- Iterates all non-archived repos in the org. It excludes `.github`, because the
+  release above already pinned that repository's own references.
 - For each repo: targets all supported `??.x` branches (filtered by
   `SUPPORTED_VERSIONS`). Falls back to `master` only if no supported version
   branches exist in that repo.
@@ -365,8 +406,9 @@ Behavior:
   not via a direct dependency PR.
 - Scans every workflow file for `valkyrjaio/.github/.github/workflows/*@<sha>`.
 - Updates the SHA to the latest stable release's commit SHA.
-- Creates a PR per base branch (`deps/update-github-workflow-refs-26.x` for
-  version branches, `deps/update-github-workflow-refs` for master fallback).
+- Creates a PR per base branch, named for the source repo
+  (`deps/update-.github-workflow-refs-26.x` for version branches,
+  `deps/update-.github-workflow-refs` for master fallback).
 - If branch creation or file update is blocked by a ruleset, logs a clean
   message and continues — treats protection as expected, not a failure.
 - If a PR already exists for that branch, skips PR creation (does not force

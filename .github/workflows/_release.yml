@@ -49,6 +49,43 @@ jobs:
       - name: Pull latest changes
         run: git pull --rebase origin ${{ github.ref_name }}
 
+      # The three steps below bake this repository's own workflow references into the release.
+      # `required-workflows/` holds the templates the organization distributes, and each template
+      # names this repository by commit SHA. The release rewrites those references before it makes
+      # the tag, so the tag holds a template that names the workflow code of that same release.
+      #
+      # Only the repository that holds the templates does this. Every other repository consumes
+      # them from the outside, and `_update-workflow-refs.yml` repins a consumer with a pull
+      # request after the release publishes.
+      - name: Deepen the history for the required workflow refs
+        if: hashFiles('required-workflows/**') != ''
+        run: |
+          # The script reads the git history to find the last workflow-code commit, and
+          # `actions/checkout` fetches one commit. Only a repository that holds the templates
+          # pays for the rest of the history.
+          if [[ "$(git rev-parse --is-shallow-repository)" == 'true' ]]; then
+            git fetch --unshallow
+          fi
+
+      - name: Update the required workflow refs
+        if: hashFiles('required-workflows/**') != ''
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: .github/ci/scripts/update-required-workflow-refs.sh
+
+      # The action commits nothing when the script changed nothing, so a release that carries no
+      # workflow change adds no commit here.
+      - name: Commit the required workflow refs
+        if: hashFiles('required-workflows/**') != ''
+        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7.2.0
+        with:
+          branch: ${{ github.ref_name }}
+          commit_message: "[v${{ inputs.version }}] chore: Update the required workflow refs for the release"
+          file_pattern: required-workflows
+          commit_user_name: ${{ steps.generate-token.outputs.app-slug }}[bot]
+          commit_user_email: ${{ steps.get-bot-user-id.outputs.user-id }}+${{ steps.generate-token.outputs.app-slug }}[bot]@users.noreply.github.com
+          commit_author: ${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>
+
       - name: Detect release type
         id: release-type
         env:
