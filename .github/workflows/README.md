@@ -575,15 +575,21 @@ until the ruleset agrees again.
 
 ### How a name is built
 
-A check name is every job name down the call chain, joined by `/`. A repository's `ci.yml` names a
-job, the reusable workflow it calls names another, and so on:
+A check name is every **job** name down the call chain, joined by `/`. A repository's `ci.yml` names
+a job, the reusable workflow it calls names another, and so on:
 
 ```
-CI  /  Trailing Newline Check  /  Check Trailing Newline
-^      ^                          ^
-|      ci.yml job name            job name in _trailing-newline-check.yml
-workflow name
+Trailing Newline Check  /  Check Trailing Newline
+^                          ^
+ci.yml job name            job name in _trailing-newline-check.yml
 ```
+
+Warning: the name of the calling workflow contributes nothing. The workflow above is named `CI`, and
+the context is `Trailing Newline Check / Check Trailing Newline`, which is what
+`rulesets/Required Default PR Checks.json` holds. A context written with a leading `CI /` names a
+check GitHub never reports, and a required check that never reports blocks every pull request — the
+failure this section exists to prevent. Read the real name from a recent run, or from
+`gh pr checks <number>`, rather than composing it by hand.
 
 **Every reusable workflow in the chain adds a segment**, because a reusable workflow is a job. That
 is why a building block belongs in [`.github/actions/`](#composite-actions) rather than in a
@@ -604,8 +610,14 @@ is why the ruleset is applied last:
 5. Only now run `enforce-repo-settings.yml`, which applies the ruleset.
 6. Rebase every open pull request, so each one runs the workflow that reports the new name.
 
-Warning: never run `enforce-repo-settings.yml` between step 1 and step 4. The ruleset would require a
-name that no repository reports yet, and every pull request in the organization would block.
+Warning: never apply the ruleset between step 1 and step 4. The ruleset would require a name that no
+repository reports yet, and every pull request in the organization would block.
+
+Warning: `enforce-repo-settings.yml` also runs itself, on a `0 9 * * 1` cron, so leaving it alone is
+not enough. Steps 1 to 4 wait for a reference bump to reach every repository, which can take longer
+than a week, and a Monday inside that window applies the ruleset with no one asking it to. Close the
+window before the next Monday, or comment the `schedule:` trigger out of
+`enforce-repo-settings.yml` while the window is open and restore it at step 5.
 
 Warning: a repository must already run the job before the ruleset reaches it. Adding a context for a
 check a repository does not have blocks that repository as surely as a rename does. Roll the check
