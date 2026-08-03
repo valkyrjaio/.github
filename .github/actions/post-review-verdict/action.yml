@@ -1,0 +1,200 @@
+name: Post Review Verdict
+description: Submits one pull request review that carries the verdict of a Claude review
+
+# A building block for the workflows in this repository, not something a repository calls directly.
+#
+# `anthropics/claude-code-action` writes its findings with `pulls.createReviewComment`, which posts
+# loose review comments. GitHub gathers loose comments into a review of its own, and that review is
+# always `COMMENTED` with an empty body. So a review that found a blocking defect and a review that
+# found nothing arrive in the same state, and the only thing that tells them apart is the prose of a
+# separate issue comment. This action gives the run a review of its own, with a state that says what
+# the reviewer concluded.
+#
+# The review is a second review on the pull request, beside the one GitHub synthesized. That is the
+# point: a review carries a state, and a state is what a person reads in the sidebar and what
+# `gh api .../reviews` reads back.
+
+inputs:
+  verdict:
+    description: >
+      What the reviewer concluded: `approved`, `changes_requested`, `commented`, or `errored` when
+      the review did not finish. Any other value is treated as no verdict, and is reported as such
+      rather than guessed at.
+    required: true
+  summary:
+    description: 'The verdict in prose, which becomes the body of the review'
+    required: false
+    default: ''
+  blocking-findings:
+    description: 'How many findings must be fixed before merge. Omitted unless it is a number.'
+    required: false
+    default: ''
+  advisory-findings:
+    description: 'How many findings the author may take or leave. Omitted unless it is a number.'
+    required: false
+    default: ''
+  request-changes:
+    description: >
+      Whether a `changes_requested` verdict is submitted as `REQUEST_CHANGES` rather than `COMMENT`.
+
+      Warning: `REQUEST_CHANGES` blocks the merge. `rulesets/Require Pull Request.json` turns the
+      pull request rule on, and a review that requests changes blocks a merge under that rule even
+      though `required_approving_review_count` is `0` — the count governs approvals, not blocks. The
+      rule's only bypass actor is one integration, so an organization admin does not merge past it
+      either. Leave this off unless a wrong finding blocking a merge until somebody dismisses the
+      review is the behavior that is wanted.
+    required: false
+    default: 'false'
+  app-id:
+    description: 'App ID of the GitHub App that mints the token this action uses'
+    required: true
+  private-key:
+    description: 'Private key of the GitHub App that mints the token this action uses'
+    required: true
+  pr-number:
+    description: 'Pull request to review. Leave empty to use the one the event carries.'
+    required: false
+    default: ''
+
+outputs:
+  event:
+    description: 'The review event that was submitted: `APPROVE`, `REQUEST_CHANGES`, or `COMMENT`'
+    value: ${{ steps.submit.outputs.event }}
+  verdict:
+    description: 'The verdict as it was recorded, which is `unknown` when the input named no verdict'
+    value: ${{ steps.submit.outputs.verdict }}
+
+runs:
+  using: composite
+
+  steps:
+    - name: Generate a token
+      id: generate-token
+      uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+
+    - name: Submit the verdict as a review
+      id: submit
+      shell: bash
+      env:
+        GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        GH_REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ inputs.pr-number || github.event.pull_request.number }}
+        APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
+        VERDICT: ${{ inputs.verdict }}
+        SUMMARY: ${{ inputs.summary }}
+        BLOCKING: ${{ inputs.blocking-findings }}
+        ADVISORY: ${{ inputs.advisory-findings }}
+        REQUEST_CHANGES: ${{ inputs.request-changes }}
+      run: |
+        if [[ -z "$PR_NUMBER" ]]; then
+          echo 'No pull request number, so there is no review to submit.'
+          exit 0
+        fi
+
+        case "$VERDICT" in
+          approved)
+            EVENT='APPROVE'
+            HEADING='Approved'
+            ;;
+          changes_requested)
+            HEADING='Changes requested'
+            # The default is a comment. See the `request-changes` input for why a block is opt in.
+            if [[ "$REQUEST_CHANGES" == 'true' ]]; then
+              EVENT='REQUEST_CHANGES'
+            else
+              EVENT='COMMENT'
+            fi
+            ;;
+          commented)
+            EVENT='COMMENT'
+            HEADING='Commented'
+            ;;
+          errored)
+            EVENT='COMMENT'
+            HEADING='The review did not complete'
+            ;;
+          *)
+            # A verdict this action does not know is reported as one, never guessed at. A run whose
+            # structured output was empty or malformed must not read as an approval.
+            EVENT='COMMENT'
+            HEADING='No verdict'
+            VERDICT='unknown'
+            ;;
+        esac
+
+        # GitHub refuses `APPROVE` and `REQUEST_CHANGES` from the author of the pull request with a
+        # 422, and an installation token reviews as the app's own bot user. Nothing labels a bot's
+        # pull request today, so this cannot happen yet; it is guarded because the day it can, the
+        # failure would be a red job on a pull request that is otherwise fine.
+        AUTHOR="$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER" --jq '.user.login')"
+
+        if [[ "$AUTHOR" == "${APP_SLUG}[bot]" && "$EVENT" != 'COMMENT' ]]; then
+          printf 'The pull request is authored by %s[bot], which cannot review itself.\n' "$APP_SLUG"
+          echo 'The verdict is submitted as a comment instead.'
+          EVENT='COMMENT'
+        fi
+
+        # A count is written only when it is one. The reviewer produces these, so a value that is
+        # not a number means the contract was not met, and a wrong count reads as fact.
+        COUNTS=''
+
+        if [[ "$BLOCKING" =~ ^[0-9]+$ && "$ADVISORY" =~ ^[0-9]+$ ]]; then
+          COUNTS="$BLOCKING blocking, $ADVISORY advisory."
+        fi
+
+        {
+          printf '### Claude review: %s\n\n' "$HEADING"
+
+          if [[ -n "$COUNTS" ]]; then
+            printf '%s\n\n' "$COUNTS"
+          fi
+
+          # A `COMMENT` review with an empty body is a 422, so the body always says something.
+          printf '%s\n' "${SUMMARY:-The reviewer produced no summary.}"
+
+          # The marker is what reads the verdict back without parsing prose.
+          printf '\n<!-- claude-review-verdict: %s -->\n' "$VERDICT"
+        } > review.md
+
+        submit_review() {
+          # The body is passed as JSON rather than as a `-f` field. `gh` converts a field value that
+          # looks like a number or a boolean, and a summary is arbitrary text.
+          jq -n --arg event "$1" --rawfile body review.md '{event: $event, body: $body}' \
+            | gh api --method POST "repos/$GH_REPO/pulls/$PR_NUMBER/reviews" --input - --silent
+        }
+
+        if submit_review "$EVENT"; then
+          printf 'Submitted a %s review carrying the %s verdict.\n' "$EVENT" "$VERDICT"
+        elif [[ "$EVENT" == 'COMMENT' ]]; then
+          echo 'The verdict could not be submitted as a review.' >&2
+          exit 1
+        else
+          # A refusal must not lose the verdict. Whatever GitHub declined to accept as a state, it
+          # accepts as a comment, and a comment with the marker still says what the reviewer found.
+          printf 'GitHub refused a %s review, so the verdict is submitted as a comment.\n' "$EVENT" >&2
+          EVENT='COMMENT'
+
+          if ! submit_review "$EVENT"; then
+            echo 'The verdict could not be submitted as a review.' >&2
+            exit 1
+          fi
+        fi
+
+        {
+          printf 'event=%s\n' "$EVENT"
+          printf 'verdict=%s\n' "$VERDICT"
+        } >> "$GITHUB_OUTPUT"
+
+        {
+          printf '### Claude review: %s\n\n' "$HEADING"
+
+          if [[ -n "$COUNTS" ]]; then
+            printf '%s\n\n' "$COUNTS"
+          fi
+
+          # shellcheck disable=SC2016 # The backticks are Markdown, and the format holds no expansion.
+          printf 'Submitted as a `%s` review.\n' "$EVENT"
+        } >> "$GITHUB_STEP_SUMMARY"
