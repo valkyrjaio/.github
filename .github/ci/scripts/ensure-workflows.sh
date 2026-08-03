@@ -1,0 +1,414 @@
+#!/usr/bin/env bash
+#
+# This file is part of the Valkyrja GitHub package.
+#
+# Copyright (c) 2016-present Melech Mizrachi
+#
+# Released under the MIT License. See LICENSE.md for details.
+#
+# ---------------------------------------------------------------------------
+# Required workflow presence check.
+#
+# `required-workflows/` holds the workflow files that every repository in the
+# organization receives. This script adds each missing file to each repository,
+# on a `deps/` branch, and it opens one pull request for each base branch it
+# changed. It merges the missing jobs into an existing `ci.yml` rather than
+# replacing the file.
+#
+# The templates come from the working tree, so the job checks this repository
+# out at `dot-github` and the script reads `dot-github/required-workflows`.
+# Every repository it writes to it reaches through the GitHub API.
+#
+# This repository excludes itself. Its own callers use local `./` references,
+# so a template pinned to a release SHA would run the released workflow rather
+# than the branch under test.
+#
+# Reads GH_TOKEN, ORG, REVIEWER, and SUPPORTED_VERSIONS from the environment.
+#
+# Usage:
+#
+#     dot-github/.github/ci/scripts/ensure-workflows.sh
+# ---------------------------------------------------------------------------
+
+# Warning: `-u` and `pipefail` are deliberately absent. A GitHub Actions `run:`
+# block that names no shell runs under `bash -e {0}`, and this script holds the
+# block that ran there. The `bash --noprofile --norc -eo pipefail {0}` form is
+# what an explicit `shell: bash` selects, which is why a script that
+# `run-script` invokes sets `pipefail` and this one does not.
+set -e
+
+LATEST_TAG=$(gh api "repos/$ORG/.github/releases/latest" --jq '.tag_name')
+LATEST_SHA=$(gh api "repos/$ORG/.github/commits/$LATEST_TAG" --jq '.sha')
+echo "Latest .github release: $LATEST_TAG ($LATEST_SHA)"
+
+TEMPLATE_DIR="dot-github/required-workflows"
+
+REQUIRED_WORKFLOWS=(
+  "cherry-pick-commits.yml"
+  "claude-review.yml"
+  "pr.yml"
+  "rebase-from-master.yml"
+  "rebase-to-master.yml"
+  "restore-branch-from-backup.yml"
+)
+
+# Workflows that only exist in a language-specific flavor, so they are
+# sourced from required-workflows/<lang>/ rather than the root.
+LANG_WORKFLOWS=(
+  "update-dependencies.yml"
+)
+
+PHP_EXCLUDED_REPOS="valkyrja-benchmarking-php valkyrja-docker-php"
+
+cat > /tmp/merge_ci_jobs.py << 'PYEOF'
+import re, sys
+
+existing = open(sys.argv[1]).read()
+template = open(sys.argv[2]).read()
+
+def get_job_ids_ordered(content):
+    return re.findall(r'^\s{2}([a-zA-Z][a-zA-Z0-9_-]*):\s*$', content, re.MULTILINE)
+
+def get_job_block(content, job_id):
+    pattern = rf'(  {re.escape(job_id)}:.*?)(?=\n\n  [a-zA-Z]|\Z)'
+    m = re.search(pattern, content, re.DOTALL)
+    return m.group(1) if m else None
+
+existing_jobs_ordered = get_job_ids_ordered(existing)
+existing_jobs = set(existing_jobs_ordered)
+template_job_order = get_job_ids_ordered(template)
+missing = [j for j in template_job_order if j not in existing_jobs]
+
+if not missing:
+    sys.exit(1)
+
+if not existing_jobs:
+    sys.stdout.write(template if template.endswith('\n') else template + '\n')
+    sys.exit(0)
+
+result = existing.rstrip('\n')
+
+for job_id in missing:
+    block = get_job_block(template, job_id)
+    if not block:
+        continue
+
+    job_pos = template_job_order.index(job_id)
+
+    # Find the last existing job that precedes this one in the template order
+    predecessor = None
+    for i in range(job_pos - 1, -1, -1):
+        if template_job_order[i] in existing_jobs:
+            predecessor = template_job_order[i]
+            break
+
+    if predecessor:
+        pred_pattern = rf'(  {re.escape(predecessor)}:.*?)(\n\n  [a-zA-Z]|\n*\Z)'
+        insertion = r'\1' + '\n\n' + block.rstrip('\n') + r'\2'
+        result = re.sub(pred_pattern, insertion, result, count=1, flags=re.DOTALL)
+    else:
+        jobs_start = re.search(r'^jobs:\s*\n', result, re.MULTILINE)
+        if jobs_start:
+            pos = jobs_start.end()
+            result = result[:pos] + block.rstrip('\n') + '\n\n' + result[pos:]
+
+    existing_jobs.add(job_id)
+
+result += '\n'
+sys.stdout.write(result)
+PYEOF
+
+# The .github repo excludes itself on purpose. Its own callers use local
+# `./` refs, so a synced template pinned to a release SHA would be wrong
+# here: it would run the released workflow instead of the branch under
+# test. This repo therefore adds its own copies by hand.
+REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
+  --jq '.[] | select(.isArchived == false and .name != ".github") | .name')
+
+create_branch_if_needed() {
+  local BASE_BRANCH="$1"
+  local UPDATE_BRANCH="$2"
+  local REPO_NAME="$3"
+
+  [ -n "$BRANCH_EXISTS" ] && return 0
+
+  echo "  [$BASE_BRANCH] Creating branch $UPDATE_BRANCH..."
+  local BASE_SHA
+  BASE_SHA=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/$BASE_BRANCH" \
+    --jq '.object.sha' 2>/dev/null || true)
+  if [ -z "$BASE_SHA" ]; then
+    echo "  [$BASE_BRANCH] Could not get base branch SHA, skipping"
+    return 2
+  fi
+  local BRANCH_CREATE_ERR
+  BRANCH_CREATE_ERR=$(gh api --method POST "repos/$ORG/$REPO_NAME/git/refs" \
+    --field "ref=refs/heads/$UPDATE_BRANCH" \
+    --field "sha=$BASE_SHA" 2>&1 >/dev/null || true)
+  if [ -n "$BRANCH_CREATE_ERR" ]; then
+    echo "  [$BASE_BRANCH] Branch creation failed: $BRANCH_CREATE_ERR"
+    return 2
+  fi
+  echo "  [$BASE_BRANCH] Branch $UPDATE_BRANCH created."
+  BRANCH_EXISTS="$BASE_SHA"
+}
+
+ensure_workflow() {
+  local WORKFLOW="$1"
+  local TMPL_FILE="$2"
+  local BASE_BRANCH="$3"
+  local UPDATE_BRANCH="$4"
+  local REPO_NAME="$5"
+
+  local FILE_PATH=".github/workflows/$WORKFLOW"
+
+  local EXISTING
+  EXISTING=$(gh api "repos/$ORG/$REPO_NAME/contents/$FILE_PATH?ref=$BASE_BRANCH" \
+    --jq '.name' 2>/dev/null) || EXISTING=""
+
+  if [ -n "$EXISTING" ]; then
+    echo "  [$BASE_BRANCH] $FILE_PATH: already exists, skipping"
+    return 0
+  fi
+
+  echo "  [$BASE_BRANCH] $FILE_PATH: missing, will create"
+
+  local CONTENT
+  CONTENT=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$TMPL_FILE")
+
+  create_branch_if_needed "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || return $?
+
+  echo "  [$BASE_BRANCH] Committing $FILE_PATH to $UPDATE_BRANCH..."
+
+  local CONTENT_B64
+  CONTENT_B64=$(printf '%s\n' "$CONTENT" | base64 | tr -d '\n')
+
+  local PUT_BODY
+  PUT_BODY=$(jq -cn \
+    --arg message "[Workflow] ci: Add the missing $WORKFLOW workflow." \
+    --arg content "$CONTENT_B64" \
+    --arg branch "$UPDATE_BRANCH" \
+    '{message: $message, content: $content, branch: $branch}')
+
+  local COMMIT_ERR
+  COMMIT_ERR=$(echo "$PUT_BODY" | gh api --method PUT "repos/$ORG/$REPO_NAME/contents/$FILE_PATH" \
+    --input - 2>&1 >/dev/null || true)
+  if [ -n "$COMMIT_ERR" ]; then
+    echo "  [$BASE_BRANCH] $FILE_PATH commit failed: $COMMIT_ERR"
+    return 1
+  fi
+
+  echo "  [$BASE_BRANCH] $FILE_PATH committed."
+  FILES_LIST+="| \`.github/workflows/$WORKFLOW\` | Added |"$'\n'
+  FILES_ADDED=$((FILES_ADDED + 1))
+}
+
+ensure_ci_jobs() {
+  local BASE_BRANCH="$1"
+  local UPDATE_BRANCH="$2"
+  local REPO_NAME="$3"
+  local TMPL_FILE="$4"
+
+  local FILE_PATH=".github/workflows/ci.yml"
+  local TMPL_WITH_SHA
+  TMPL_WITH_SHA=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$TMPL_FILE" 2>/dev/null || true)
+  if [ -z "$TMPL_WITH_SHA" ]; then
+    echo "  [$BASE_BRANCH] Could not read template $TMPL_FILE, skipping ci.yml"
+    return 1
+  fi
+
+  local FILE_DATA
+  FILE_DATA=$(gh api "repos/$ORG/$REPO_NAME/contents/$FILE_PATH?ref=$BASE_BRANCH" 2>/dev/null || true)
+
+  if [ -z "$FILE_DATA" ]; then
+    echo "  [$BASE_BRANCH] $FILE_PATH: missing, will create"
+    create_branch_if_needed "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || return $?
+
+    local CONTENT_B64
+    CONTENT_B64=$(printf '%s\n' "$TMPL_WITH_SHA" | base64 | tr -d '\n')
+    local PUT_BODY
+    PUT_BODY=$(jq -cn \
+      --arg message "[Workflow] ci: Add the missing ci.yml workflow." \
+      --arg content "$CONTENT_B64" \
+      --arg branch "$UPDATE_BRANCH" \
+      '{message: $message, content: $content, branch: $branch}')
+    local COMMIT_ERR
+    COMMIT_ERR=$(echo "$PUT_BODY" | gh api --method PUT "repos/$ORG/$REPO_NAME/contents/$FILE_PATH" \
+      --input - 2>&1 >/dev/null || true)
+    if [ -n "$COMMIT_ERR" ]; then
+      echo "  [$BASE_BRANCH] $FILE_PATH commit failed: $COMMIT_ERR"
+      return 1
+    fi
+    echo "  [$BASE_BRANCH] $FILE_PATH committed."
+    FILES_LIST+="| \`.github/workflows/ci.yml\` | Added |"$'\n'
+    FILES_ADDED=$((FILES_ADDED + 1))
+    return 0
+  fi
+
+  local FILE_SHA CONTENT_B64
+  FILE_SHA=$(echo "$FILE_DATA" | jq -r '.sha')
+  CONTENT_B64=$(echo "$FILE_DATA" | jq -r '.content // empty' | tr -d '\n')
+  echo "$CONTENT_B64" | base64 -d > /tmp/ci_existing.yml
+  printf '%s\n' "$TMPL_WITH_SHA" > /tmp/ci_template.yml
+
+  local UPDATED_CONTENT
+  if ! UPDATED_CONTENT=$(python3 /tmp/merge_ci_jobs.py /tmp/ci_existing.yml /tmp/ci_template.yml 2>/dev/null); then
+    echo "  [$BASE_BRANCH] $FILE_PATH: all required jobs present"
+    return 0
+  fi
+
+  echo "  [$BASE_BRANCH] $FILE_PATH: missing required jobs, will update"
+  create_branch_if_needed "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || return $?
+
+  local NEW_CONTENT_B64
+  NEW_CONTENT_B64=$(printf '%s\n' "$UPDATED_CONTENT" | base64 | tr -d '\n')
+  local PUT_BODY
+  PUT_BODY=$(jq -cn \
+    --arg message "[Workflow] ci: Add the missing required jobs to ci.yml." \
+    --arg content "$NEW_CONTENT_B64" \
+    --arg sha "$FILE_SHA" \
+    --arg branch "$UPDATE_BRANCH" \
+    '{message: $message, content: $content, sha: $sha, branch: $branch}')
+  local COMMIT_ERR
+  COMMIT_ERR=$(echo "$PUT_BODY" | gh api --method PUT "repos/$ORG/$REPO_NAME/contents/$FILE_PATH" \
+    --input - 2>&1 >/dev/null || true)
+  if [ -n "$COMMIT_ERR" ]; then
+    echo "  [$BASE_BRANCH] $FILE_PATH commit failed: $COMMIT_ERR"
+    return 1
+  fi
+  echo "  [$BASE_BRANCH] $FILE_PATH updated with missing jobs."
+  FILES_LIST+="| \`.github/workflows/ci.yml\` | Updated (added missing jobs) |"$'\n'
+  FILES_ADDED=$((FILES_ADDED + 1))
+}
+
+while IFS= read -r REPO_NAME; do
+  echo "Checking $ORG/$REPO_NAME..."
+
+  ALL_BRANCHES=$(gh api "repos/$ORG/$REPO_NAME/branches" --paginate \
+    --jq '.[].name' 2>/dev/null || true)
+
+  BASE_BRANCHES=""
+  while IFS= read -r b; do
+    if [[ "$b" =~ ^([0-9]+)\.x$ ]]; then
+      MAJOR="${BASH_REMATCH[1]}"
+      if [ -n "$SUPPORTED_VERSIONS" ] && [[ "$MAJOR" =~ $SUPPORTED_VERSIONS ]]; then
+        BASE_BRANCHES="$BASE_BRANCHES"$'\n'"$b"
+      fi
+    fi
+  done <<< "$ALL_BRANCHES"
+
+  if [ -z "$BASE_BRANCHES" ]; then
+    BASE_BRANCHES="master"
+  fi
+
+  # Which required-workflows/<lang>/ directory this repo draws from.
+  # Empty means the repo has no language-specific flavor (or is excluded
+  # from one), and the language-agnostic root templates are used instead.
+  LANG_DIR=""
+  if [[ "$REPO_NAME" == *-php ]]; then
+    LANG_DIR="php"
+    if [[ " $PHP_EXCLUDED_REPOS " == *" $REPO_NAME "* ]]; then
+      LANG_DIR=""
+    fi
+  elif [[ "$REPO_NAME" == *-go ]]; then
+    LANG_DIR="go"
+  elif [[ "$REPO_NAME" == *-python ]]; then
+    LANG_DIR="python"
+  elif [[ "$REPO_NAME" == *-java ]]; then
+    LANG_DIR="java"
+  elif [[ "$REPO_NAME" == *-ts ]]; then
+    LANG_DIR="ts"
+  fi
+
+  while IFS= read -r BASE_BRANCH; do
+    [ -z "$BASE_BRANCH" ] && continue
+
+    if [ "$BASE_BRANCH" = "master" ]; then
+      UPDATE_BRANCH="deps/ensure-workflows"
+    else
+      UPDATE_BRANCH="deps/ensure-workflows-$BASE_BRANCH"
+    fi
+
+    BRANCH_EXISTS=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/$UPDATE_BRANCH" \
+      --jq '.object.sha' 2>/dev/null) || BRANCH_EXISTS=""
+
+    FILES_ADDED=0
+    FILES_LIST=""
+
+    for WORKFLOW in "${REQUIRED_WORKFLOWS[@]}"; do
+      ensure_workflow "$WORKFLOW" "$TEMPLATE_DIR/$WORKFLOW" \
+        "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || \
+        { [ $? -eq 2 ] && break; }
+    done
+
+    if [ -n "$LANG_DIR" ]; then
+      for WORKFLOW in "${LANG_WORKFLOWS[@]}"; do
+        ensure_workflow "$WORKFLOW" "$TEMPLATE_DIR/$LANG_DIR/$WORKFLOW" \
+          "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || \
+          { [ $? -eq 2 ] && break; }
+      done
+      ensure_workflow "create-version-branch.yml" "$TEMPLATE_DIR/$LANG_DIR/create-version-branch.yml" \
+        "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
+      ensure_workflow "release-new-version.yml" "$TEMPLATE_DIR/$LANG_DIR/release-new-version.yml" \
+        "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
+      ensure_ci_jobs "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
+        "$TEMPLATE_DIR/$LANG_DIR/ci.yml" || true
+    else
+      ensure_workflow "create-version-branch.yml" "$TEMPLATE_DIR/create-version-branch.yml" \
+        "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
+      ensure_workflow "release-new-version.yml" "$TEMPLATE_DIR/release-new-version.yml" \
+        "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
+      ensure_ci_jobs "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
+        "$TEMPLATE_DIR/ci.yml" || true
+    fi
+
+    if [ "$FILES_ADDED" -gt 0 ]; then
+      echo "  [$BASE_BRANCH] $FILES_ADDED file(s) added/updated — checking for existing PR..."
+
+      EXISTING_PR=$(gh pr list --repo "$ORG/$REPO_NAME" \
+        --state open \
+        --json headRefName \
+        --jq "[.[] | select(.headRefName == \"$UPDATE_BRANCH\")] | first | .headRefName // \"\"" \
+        2>/dev/null || true)
+
+      if [ -z "$EXISTING_PR" ]; then
+        REVIEWER_FLAGS=""
+        if [ -n "$REVIEWER" ]; then
+          REVIEWER_FLAGS="--assignee $REVIEWER --reviewer $REVIEWER"
+        fi
+
+        BODY="# Description"$'\n'$'\n'
+        BODY+="Ensure required workflow files exist in \`$REPO_NAME\` pinned to \`$LATEST_TAG\`."$'\n'$'\n'
+        BODY+="## Types of changes"$'\n'$'\n'
+        BODY+="- [X] Improvement _(non-breaking change which improves code)_"$'\n'
+        BODY+="- [ ] Bug fix _(non-breaking change which fixes an issue)_"$'\n'
+        BODY+="- [ ] New feature _(non-breaking change which adds functionality)_"$'\n'
+        BODY+="- [ ] Deprecation _(breaking change which removes functionality)_"$'\n'
+        BODY+="- [ ] Breaking change _(fix or feature that would cause existing functionality to change)_"$'\n'
+        BODY+="- [ ] Documentation improvement"$'\n'$'\n'
+        BODY+="## Changes"$'\n'$'\n'
+        BODY+="| File | Change |"$'\n'
+        BODY+="|------|--------|"$'\n'
+        BODY+="$FILES_LIST"
+        BODY+=$'\n'
+        BODY+="> [!NOTE]"$'\n'
+        BODY+="> \`release-new-version.yml\` may require updating \`info-class-path\` and \`info-class-name\` for this repository if it is a PHP repo."$'\n'
+
+        echo "  [$BASE_BRANCH] Creating PR from $UPDATE_BRANCH → $BASE_BRANCH..."
+
+        if ! gh pr create \
+          --repo "$ORG/$REPO_NAME" \
+          --title "[Workflow] ci: Ensure required workflow files" \
+          --body "$BODY" \
+          --base "$BASE_BRANCH" \
+          --head "$UPDATE_BRANCH" \
+          $REVIEWER_FLAGS 2>/dev/null; then
+          echo "  [$BASE_BRANCH] PR creation failed, skipping"
+        else
+          echo "  [$BASE_BRANCH] PR created."
+        fi
+      else
+        echo "  [$BASE_BRANCH] PR already exists, skipping."
+      fi
+    fi
+  done <<< "$BASE_BRANCHES"
+done <<< "$REPOS"
