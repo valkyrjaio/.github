@@ -50,16 +50,27 @@ jobs:
       - name: Pull latest changes
         run: git pull --rebase origin ${{ github.ref_name }}
 
+      - name: Setup uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+
       - name: Update pyproject.toml version
         env:
           VERSION: ${{ inputs.version }}
         run: |
           sed -i -E "0,/^version = .*/s//version = \"$VERSION\"/" pyproject.toml
 
+          # Warning: `uv.lock` records the project's own version, so the `sed` above
+          # leaves the lock one version behind. Every later `uv run` rewrites the lock,
+          # so a developer finds a dirty tree on a clean checkout, and the drift grows by
+          # one version on every release. `--offline` resolves nothing from the network:
+          # the version of this project is the only value that changes.
+          uv lock --offline
+
       - name: Commit pyproject.toml change
         uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7.2.0
         with:
           commit_message: "[v${{ inputs.version }}] chore: Update pyproject.toml for the release"
+          file_pattern: pyproject.toml uv.lock
           commit_user_name: ${{ steps.generate-token.outputs.app-slug }}[bot]
           commit_user_email: ${{ steps.get-bot-user-id.outputs.user-id }}+${{ steps.generate-token.outputs.app-slug }}[bot]@users.noreply.github.com
           commit_author: ${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>
