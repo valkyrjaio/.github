@@ -46,7 +46,7 @@ set -e
 POLL_SECONDS=20
 DEADLINE=$((WAIT_MINUTES * 60))
 
-if [ ! -f VERSION.md ]; then
+if [[ ! -f VERSION.md ]]; then
   echo "No VERSION.md, so there is no released version to wait for."
   exit 0
 fi
@@ -58,7 +58,7 @@ fi
 VERSION=$(tr -d '[:space:]' < VERSION.md)
 VERSION="${VERSION#v}"
 
-if [ -z "$VERSION" ]; then
+if [[ -z "$VERSION" ]]; then
   echo "VERSION.md is empty, so there is no released version to wait for."
   exit 0
 fi
@@ -79,7 +79,7 @@ case "$ECOSYSTEM" in
     # answers 404 — which every other branch of this workflow reads as
     # "the registry does not carry this package". A parsing failure
     # must not borrow that meaning.
-    if [ -z "$GROUP" ] || [ -z "$ARTIFACT" ]; then
+    if [[ -z "$GROUP" ]] || [[ -z "$ARTIFACT" ]]; then
       echo "Could not read the Maven coordinates from build.gradle.kts (group='$GROUP' artifact='$ARTIFACT')."
       exit 1
     fi
@@ -110,7 +110,7 @@ case "$ECOSYSTEM" in
     ;;
 esac
 
-if [ -z "$PACKAGE" ]; then
+if [[ -z "$PACKAGE" ]]; then
   echo "Could not read the package name from the manifest for $ECOSYSTEM."
   exit 1
 fi
@@ -128,10 +128,10 @@ echo "Waiting for $PACKAGE $VERSION on $ECOSYSTEM."
 # Reading that 404 as "does not publish here" would end the wait at the
 # one moment it is most needed, and report a package as resolvable
 # while `repo1.maven.org` returns nothing.
-if [ "$SKIP_WHEN_UNKNOWN" = "true" ]; then
+if [[ "$SKIP_WHEN_UNKNOWN" = "true" ]]; then
   ROOT_STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "$ROOT_URL" || echo 000)
 
-  if [ "$ROOT_STATUS" = "404" ]; then
+  if [[ "$ROOT_STATUS" = "404" ]]; then
     echo "$ECOSYSTEM does not know $PACKAGE, so this repository does not publish there."
     exit 0
   fi
@@ -139,8 +139,8 @@ fi
 
 WAITED=0
 
-while [ "$WAITED" -lt "$DEADLINE" ]; do
-  if [ "$ECOSYSTEM" = "packagist" ]; then
+while [[ "$WAITED" -lt "$DEADLINE" ]]; do
+  if [[ "$ECOSYSTEM" = "packagist" ]]; then
     # Packagist serves every version in one document and reports the
     # tag, so the prefix comes off before the comparison.
     if curl -sS "$ROOT_URL" \
@@ -152,7 +152,7 @@ while [ "$WAITED" -lt "$DEADLINE" ]; do
     fi
   else
     STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "$VERSION_URL" || echo 000)
-    if [ "$STATUS" = "200" ]; then
+    if [[ "$STATUS" = "200" ]]; then
       echo "$PACKAGE $VERSION is available on $ECOSYSTEM after ${WAITED}s."
       exit 0
     fi
@@ -169,5 +169,8 @@ done
 # the outcome this protects: a dependent that resolves the previous
 # version reads it as current, and ships against it without any gate
 # objecting.
+# Warning: `::error::` is a workflow command rather than a diagnostic. The runner reads it from
+# standard output and turns it into an annotation on the run, which is what names the package a
+# release must not ship against. It stays on standard output for that reason.
 echo "::error::$PACKAGE $VERSION did not appear on $ECOSYSTEM within ${WAIT_MINUTES}m."
 exit 1
