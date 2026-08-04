@@ -32,6 +32,6 @@ Learn More
 [starter-php url]: https://github.com/valkyrjaio/valkyrja-starter-app-php
 [starter-java url]: https://github.com/valkyrjaio/valkyrja-starter-app-java
 [org repos url]: https://github.com/orgs/valkyrjaio/repositories?type=all
-[contributing url]: https://github.com/valkyrjaio/.github/blob/master/CONTRIBUTING.md
-[vocabulary url]: https://github.com/valkyrjaio/.github/blob/master/VOCABULARY.md
-[security url]: https://github.com/valkyrjaio/.github/blob/master/SECURITY.md
+[contributing url]: https://github.com/valkyrjaio/.github/blob/26.x/CONTRIBUTING.md
+[vocabulary url]: https://github.com/valkyrjaio/.github/blob/26.x/VOCABULARY.md
+[security url]: https://github.com/valkyrjaio/.github/blob/26.x/SECURITY.md

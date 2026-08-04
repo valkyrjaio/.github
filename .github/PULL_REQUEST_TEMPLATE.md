@@ -20,7 +20,7 @@ Branch targeting (see CONTRIBUTING.md for the full table):
 
 Before submitting, please confirm:
 - You've read CONTRIBUTING.md
-  https://github.com/valkyrjaio/.github/blob/master/CONTRIBUTING.md
+  https://github.com/valkyrjaio/.github/blob/26.x/CONTRIBUTING.md
 - You've targeted the correct base branch
 - You've added tests proving your fix or feature works
 - All CI checks pass locally
