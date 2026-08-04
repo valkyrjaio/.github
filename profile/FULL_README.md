@@ -74,7 +74,7 @@ Community
 [docker url]: https://github.com/valkyrjaio/valkyrja-docker-php
 [architecture url]: https://github.com/valkyrjaio/architecture
 [org repos url]: https://github.com/valkyrjaio
-[contributing url]: https://github.com/valkyrjaio/.github/blob/master/CONTRIBUTING.md
-[vocabulary url]: https://github.com/valkyrjaio/.github/blob/master/VOCABULARY.md
-[repository naming url]: https://github.com/valkyrjaio/.github/blob/master/REPOSITORY_NAMING.md
-[security url]: https://github.com/valkyrjaio/.github/blob/master/SECURITY.md
+[contributing url]: https://github.com/valkyrjaio/.github/blob/26.x/CONTRIBUTING.md
+[vocabulary url]: https://github.com/valkyrjaio/.github/blob/26.x/VOCABULARY.md
+[repository naming url]: https://github.com/valkyrjaio/.github/blob/26.x/REPOSITORY_NAMING.md
+[security url]: https://github.com/valkyrjaio/.github/blob/26.x/SECURITY.md
