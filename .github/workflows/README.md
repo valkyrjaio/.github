@@ -505,6 +505,48 @@ So read the shell before you copy a `set` line from a neighboring script. Then c
 one that ends in a command which always succeeds hides a failing stage today, and `pipefail` stops
 hiding it.
 
+### Moving a `run:` block into a script
+
+**Take the body from the parsed `run:` value, never from the raw lines of the workflow file.** A
+`run: |` key sits at one indent and its content sits further in, and YAML strips the **content**
+indent. Dedenting by the key's indent leaves the difference on every line:
+
+```python
+# Right — the value YAML hands the runner, whatever the file's indentation is.
+import subprocess, yaml
+
+text = subprocess.run(['git', 'show', 'origin/26.x:.github/workflows/_release.yml'],
+                      capture_output=True, text=True).stdout
+steps = [s for j in yaml.safe_load(text)['jobs'].values() for s in j.get('steps', [])]
+body = [s['run'] for s in steps if s.get('name') == 'Update the required workflow refs'][0]
+```
+
+Warning: a round trip that re-indents by the same wrong amount agrees with itself and reports
+nothing. Three scripts shipped with a two-space over-indent that way, and the check that was supposed
+to catch it passed on all three. Compare the file against the parsed value, not against your own
+dedent.
+
+A `|` block scalar also **clips** the blank lines at its end, so the runner never receives them. A
+body taken from the raw lines carries a trailing blank line the step never had.
+
+### Reaching the script, and what `run-script` costs
+
+Three shapes, and the caller decides which:
+
+| The workflow runs          | The script is reached by                                                                 | Because                                     |
+| -------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Only from this repository  | `.github/ci/scripts/<name>.sh`                                                           | The default checkout is this repository     |
+| From a consumer repository | `dot-github/.github/ci/scripts/<name>.sh`, after a second checkout at `job.workflow_sha` | The default checkout is the consumer's tree |
+| Inside a composite action  | `"$ACTION_PATH/../../ci/scripts/<name>.sh"`                                              | An action cannot assume a working directory |
+
+Warning: `run-script` **buffers**. It runs `OUTPUT=$("$SCRIPT_PATH" 2>&1)` and prints the result
+after the script exits, so a script that reports progress shows nothing until it finishes. A job that
+polls for several minutes then looks identical to a job that is stuck. `run-script` also reports
+`outcome` and `report-markdown` for a caller that posts a comment and decides the result itself.
+
+Use it for a check that comments. For anything else — a gate that must fail its own job, or a script
+whose output a person watches — name the script directly through the second checkout.
+
 ---
 
 ## Composite Actions
