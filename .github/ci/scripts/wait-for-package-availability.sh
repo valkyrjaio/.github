@@ -169,8 +169,11 @@ done
 # the outcome this protects: a dependent that resolves the previous
 # version reads it as current, and ships against it without any gate
 # objecting.
-# Warning: `::error::` is a workflow command rather than a diagnostic. The runner reads it from
-# standard output and turns it into an annotation on the run, which is what names the package a
-# release must not ship against. It stays on standard output for that reason.
+# Warning: `::error::` is a workflow command rather than a diagnostic, so it does not go to stderr.
+# The documentation states the stream: a workflow command is "sent to the runner over `stdout`".
+# https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands
+#
+# The runner turns it into an annotation on the run, and that annotation names the package a release
+# must not ship against. Redirecting it would drop the annotation and keep only a log line.
 echo "::error::$PACKAGE $VERSION did not appear on $ECOSYSTEM within ${WAIT_MINUTES}m."
 exit 1
