@@ -112,7 +112,7 @@ workflow_dispatch** with a `bump` input.
 The version format is `YY.FEATURE.PATCH` — `YY` is the two-digit year and moves
 only once a year, so the middle component carries both new features and breaking
 changes. See
-[VERSIONING.md](https://github.com/valkyrjaio/architecture/blob/master/VERSIONING.md).
+[VERSIONING.md](https://github.com/valkyrjaio/architecture/blob/26.x/VERSIONING.md).
 
 | Bump      | Source branch | Tag format    | Notes                                                            |
 | --------- | ------------- | ------------- | ---------------------------------------------------------------- |
@@ -785,7 +785,7 @@ out first, and require it afterwards.
 A **root** in brackets says what the change is about; a **type** says what kind of
 change it is. `!` before the colon marks a breaking change, and `(#123)` carries an
 issue reference. Full reference:
-[COMMIT_CONVENTION.md](https://github.com/valkyrjaio/architecture/blob/master/COMMIT_CONVENTION.md).
+[COMMIT_CONVENTION.md](https://github.com/valkyrjaio/architecture/blob/26.x/COMMIT_CONVENTION.md).
 
 - Must start with `[` and a root in brackets, followed by a type and a colon.
 - **Working-branch commits end with a period.** PR titles and direct pushes to a
