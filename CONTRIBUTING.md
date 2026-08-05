@@ -319,5 +319,5 @@ If you need help contributing code, open an [issue][issues url] with a title
 like `[Help] Title for what you need help with`.
 
 [issues url]: https://github.com/valkyrjaio/valkyrja-php/issues
-[commit convention url]: https://github.com/valkyrjaio/architecture/blob/master/COMMIT_CONVENTION.md
-[versioning url]: https://github.com/valkyrjaio/architecture/blob/master/VERSIONING.md
+[commit convention url]: https://github.com/valkyrjaio/architecture/blob/26.x/COMMIT_CONVENTION.md
+[versioning url]: https://github.com/valkyrjaio/architecture/blob/26.x/VERSIONING.md

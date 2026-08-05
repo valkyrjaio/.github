@@ -11,7 +11,7 @@ applies.
 
 ## Read first
 
-**Cross-language canonical** — <https://github.com/valkyrjaio/architecture/blob/master/AGENTS.md>
+**Cross-language canonical** — <https://github.com/valkyrjaio/architecture/blob/26.x/AGENTS.md>
 
 It governs the parts that **do** apply here: the `[Root] type:` commit / PR-title
 format, the branch → commit → push → open-PR workflow (with confirmation before
