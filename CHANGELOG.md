@@ -1,6 +1,17 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.23.1...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.24.0...26.x)
+
+## [v26.24.0](https://github.com/valkyrjaio/.github/compare/v26.23.1...v26.24.0) - 2026-08-05
+
+* [Workflow] feat: Add a reusable workflow that publishes to the Gradle Plugin Portal by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/303
+* [Workflow] refactor: Move the review action shell into scripts by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/300
+* [Workflow] refactor: Move the review verdict reader into a script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/301
+* [Link] fix: Pin the document links to the version branch by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/304
+* [Workflow] fix: Lock the released version into uv.lock by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/306
+* [Readme] fix: Pin the art asset links to the version branch by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/307
+* [Workflow] refactor: Move the package availability wait into a script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/305
+* [Link] fix: Pin the architecture document links to the version branch by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/310
 
 ## [v26.23.1](https://github.com/valkyrjaio/.github/compare/v26.23.0...v26.23.1) - 2026-08-03
 
