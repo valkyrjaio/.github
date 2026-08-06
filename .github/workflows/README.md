@@ -185,6 +185,12 @@ Warning: a failed release fails the whole sweep, because every later tier was
 sequenced on the assumption that the release shipped. A wait that times out does
 not fail the sweep — the run it stopped watching may still finish.
 
+The sweep authenticates as the GitHub App, and the script mints the
+installation token itself, re-minting as the token ages. A minted token lives
+one hour, and a sweep that waits between tiers runs longer — a token minted
+once at the start turns every later dispatch into HTTP 401 and silently skips
+whole tiers.
+
 This ordering is what a release of `@valkyrjaio/sindri` needs. Before it, the
 sweep dispatched every repository at once in `gh repo list` order, so `sindri`
 released before or after `valkyrja` by chance. When it lost the toss it either

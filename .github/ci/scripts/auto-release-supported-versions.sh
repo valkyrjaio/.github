@@ -22,9 +22,9 @@
 # The script reads and writes through the GitHub API. It never checks a
 # released repository out.
 #
-# Reads GH_TOKEN, ORG, SUPPORTED_VERSIONS, TIERS, REFRESH_DEPENDENCIES,
-# STAGE_TIMEOUT_MINUTES, DRY_RUN, SINGLE_REPO, THIS_REPO, THIS_REF, and
-# GITHUB_STEP_SUMMARY from the environment.
+# Reads APP_ID, APP_PRIVATE_KEY, ORG, SUPPORTED_VERSIONS, TIERS,
+# REFRESH_DEPENDENCIES, STAGE_TIMEOUT_MINUTES, DRY_RUN, SINGLE_REPO, THIS_REPO,
+# THIS_REF, and GITHUB_STEP_SUMMARY from the environment.
 #
 # Usage:
 #
@@ -48,8 +48,79 @@ if [[ -z "${TIERS// /}" ]]; then
   exit 1
 fi
 
+if [[ -z "$APP_ID" ]] || [[ -z "$APP_PRIVATE_KEY" ]]; then
+  echo "APP_ID or APP_PRIVATE_KEY is not set. The sweep cannot mint a token."
+  exit 1
+fi
+
 POLL_SECONDS=20
 STAGE_TIMEOUT=$((STAGE_TIMEOUT_MINUTES * 60))
+
+# The sweep authenticates as the GitHub App, and it mints the installation
+# token itself. A minted token lives one hour, and a sweep that waits between
+# tiers runs longer — a token minted once at the start turns every later
+# dispatch into HTTP 401, which skips whole tiers without a release attempt.
+TOKEN_MINTED_AT=0
+TOKEN_MAX_AGE_SECONDS=$((40 * 60))
+
+# The `--` is load-bearing: `tr` reads a `-_` operand as an option without it.
+base64url() { openssl base64 -A | tr -- '+/' '-_' | tr -d '='; }
+
+mint_token() {
+  local now header payload unsigned signature jwt installation_id
+
+  now=$(date +%s)
+  header=$(printf '{"alg":"RS256","typ":"JWT"}' | base64url)
+  payload=$(printf '{"iat":%d,"exp":%d,"iss":"%s"}' \
+    "$((now - 60))" "$((now + 540))" "$APP_ID" | base64url)
+  unsigned="$header.$payload"
+  signature=$(printf '%s' "$unsigned" \
+    | openssl dgst -sha256 -sign <(printf '%s\n' "$APP_PRIVATE_KEY") -binary \
+    | base64url)
+  jwt="$unsigned.$signature"
+
+  installation_id=$(curl -sf \
+    -H "Authorization: Bearer $jwt" \
+    -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/orgs/$ORG/installation" | jq -r '.id')
+
+  if [[ -z "$installation_id" ]] || [[ "$installation_id" == "null" ]]; then
+    echo "Could not resolve the app installation for $ORG." >&2
+    exit 1
+  fi
+
+  GH_TOKEN=$(curl -sf -X POST \
+    -H "Authorization: Bearer $jwt" \
+    -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/app/installations/$installation_id/access_tokens" \
+    | jq -r '.token')
+
+  if [[ -z "$GH_TOKEN" ]] || [[ "$GH_TOKEN" == "null" ]]; then
+    echo "Could not mint an installation token." >&2
+    exit 1
+  fi
+
+  export GH_TOKEN
+  TOKEN_MINTED_AT=$now
+
+  echo "Minted a fresh installation token." >&2
+}
+
+# Cheap enough to call before every dispatch and inside every poll loop.
+# Warning: command substitution runs a function in a subshell, so a re-mint
+# inside `wait_for_dispatch` serves that one wait — each caller in the parent
+# shell re-mints for itself.
+maybe_mint_token() {
+  local age
+
+  age=$(($(date +%s) - TOKEN_MINTED_AT))
+
+  if [[ "$age" -ge "$TOKEN_MAX_AGE_SECONDS" ]]; then
+    mint_token
+  fi
+}
+
+mint_token
 
 TIER_COUNT=0
 while IFS= read -r line; do
@@ -91,6 +162,8 @@ wait_for_dispatch() {
   local run_id="" waited=0 status
 
   while [[ "$waited" -lt "$deadline" ]]; do
+    maybe_mint_token
+
     if [[ -z "$run_id" ]]; then
       run_id=$(gh run list --repo "$ORG/$repo" --workflow "$workflow" --branch "$branch" \
         --limit 20 --json databaseId,createdAt \
@@ -190,6 +263,8 @@ for TIER in $(seq 1 "$UNMATCHED_TIER"); do
   echo "::group::Tier $TIER"
   printf '%s\n' "$TIER_WORK" | awk 'NF {print "  " $2 " (" $3 ")"}'
 
+  maybe_mint_token
+
   if [[ "$DRY_RUN" = "true" ]]; then
     while read -r _ REPO_NAME BRANCH; do
       [[ -z "$REPO_NAME" ]] && continue
@@ -249,6 +324,8 @@ for TIER in $(seq 1 "$UNMATCHED_TIER"); do
       MERGE_REMAINING=$STAGE_TIMEOUT
 
       while [[ "$MERGE_REMAINING" -gt 0 ]]; do
+        maybe_mint_token
+
         MERGE_SINCE=$(now_utc)
         gh workflow run auto-merge-bot-prs.yml --repo "$ORG/$THIS_REPO" \
           --ref "$THIS_REF" >/dev/null 2>&1 || true

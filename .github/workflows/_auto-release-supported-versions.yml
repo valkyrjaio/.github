@@ -43,14 +43,6 @@ jobs:
     timeout-minutes: 180
 
     steps:
-      - name: Generate a token
-        id: generate-token
-        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
-        with:
-          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
-          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-
       # The script the last step runs lives in this repository, so the job needs it on disk. Only
       # this repository calls this workflow, so the default checkout is the one that holds the
       # script. The job reads no other file from the working tree.
@@ -59,9 +51,12 @@ jobs:
 
       - name: Dispatch auto releases across supported version branches
         env:
-          # A workflow_dispatch triggered with GITHUB_TOKEN does not create a run, so
-          # this has to authenticate as the app.
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          # A workflow_dispatch triggered with GITHUB_TOKEN does not create a run,
+          # so the sweep has to authenticate as the app. The script mints the
+          # installation token itself and re-mints it as it ages, because a minted
+          # token lives one hour and a sweep that waits between tiers runs longer.
+          APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
           ORG: ${{ github.repository_owner }}
           SUPPORTED_VERSIONS: ${{ vars.SUPPORTED_VERSIONS }}
           TIERS: ${{ inputs.tiers }}
