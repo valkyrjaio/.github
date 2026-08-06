@@ -2,11 +2,41 @@ name: Auto Release Supported Versions
 
 on:
   schedule:
-    # Daily. Merged work should ship the same day rather than waiting for someone to
-    # remember; branches with nothing pending produce no release.
+    # One cron per slot in the table below — the script fails a run whose cron
+    # the table does not name, so the two lists cannot drift apart silently.
+    # Times are UTC. The org's clock is America/Phoenix (UTC-7, no DST), so
+    # each cron maps to the same local hour all year.
+    #
+    # A cohort's dependencies refresh two hours before its release, so the
+    # hourly auto-merge sweep gets two passes at the bump pull requests. A
+    # cohort releases after the cohorts it depends on, with a gap for each
+    # registry to serve what shipped. Infra goes first so the workflow-ref
+    # re-pins a `.github` release pushes are in every later cohort's release.
+    - cron: '0 7 * * *'
+    - cron: '0 8 * * *'
+    - cron: '0 10 * * *'
+    - cron: '0 11 * * *'
+    - cron: '0 13 * * *'
     - cron: '0 14 * * *'
+    - cron: '0 16 * * *'
+    - cron: '0 17 * * *'
+    - cron: '0 19 * * *'
   workflow_dispatch:
     inputs:
+      slot:
+        description: 'Slot to run'
+        type: choice
+        required: true
+        options:
+          - infra-release
+          - ci-deps
+          - ci-release
+          - framework-deps
+          - framework-release
+          - sindri-deps
+          - sindri-release
+          - project-deps
+          - project-release
       dry_run:
         description: 'Preview only — list dispatches without triggering any'
         type: boolean
@@ -16,10 +46,10 @@ on:
         type: string
         default: ''
 
-run-name: "Auto release across supported version branches"
+run-name: "Auto release slot: ${{ inputs.slot || github.event.schedule }}"
 
-# One sweep at a time. Two overlapping sweeps would each wait on the other's
-# releases and could dispatch a dependent while its dependency is mid-release.
+# One slot at a time. Two overlapping slots could dispatch a dependent while
+# its dependency is mid-release.
 concurrency:
   group: auto-release-supported-versions
   cancel-in-progress: false
@@ -28,16 +58,22 @@ jobs:
   auto-release:
     uses: ./.github/workflows/_auto-release-supported-versions.yml
     with:
-      # Dependencies before dependents. A CI tool ships first because the
-      # framework consumes it, the framework before sindri, and sindri before
-      # anything that builds an application with it. Only PHP has CI tool repos
-      # today; the pattern costs nothing in a language that has none.
-      tiers: |
-        ci-*
-        valkyrja-php valkyrja-java valkyrja-python valkyrja-ts valkyrja-go
-        sindri-php sindri-java sindri-python sindri-ts sindri-go
-        valkyrja-starter-app-* project-template-*
-      refresh-dependencies: true
+      # The master plan: name | cron (UTC) | action | cohorts. Cohort
+      # membership is derived from the repository name per
+      # REPOSITORY_NAMING.md — see `cohort_of` in the script. A repository no
+      # cohort claims runs in `catchall` and is flagged in the run summary.
+      slots: |
+        infra-release     | 0 7 * * *  | release | infra
+        ci-deps           | 0 8 * * *  | deps    | ci
+        ci-release        | 0 10 * * * | release | ci
+        framework-deps    | 0 11 * * * | deps    | frameworks
+        framework-release | 0 13 * * * | release | frameworks
+        sindri-deps       | 0 14 * * * | deps    | sindri
+        sindri-release    | 0 16 * * * | release | sindri
+        project-deps      | 0 17 * * * | deps    | projects catchall
+        project-release   | 0 19 * * * | release | projects catchall
+      slot: ${{ inputs.slot || '' }}
+      schedule: ${{ github.event.schedule || '' }}
       dry_run: ${{ inputs.dry_run || false }}
       repo: ${{ inputs.repo || '' }}
     secrets:

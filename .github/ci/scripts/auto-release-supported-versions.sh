@@ -7,23 +7,30 @@
 # Released under the MIT License. See LICENSE.md for details.
 #
 # ---------------------------------------------------------------------------
-# Auto release sweep across supported version branches.
+# Staggered auto release slots across supported version branches.
 #
-# This script dispatches each repository's own release workflow on every `??.x`
-# branch whose major matches SUPPORTED_VERSIONS. It never dispatches to
+# The day is divided into slots. Each slot dispatches one action — a
+# dependency refresh or a release — to one cohort of repositories, on every
+# `??.x` branch whose major matches SUPPORTED_VERSIONS. It never dispatches to
 # `master`, because a release is never cut from `master`.
 #
-# The sweep releases in tiers, and it waits for each tier before it starts the
-# next one. A dependency therefore always ships before the repository that
-# consumes it. Between tiers the sweep can refresh each repository's
-# dependencies, so a dependent carries the version its dependency just
-# published.
+# A cohort that consumes a first-party dependency refreshes two hours before
+# it releases, so the hourly auto-merge sweep lands the bump pull requests in
+# between. The infra cohort has no refresh slot, because it gates on no
+# first-party dependency. A cohort releases after the cohorts it depends on,
+# with enough of a gap for each registry to serve what the dependency shipped.
+# The dispatches inside one release slot go out seconds apart, so every
+# outdated-dependency gate evaluates before the first sibling publishes.
+#
+# A repository's cohort is derived from its name, per REPOSITORY_NAMING.md. A
+# repository that no cohort claims lands in `catchall`, releases in the last
+# slot, and is named in the run summary so it can be given a proper slot.
 #
 # The script reads and writes through the GitHub API. It never checks a
 # released repository out.
 #
-# Reads GH_TOKEN, ORG, SUPPORTED_VERSIONS, TIERS, REFRESH_DEPENDENCIES,
-# STAGE_TIMEOUT_MINUTES, DRY_RUN, SINGLE_REPO, THIS_REPO, THIS_REF, and
+# Reads APP_ID, APP_PRIVATE_KEY, ORG, SUPPORTED_VERSIONS, SUPPORTED_LANGUAGES,
+# SLOTS, SLOT, SCHEDULE, STAGE_TIMEOUT_MINUTES, DRY_RUN, SINGLE_REPO, and
 # GITHUB_STEP_SUMMARY from the environment.
 #
 # Usage:
@@ -43,40 +50,156 @@ if [[ -z "$SUPPORTED_VERSIONS" ]]; then
   exit 1
 fi
 
-if [[ -z "${TIERS// /}" ]]; then
-  echo "tiers is empty. Refusing to sweep without a release order."
+if [[ -z "$SUPPORTED_LANGUAGES" ]]; then
+  echo "SUPPORTED_LANGUAGES is not set. Refusing to sweep without a language list."
+  exit 1
+fi
+
+if [[ -z "${SLOTS// /}" ]]; then
+  echo "slots is empty. Refusing to sweep without a slot table."
+  exit 1
+fi
+
+if [[ -z "$APP_ID" ]] || [[ -z "$APP_PRIVATE_KEY" ]]; then
+  echo "APP_ID or APP_PRIVATE_KEY is not set. The sweep cannot mint a token."
   exit 1
 fi
 
 POLL_SECONDS=20
 STAGE_TIMEOUT=$((STAGE_TIMEOUT_MINUTES * 60))
 
-TIER_COUNT=0
-while IFS= read -r line; do
-  [[ -z "${line// /}" ]] && continue
-  TIER_COUNT=$((TIER_COUNT + 1))
-done <<< "$TIERS"
+# The sweep authenticates as the GitHub App, and it mints the installation
+# token itself. A minted token lives one hour. A slot run is normally far
+# shorter than that, but a wait on a slow release can approach the limit, and
+# a stale token turns every later dispatch into HTTP 401.
+TOKEN_MINTED_AT=0
+TOKEN_MAX_AGE_SECONDS=$((40 * 60))
 
-# A repository no tier names still has to release, so it goes last —
-# after everything that anything could depend on has already shipped.
-UNMATCHED_TIER=$((TIER_COUNT + 1))
+# The `--` is load-bearing: `tr` reads a `-_` operand as an option without it.
+base64url() { openssl base64 -A | tr -- '+/' '-_' | tr -d '='; }
 
-tier_of() {
-  local name="$1" idx=0 line pattern
+mint_token() {
+  local now header payload unsigned signature jwt installation_id
+
+  now=$(date +%s)
+  header=$(printf '{"alg":"RS256","typ":"JWT"}' | base64url)
+  payload=$(printf '{"iat":%d,"exp":%d,"iss":"%s"}' \
+    "$((now - 60))" "$((now + 540))" "$APP_ID" | base64url)
+  unsigned="$header.$payload"
+  signature=$(printf '%s' "$unsigned" \
+    | openssl dgst -sha256 -sign <(printf '%s\n' "$APP_PRIVATE_KEY") -binary \
+    | base64url)
+  jwt="$unsigned.$signature"
+
+  installation_id=$(curl -sf \
+    -H "Authorization: Bearer $jwt" \
+    -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/orgs/$ORG/installation" | jq -r '.id')
+
+  if [[ -z "$installation_id" ]] || [[ "$installation_id" == "null" ]]; then
+    echo "Could not resolve the app installation for $ORG." >&2
+    exit 1
+  fi
+
+  GH_TOKEN=$(curl -sf -X POST \
+    -H "Authorization: Bearer $jwt" \
+    -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/app/installations/$installation_id/access_tokens" \
+    | jq -r '.token')
+
+  if [[ -z "$GH_TOKEN" ]] || [[ "$GH_TOKEN" == "null" ]]; then
+    echo "Could not mint an installation token." >&2
+    exit 1
+  fi
+
+  export GH_TOKEN
+  TOKEN_MINTED_AT=$now
+
+  echo "Minted a fresh installation token." >&2
+}
+
+# Cheap enough to call inside every poll loop. Warning: command substitution
+# runs a function in a subshell, so a re-mint inside `wait_for_dispatch`
+# serves that one wait — each caller in the parent shell re-mints for itself.
+maybe_mint_token() {
+  local age
+
+  age=$(($(date +%s) - TOKEN_MINTED_AT))
+
+  if [[ "$age" -ge "$TOKEN_MAX_AGE_SECONDS" ]]; then
+    mint_token
+  fi
+}
+
+trim() {
+  local s="$1"
+
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s' "$s"
+}
+
+# Selects the slot to run. A manual dispatch names the slot; a scheduled run
+# carries the cron that fired, and the table maps it back to a slot. A cron
+# the table does not name fails the run, so the trigger list and the table
+# cannot drift apart silently.
+# Sets SLOT_NAME, SLOT_ACTION, and SLOT_COHORTS.
+resolve_slot() {
+  local line name cron action cohorts
+
+  SLOT_NAME=""
+  SLOT_ACTION=""
+  SLOT_COHORTS=""
 
   while IFS= read -r line; do
     [[ -z "${line// /}" ]] && continue
-    idx=$((idx + 1))
-    for pattern in $line; do
-      # shellcheck disable=SC2254 # The tier glob must expand, so that `ci-*` matches.
-      case "$name" in
-        $pattern) echo "$idx"; return 0 ;;
-        *) ;;
-      esac
-    done
-  done <<< "$TIERS"
 
-  echo "$UNMATCHED_TIER"
+    IFS='|' read -r name cron action cohorts <<< "$line"
+    name=$(trim "$name")
+    cron=$(trim "$cron")
+    action=$(trim "$action")
+    cohorts=$(trim "$cohorts")
+
+    if [[ -n "$SLOT" && "$name" == "$SLOT" ]] \
+      || [[ -z "$SLOT" && -n "$SCHEDULE" && "$cron" == "$SCHEDULE" ]]; then
+      SLOT_NAME="$name"
+      SLOT_ACTION="$action"
+      SLOT_COHORTS="$cohorts"
+      return 0
+    fi
+  done <<< "$SLOTS"
+
+  if [[ -n "$SLOT" ]]; then
+    echo "Slot '$SLOT' is not in the slot table."
+  else
+    echo "Schedule '$SCHEDULE' is not in the slot table. The trigger list and the table are out of sync."
+  fi
+  exit 1
+}
+
+# Maps a repository name to its cohort, per REPOSITORY_NAMING.md. The language
+# suffix set is closed and comes from SUPPORTED_LANGUAGES, so a two-token name
+# such as `valkyrja-php` cannot be confused with a project component such as
+# `valkyrja-docker-php`.
+cohort_of() {
+  local name="$1" lang
+
+  case "$name" in
+    .github|architecture|art) echo "infra"; return 0 ;;
+    *) ;;
+  esac
+
+  for lang in $SUPPORTED_LANGUAGES; do
+    case "$name" in
+      ci-*-"$lang") echo "ci"; return 0 ;;
+      valkyrja-"$lang") echo "frameworks"; return 0 ;;
+      sindri-"$lang") echo "sindri"; return 0 ;;
+      valkyrja-starter-*-"$lang"|project-template-"$lang") echo "projects"; return 0 ;;
+      *) ;;
+    esac
+  done
+
+  echo "catchall"
 }
 
 now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }
@@ -91,6 +214,8 @@ wait_for_dispatch() {
   local run_id="" waited=0 status
 
   while [[ "$waited" -lt "$deadline" ]]; do
+    maybe_mint_token
+
     if [[ -z "$run_id" ]]; then
       run_id=$(gh run list --repo "$ORG/$repo" --workflow "$workflow" --branch "$branch" \
         --limit 20 --json databaseId,createdAt \
@@ -137,6 +262,20 @@ release_branches_for() {
   printf '%s' "$out"
 }
 
+mint_token
+resolve_slot
+
+case "$SLOT_ACTION" in
+  deps) ACTION_WORKFLOW="update-dependencies.yml" ;;
+  release) ACTION_WORKFLOW="release-new-version.yml" ;;
+  *)
+    echo "Slot '$SLOT_NAME' has unknown action '$SLOT_ACTION'. Must be deps or release."
+    exit 1
+    ;;
+esac
+
+echo "Slot: $SLOT_NAME ($SLOT_ACTION for: $SLOT_COHORTS)"
+
 if [[ -n "$SINGLE_REPO" ]]; then
   REPOS="$SINGLE_REPO"
 else
@@ -144,16 +283,25 @@ else
     --jq '.[] | select(.isArchived == false) | .name')
 fi
 
-# Collect the work before the tier loop runs, so that loop dispatches
+# Collect the work before the dispatch loop runs, so that loop dispatches
 # rather than discovers. A repository appears once per version branch.
 WORK=""
 SKIPPED_NO_WORKFLOW=0
 SKIPPED_NO_BRANCH=0
+SKIPPED_OTHER_COHORT=0
+CATCHALL_REPOS=""
 
 while IFS= read -r REPO_NAME; do
   [[ -z "$REPO_NAME" ]] && continue
 
-  WORKFLOW_EXISTS=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows/release-new-version.yml" \
+  COHORT=$(cohort_of "$REPO_NAME")
+
+  if [[ " $SLOT_COHORTS " != *" $COHORT "* ]]; then
+    SKIPPED_OTHER_COHORT=$((SKIPPED_OTHER_COHORT + 1))
+    continue
+  fi
+
+  WORKFLOW_EXISTS=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows/$ACTION_WORKFLOW" \
     --jq '.name' 2>/dev/null || true)
 
   if [[ -z "$WORKFLOW_EXISTS" ]]; then
@@ -169,185 +317,84 @@ while IFS= read -r REPO_NAME; do
     continue
   fi
 
-  TIER=$(tier_of "$REPO_NAME")
+  if [[ "$COHORT" == "catchall" ]]; then
+    CATCHALL_REPOS="$CATCHALL_REPOS"$'\n'"$REPO_NAME"
+  fi
 
   while IFS= read -r BRANCH; do
     [[ -z "$BRANCH" ]] && continue
-    WORK="$WORK"$'\n'"$TIER $REPO_NAME $BRANCH"
+    WORK="$WORK"$'\n'"$REPO_NAME $BRANCH"
   done <<< "$BRANCHES"
 done <<< "$REPOS"
 
 DISPATCHED=0
-RELEASED=0
+SUCCEEDED=0
 FAILED=0
 TIMED_OUT=0
 RESULTS=""
 
-for TIER in $(seq 1 "$UNMATCHED_TIER"); do
-  TIER_WORK=$(printf '%s\n' "$WORK" | awk -v t="$TIER" '$1 == t')
-  [[ -z "$(printf '%s' "$TIER_WORK" | tr -d '[:space:]')" ]] && continue
+if [[ "$DRY_RUN" = "true" ]]; then
+  while read -r REPO_NAME BRANCH; do
+    [[ -z "$REPO_NAME" ]] && continue
+    echo "[dry run] would run $SLOT_ACTION on $REPO_NAME ($BRANCH)"
+    RESULTS="$RESULTS"$'\n'"| \`$REPO_NAME\` | $BRANCH | dry run |"
+    DISPATCHED=$((DISPATCHED + 1))
+  done <<< "$WORK"
+else
+  maybe_mint_token
 
-  echo "::group::Tier $TIER"
-  printf '%s\n' "$TIER_WORK" | awk 'NF {print "  " $2 " (" $3 ")"}'
+  DISPATCH_SINCE=$(now_utc)
+  DISPATCHED_WORK=""
 
-  if [[ "$DRY_RUN" = "true" ]]; then
-    while read -r _ REPO_NAME BRANCH; do
-      [[ -z "$REPO_NAME" ]] && continue
-      echo "  [dry run] would release $REPO_NAME on $BRANCH"
-      RESULTS="$RESULTS"$'\n'"| $TIER | \`$REPO_NAME\` | $BRANCH | dry run |"
-      DISPATCHED=$((DISPATCHED + 1))
-    done <<< "$TIER_WORK"
-    echo "::endgroup::"
-    continue
-  fi
-
-  # A tier depends only on the tiers before it, so what it needs has
-  # already shipped by the time this runs. Its manifest still names the
-  # previous version though, and the release gate refuses to release
-  # against an outdated direct dependency. The refresh here is what
-  # lets a dependent release in the same pass as its dependency.
-  if [[ "$REFRESH_DEPENDENCIES" = "true" ]] && [[ "$TIER" -gt 1 ]]; then
-    REFRESH_SINCE=$(now_utc)
-    REFRESHED=""
-
-    while read -r _ REPO_NAME BRANCH; do
-      [[ -z "$REPO_NAME" ]] && continue
-
-      HAS_UPDATE=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows/update-dependencies.yml" \
-        --jq '.name' 2>/dev/null || true)
-      [[ -z "$HAS_UPDATE" ]] && continue
-
-      if gh workflow run update-dependencies.yml --repo "$ORG/$REPO_NAME" --ref "$BRANCH" \
-           >/dev/null 2>&1; then
-        echo "  Refreshing dependencies: $REPO_NAME ($BRANCH)"
-        REFRESHED="$REFRESHED"$'\n'"$REPO_NAME $BRANCH"
-      else
-        echo "  Could not trigger update-dependencies on $REPO_NAME ($BRANCH)"
-      fi
-    done <<< "$TIER_WORK"
-
-    while read -r REPO_NAME BRANCH; do
-      [[ -z "$REPO_NAME" ]] && continue
-      OUTCOME=$(wait_for_dispatch "$REPO_NAME" "update-dependencies.yml" "$BRANCH" "$REFRESH_SINCE")
-      echo "  Dependency refresh $REPO_NAME ($BRANCH): $OUTCOME"
-    done <<< "$REFRESHED"
-
-    # The auto-merge sweep lands the bump, gated on the allowlist and
-    # the required checks it applies everywhere else. Calling it here
-    # rather than merging directly keeps one definition of what may
-    # merge unattended. It repeats because the bump pull request has to
-    # go green first, and its checks start only once the refresh above
-    # has pushed.
-    if [[ -n "$(printf '%s' "$REFRESHED" | tr -d '[:space:]')" ]]; then
-      # Measured against the clock rather than counted in iterations.
-      # Each pass also waits on a dispatched run, so crediting a fixed
-      # amount per pass would undercount the time the pass really took
-      # and let this block run far past the stage timeout it claims to
-      # honor. The remaining budget also bounds the inner wait, so the
-      # whole block stays inside one stage timeout.
-      MERGE_START=$(date +%s)
-      MERGE_REMAINING=$STAGE_TIMEOUT
-
-      while [[ "$MERGE_REMAINING" -gt 0 ]]; do
-        MERGE_SINCE=$(now_utc)
-        gh workflow run auto-merge-bot-prs.yml --repo "$ORG/$THIS_REPO" \
-          --ref "$THIS_REF" >/dev/null 2>&1 || true
-        wait_for_dispatch "$THIS_REPO" "auto-merge-bot-prs.yml" "$THIS_REF" \
-          "$MERGE_SINCE" "$MERGE_REMAINING" >/dev/null
-
-        STILL_OPEN=0
-        STILL_RUNNING=0
-
-        while read -r REPO_NAME BRANCH; do
-          [[ -z "$REPO_NAME" ]] && continue
-
-          OPEN_PRS=$(gh pr list --repo "$ORG/$REPO_NAME" --state open --base "$BRANCH" \
-            --json number,title \
-            --jq '.[] | select(.title | startswith("[Dependency]")) | .number' \
-            2>/dev/null || true)
-
-          while IFS= read -r PR_NUMBER; do
-            [[ -z "$PR_NUMBER" ]] && continue
-            STILL_OPEN=$((STILL_OPEN + 1))
-
-            # A pull request whose checks have not all reported cannot
-            # have been judged yet, so the wait is still worth it.
-            UNSETTLED=$(gh pr checks "$PR_NUMBER" --repo "$ORG/$REPO_NAME" \
-              --json bucket --jq '[.[] | select(.bucket == "pending")] | length' \
-              2>/dev/null || echo 1)
-            case "$UNSETTLED" in
-              ''|*[!0-9]*) UNSETTLED=1 ;;
-              *) ;;
-            esac
-            [[ "$UNSETTLED" -gt 0 ]] && STILL_RUNNING=$((STILL_RUNNING + 1))
-          done <<< "$OPEN_PRS"
-        done <<< "$REFRESHED"
-
-        [[ "$STILL_OPEN" -eq 0 ]] && break
-
-        # Every remaining pull request has had its checks reported and
-        # the auto-merge sweep still left it open. It declines for a
-        # reason it will keep having — a failing check, a path outside
-        # the allowlist, a repository it excludes — so more waiting
-        # cannot change the answer. Release anyway and let the
-        # outdated-dependency gate be the one to object.
-        if [[ "$STILL_RUNNING" -eq 0 ]]; then
-          echo "  $STILL_OPEN dependency pull request(s) will not land on their own; continuing."
-          break
-        fi
-
-        echo "  $STILL_OPEN dependency pull request(s) not landed yet, waiting."
-        sleep "$POLL_SECONDS"
-        MERGE_REMAINING=$((STAGE_TIMEOUT - ($(date +%s) - MERGE_START)))
-      done
-    fi
-  fi
-
-  RELEASE_SINCE=$(now_utc)
-  TIER_DISPATCHED=""
-
-  while read -r _ REPO_NAME BRANCH; do
+  # Every dispatch in the slot goes out before the first wait starts. The
+  # release runs of one cohort therefore all evaluate their gates before any
+  # sibling publishes, so a sibling's release cannot turn a gate red mid-slot.
+  while read -r REPO_NAME BRANCH; do
     [[ -z "$REPO_NAME" ]] && continue
 
-    TRIGGER_ERR=$(gh workflow run release-new-version.yml \
-      --repo "$ORG/$REPO_NAME" \
-      --ref "$BRANCH" \
-      -f bump=auto 2>&1 >/dev/null || true)
+    if [[ "$SLOT_ACTION" == "release" ]]; then
+      TRIGGER_ERR=$(gh workflow run "$ACTION_WORKFLOW" \
+        --repo "$ORG/$REPO_NAME" \
+        --ref "$BRANCH" \
+        -f bump=auto 2>&1 >/dev/null || true)
+    else
+      TRIGGER_ERR=$(gh workflow run "$ACTION_WORKFLOW" \
+        --repo "$ORG/$REPO_NAME" \
+        --ref "$BRANCH" 2>&1 >/dev/null || true)
+    fi
 
     if [[ -n "$TRIGGER_ERR" ]]; then
-      echo "  Failed to dispatch $REPO_NAME on $BRANCH: $TRIGGER_ERR"
-      RESULTS="$RESULTS"$'\n'"| $TIER | \`$REPO_NAME\` | $BRANCH | dispatch failed |"
+      echo "Failed to dispatch $SLOT_ACTION on $REPO_NAME ($BRANCH): $TRIGGER_ERR"
+      RESULTS="$RESULTS"$'\n'"| \`$REPO_NAME\` | $BRANCH | dispatch failed |"
       FAILED=$((FAILED + 1))
       continue
     fi
 
-    echo "  Dispatched bump=auto on $REPO_NAME ($BRANCH)."
+    echo "Dispatched $SLOT_ACTION on $REPO_NAME ($BRANCH)."
     DISPATCHED=$((DISPATCHED + 1))
-    TIER_DISPATCHED="$TIER_DISPATCHED"$'\n'"$REPO_NAME $BRANCH"
-  done <<< "$TIER_WORK"
+    DISPATCHED_WORK="$DISPATCHED_WORK"$'\n'"$REPO_NAME $BRANCH"
+  done <<< "$WORK"
 
-  # The wait is the whole point of the tier. A sweep that returned here
-  # would put every dispatch back on one starting line, which is what
-  # made the order a coin toss.
   while read -r REPO_NAME BRANCH; do
     [[ -z "$REPO_NAME" ]] && continue
 
-    OUTCOME=$(wait_for_dispatch "$REPO_NAME" "release-new-version.yml" "$BRANCH" "$RELEASE_SINCE")
-    echo "  Release $REPO_NAME ($BRANCH): $OUTCOME"
-    RESULTS="$RESULTS"$'\n'"| $TIER | \`$REPO_NAME\` | $BRANCH | $OUTCOME |"
+    maybe_mint_token
+    OUTCOME=$(wait_for_dispatch "$REPO_NAME" "$ACTION_WORKFLOW" "$BRANCH" "$DISPATCH_SINCE")
+    echo "$SLOT_ACTION $REPO_NAME ($BRANCH): $OUTCOME"
+    RESULTS="$RESULTS"$'\n'"| \`$REPO_NAME\` | $BRANCH | $OUTCOME |"
 
     case "$OUTCOME" in
-      success) RELEASED=$((RELEASED + 1)) ;;
+      success) SUCCEEDED=$((SUCCEEDED + 1)) ;;
       timeout|missing) TIMED_OUT=$((TIMED_OUT + 1)) ;;
       *) FAILED=$((FAILED + 1)) ;;
     esac
-  done <<< "$TIER_DISPATCHED"
-
-  echo "::endgroup::"
-done
+  done <<< "$DISPATCHED_WORK"
+fi
 
 {
-  echo "### Auto release sweep"
+  echo "### Auto release slot: $SLOT_NAME"
+  echo
+  echo "Action: \`$SLOT_ACTION\` — cohorts: \`$SLOT_COHORTS\`"
   echo
   if [[ "$DRY_RUN" = "true" ]]; then
     echo "Dry run — nothing was dispatched."
@@ -356,28 +403,36 @@ done
   echo "| Result | Count |"
   echo "|--------|-------|"
   echo "| Dispatched | $DISPATCHED |"
-  echo "| Released | $RELEASED |"
+  echo "| Succeeded | $SUCCEEDED |"
   echo "| Failed | $FAILED |"
   echo "| Timed out waiting | $TIMED_OUT |"
-  echo "| Skipped (no release workflow) | $SKIPPED_NO_WORKFLOW |"
+  echo "| Skipped (other cohort) | $SKIPPED_OTHER_COHORT |"
+  echo "| Skipped (no $ACTION_WORKFLOW) | $SKIPPED_NO_WORKFLOW |"
   echo "| Skipped (no supported version branch) | $SKIPPED_NO_BRANCH |"
 
   if [[ -n "$RESULTS" ]]; then
     echo
-    echo "| Tier | Repository | Branch | Outcome |"
-    echo "|------|------------|--------|---------|"
+    echo "| Repository | Branch | Outcome |"
+    echo "|------------|--------|---------|"
     printf '%s\n' "${RESULTS#$'\n'}"
   fi
 
+  if [[ -n "$(printf '%s' "$CATCHALL_REPOS" | tr -d '[:space:]')" ]]; then
+    echo
+    echo "Warning: these repositories match no cohort and ran in \`catchall\`."
+    echo "Give each one a slot, or a cohort rule in \`cohort_of\`:"
+    echo
+    printf '%s\n' "$CATCHALL_REPOS" | awk 'NF {print "- `" $1 "`"}'
+  fi
+
   echo
-  echo "A dispatched run releases only if commits are pending — see"
+  echo "A dispatched release runs only if commits are pending — see"
   echo "\`_get-version-for-release.yml\`. Quiet branches produce nothing."
 } >> "$GITHUB_STEP_SUMMARY"
 
-# A failed release fails the sweep, because every tier after it was
-# sequenced on the assumption that it shipped. A timeout does not: the
-# run the sweep stopped watching may still finish and succeed.
+# A failure fails the slot, so the day's plan shows red where it broke. A
+# timeout does not: the run the sweep stopped watching may still finish.
 if [[ "$FAILED" -gt 0 ]]; then
-  echo "$FAILED release(s) failed."
+  echo "$FAILED $SLOT_ACTION dispatch(es) failed."
   exit 1
 fi
