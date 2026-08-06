@@ -36,7 +36,7 @@ EXISTING=$(gh pr list \
   --json headRefName \
   --jq '[.[] | select(.headRefName | startswith("deps/update-dependencies-"))] | first | .headRefName // ""')
 
-if [ -n "$EXISTING" ]; then
+if [[ -n "$EXISTING" ]]; then
   echo "Found existing PR branch: $EXISTING"
   git fetch origin "$EXISTING"
   git checkout "$EXISTING"
