@@ -14,11 +14,11 @@ fast, light, and robust.
 Get Started
 -----------
 
-- **PHP** — [framework][valkyrja-php url] · [sindri][sindri-php url] · [starter][starter-php url]
-- **Java** — [framework][valkyrja-java url] · [sindri][sindri-java url] · [starter][starter-java url]
-- **Go** — [framework][valkyrja-go url] · [sindri][sindri-go url] · [starter][starter-go url]
-- **Python** — [framework][valkyrja-python url] · [sindri][sindri-python url] · [starter][starter-python url]
-- **TypeScript** — [framework][valkyrja-ts url] · [sindri][sindri-ts url] · [starter][starter-ts url]
+- **PHP** — [framework][valkyrja-php url] · [Sindri][sindri-php url] · [starter][starter-php url]
+- **Java** — [framework][valkyrja-java url] · [Sindri][sindri-java url] · [starter][starter-java url]
+- **Go** — [framework][valkyrja-go url] · [Sindri][sindri-go url] · [starter][starter-go url]
+- **Python** — [framework][valkyrja-python url] · [Sindri][sindri-python url] · [starter][starter-python url]
+- **TypeScript** — [framework][valkyrja-ts url] · [Sindri][sindri-ts url] · [starter][starter-ts url]
 
 [Browse all repositories][org repos url].
 
