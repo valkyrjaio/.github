@@ -150,40 +150,55 @@ than the reverse.
 
 ### Scheduled auto releases
 
-`auto-release-supported-versions.yml` runs daily and dispatches each repo's own
-`release-new-version.yml` with `bump: auto` on every `??.x` branch whose major matches
-`SUPPORTED_VERSIONS`. Supports `dry_run` and a single-`repo` target on manual
-dispatch.
+`auto-release-supported-versions.yml` divides the day into slots. Each slot
+dispatches one action — a dependency refresh or a release — to one cohort of
+repositories, on every `??.x` branch whose major matches `SUPPORTED_VERSIONS`.
+A release dispatch runs the repo's own `release-new-version.yml` with
+`bump: auto`; a refresh runs its `update-dependencies.yml`. Manual dispatch
+takes a `slot` to run, plus `dry_run` and a single-`repo` target.
 
-#### Release order
+#### The slot plan
 
-The sweep releases in tiers, and it waits for each tier to finish before it
-starts the next one. A dependency therefore always ships before the repository
-that consumes it:
+The slot table in the caller is the master plan. Each cohort's dependencies
+refresh two hours before its release, so the hourly `auto-merge-bot-prs.yml`
+sweep gets two passes to land the bump pull requests in between — no run waits
+on a merge. Each cohort releases hours after the cohorts it depends on, so
+every registry has served what the dependency shipped by the time the
+dependent refreshes against it. All times are UTC; the org's clock is
+America/Phoenix (UTC-7, no DST), so each cron maps to the same local hour all
+year.
 
-| Tier | Repositories                                   | Why it is here                         |
-| ---- | ---------------------------------------------- | -------------------------------------- |
-| 1    | `ci-*`                                         | The framework consumes the CI tools    |
-| 2    | `valkyrja-<lang>`                              | Everything else consumes the framework |
-| 3    | `sindri-<lang>`                                | `sindri` builds against the framework  |
-| 4    | `valkyrja-starter-app-*`, `project-template-*` | An application uses both               |
-| 5    | Everything the tiers do not name               | Released last, so nothing waits on it  |
+| Slot (UTC)                | Action  | Cohort     | Why it is here                                                 |
+| ------------------------- | ------- | ---------- | -------------------------------------------------------------- |
+| 05:00 / 07:00             | deps / release | infra | `.github` re-pins workflow refs everywhere; ship that first |
+| 08:00 / 10:00             | deps / release | ci  | The framework consumes the CI tools                            |
+| 11:00 / 13:00             | deps / release | frameworks | Everything else consumes the framework                   |
+| 14:00 / 16:00             | deps / release | sindri | `sindri` builds against the framework                       |
+| 17:00 / 19:00             | deps / release | projects, catchall | The leaf consumers of everything above; unmatched repos go last |
 
-Order alone is not enough. A dependent that releases straight after its
-dependency still carries the previous version in its manifest. The release gate
-rejects an outdated direct dependency. So between tiers
-the sweep runs each repository's `update-dependencies`, then dispatches
-`auto-merge-bot-prs.yml` to land the bump under the gates that workflow already
-applies. Only then does it dispatch the tier's releases.
+A cohort is derived from the repository name, per `REPOSITORY_NAMING.md`, with
+the language suffix set read from the `SUPPORTED_LANGUAGES` org variable:
+`infra` is the closed list `.github`, `architecture`, `art`; `ci-{tool}-{lang}`
+is `ci`; `valkyrja-{lang}` is `frameworks`; `sindri-{lang}` is `sindri`;
+`valkyrja-starter-{type}-{lang}` and `project-template-{lang}` are `projects`.
+A repository that no rule claims runs in `catchall` and is flagged in the run
+summary, so it can be given a slot or a rule. Project components such as
+`valkyrja-docker-php` and `valkyrja-benchmarking-php` are `catchall` today and
+share the `projects` slot pair.
 
-The sweep stops waiting for a bump once every check on it has reported and the
-pull request is still open. The auto-merge sweep declined for a reason that will
-not change on its own. The release goes ahead, and the outdated-dependency gate
-objects instead.
+The dispatches inside one release slot go out seconds apart, so every
+outdated-dependency gate evaluates before the first sibling publishes — one
+cohort member cannot turn another's gate red mid-slot.
 
-Warning: a failed release fails the whole sweep, because every later tier was
-sequenced on the assumption that the release shipped. A wait that times out does
-not fail the sweep — the run it stopped watching may still finish.
+Warning: the caller's `on.schedule` cron list and the slot table must name the
+same crons. The script fails a scheduled run whose cron the table does not
+name, so drift is loud, not silent.
+
+Warning: a failed dispatch or release fails the slot, so the day's plan shows
+red where it broke. A wait that times out does not fail the slot — the run it
+stopped watching may still finish. A cohort whose gate rejects a stale
+dependency self-heals the next day: the morning refresh lands the bump, and
+the next release slot ships it.
 
 This ordering is what a release of `@valkyrjaio/sindri` needs. Before it, the
 sweep dispatched every repository at once in `gh repo list` order, so `sindri`
@@ -204,7 +219,9 @@ nothing.
 Two mechanical constraints shape it: scheduled workflows only run from the default
 branch (the current-year `??.x` for these repos, not `master`), and a
 `workflow_dispatch` triggered with `GITHUB_TOKEN` does not create a run — so the sweep
-authenticates as the GitHub App.
+authenticates as the GitHub App. The script mints the installation token itself and
+re-mints it as it ages, because a minted token lives one hour and a wait on a slow
+release can approach that.
 
 ### Stable release flow (`auto` / `patch` / `feature` / `yearly`)
 
