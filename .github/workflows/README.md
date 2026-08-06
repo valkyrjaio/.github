@@ -1181,14 +1181,23 @@ A pull request merges only when **all** of the following hold:
 | Status checks | Every context the branch's ruleset requires has concluded `SUCCESS` |
 | Draft         | Not a draft                                                         |
 
-Anything else is left open for a human. A pull request the sweep flags for
-attention — failing required checks, a path outside the allowlist, a failed
-merge — also gets a review request to `VALKYRJA_REVIEWER`. The generators
-request no reviewer when they open a pull request, because a pull request that
-merges on its own needs nobody's time, so this request is how a person hears
-about the one that did not. The request goes out once: a pull request where
-the reviewer is already requested, or has already reviewed, is skipped, so a
-broken pull request does not ping the person on every hourly pass.
+Anything else is left open for a human, and the sweep requests a review from
+`VALKYRJA_REVIEWER` on it. The generators request no reviewer when they open a
+pull request, because a pull request that merges on its own needs nobody's
+time. This request is how a person hears about the one that did not.
+
+The sweep requests the review on each pull request it puts in the "needs a
+look" table:
+
+- A required status check concluded as a failure.
+- A changed path falls outside that type's allowlist.
+- The head branch does not begin with `deps/`.
+- The base branch requires no status checks at all.
+- The merge call itself failed.
+
+The request goes out once. The sweep skips a pull request where the reviewer is
+already requested, or has already reviewed, so a broken pull request does not
+ping the person on every hourly pass. A dry run requests nobody.
 
 ### Path allowlists
 
