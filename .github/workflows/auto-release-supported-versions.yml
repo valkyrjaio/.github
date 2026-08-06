@@ -12,7 +12,6 @@ on:
     # cohort releases after the cohorts it depends on, with a gap for each
     # registry to serve what shipped. Infra goes first so the workflow-ref
     # re-pins a `.github` release pushes are in every later cohort's release.
-    - cron: '0 5 * * *'
     - cron: '0 7 * * *'
     - cron: '0 8 * * *'
     - cron: '0 10 * * *'
@@ -29,7 +28,6 @@ on:
         type: choice
         required: true
         options:
-          - infra-deps
           - infra-release
           - ci-deps
           - ci-release
@@ -65,7 +63,6 @@ jobs:
       # REPOSITORY_NAMING.md — see `cohort_of` in the script. A repository no
       # cohort claims runs in `catchall` and is flagged in the run summary.
       slots: |
-        infra-deps        | 0 5 * * *  | deps    | infra
         infra-release     | 0 7 * * *  | release | infra
         ci-deps           | 0 8 * * *  | deps    | ci
         ci-release        | 0 10 * * * | release | ci

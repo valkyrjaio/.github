@@ -14,12 +14,13 @@
 # `??.x` branch whose major matches SUPPORTED_VERSIONS. It never dispatches to
 # `master`, because a release is never cut from `master`.
 #
-# A cohort's dependencies refresh two hours before its release, so the hourly
-# auto-merge sweep lands the bump pull requests in between. A cohort releases
-# after the cohorts it depends on, with enough of a gap for each registry to
-# serve what the dependency shipped. The dispatches inside one release slot go
-# out seconds apart, so every outdated-dependency gate evaluates before the
-# first sibling publishes.
+# A cohort that consumes a first-party dependency refreshes two hours before
+# it releases, so the hourly auto-merge sweep lands the bump pull requests in
+# between. The infra cohort has no refresh slot, because it gates on no
+# first-party dependency. A cohort releases after the cohorts it depends on,
+# with enough of a gap for each registry to serve what the dependency shipped.
+# The dispatches inside one release slot go out seconds apart, so every
+# outdated-dependency gate evaluates before the first sibling publishes.
 #
 # A repository's cohort is derived from its name, per REPOSITORY_NAMING.md. A
 # repository that no cohort claims lands in `catchall`, releases in the last
