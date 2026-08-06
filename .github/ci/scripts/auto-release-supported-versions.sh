@@ -187,6 +187,41 @@ wait_for_dispatch() {
   if [[ -n "$run_id" ]]; then echo "timeout"; else echo "missing"; fi
 }
 
+# Counts the open dependency pull requests for the repositories that REFRESHED
+# names. Reports through STILL_OPEN and STILL_RUNNING: a pull request counts as
+# running while any of its checks has not reported.
+scan_dependency_prs() {
+  local repo_name branch pr_number unsettled open_prs
+
+  STILL_OPEN=0
+  STILL_RUNNING=0
+
+  while read -r repo_name branch; do
+    [[ -z "$repo_name" ]] && continue
+
+    open_prs=$(gh pr list --repo "$ORG/$repo_name" --state open --base "$branch" \
+      --json number,title \
+      --jq '.[] | select(.title | startswith("[Dependency]")) | .number' \
+      2>/dev/null || true)
+
+    while IFS= read -r pr_number; do
+      [[ -z "$pr_number" ]] && continue
+      STILL_OPEN=$((STILL_OPEN + 1))
+
+      # A pull request whose checks have not all reported cannot
+      # have been judged yet, so the wait is still worth it.
+      unsettled=$(gh pr checks "$pr_number" --repo "$ORG/$repo_name" \
+        --json bucket --jq '[.[] | select(.bucket == "pending")] | length' \
+        2>/dev/null || echo 1)
+      case "$unsettled" in
+        ''|*[!0-9]*) unsettled=1 ;;
+        *) ;;
+      esac
+      [[ "$unsettled" -gt 0 ]] && STILL_RUNNING=$((STILL_RUNNING + 1))
+    done <<< "$open_prs"
+  done <<< "$REFRESHED"
+}
+
 release_branches_for() {
   local repo="$1" all b major out=""
 
@@ -310,9 +345,7 @@ for TIER in $(seq 1 "$UNMATCHED_TIER"); do
     # The auto-merge sweep lands the bump, gated on the allowlist and
     # the required checks it applies everywhere else. Calling it here
     # rather than merging directly keeps one definition of what may
-    # merge unattended. It repeats because the bump pull request has to
-    # go green first, and its checks start only once the refresh above
-    # has pushed.
+    # merge unattended.
     if [[ -n "$(printf '%s' "$REFRESHED" | tr -d '[:space:]')" ]]; then
       # Measured against the clock rather than counted in iterations.
       # Each pass also waits on a dispatched run, so crediting a fixed
@@ -325,56 +358,43 @@ for TIER in $(seq 1 "$UNMATCHED_TIER"); do
 
       while [[ "$MERGE_REMAINING" -gt 0 ]]; do
         maybe_mint_token
+        scan_dependency_prs
 
+        [[ "$STILL_OPEN" -eq 0 ]] && break
+
+        if [[ "$STILL_RUNNING" -gt 0 ]]; then
+          echo "  $STILL_OPEN dependency pull request(s) not landed yet, waiting."
+          sleep "$POLL_SECONDS"
+          MERGE_REMAINING=$((STAGE_TIMEOUT - ($(date +%s) - MERGE_START)))
+          continue
+        fi
+
+        # Every check has reported and the pull requests are still open.
+        # Only an auto-merge pass that starts now can judge them: a pass
+        # that ran while a check was still pending declined a pull
+        # request that was about to go green, and the release then went
+        # out against the stale lock. So run one pass over the settled
+        # set before drawing any conclusion from an open pull request.
         MERGE_SINCE=$(now_utc)
         gh workflow run auto-merge-bot-prs.yml --repo "$ORG/$THIS_REPO" \
           --ref "$THIS_REF" >/dev/null 2>&1 || true
         wait_for_dispatch "$THIS_REPO" "auto-merge-bot-prs.yml" "$THIS_REF" \
           "$MERGE_SINCE" "$MERGE_REMAINING" >/dev/null
 
-        STILL_OPEN=0
-        STILL_RUNNING=0
-
-        while read -r REPO_NAME BRANCH; do
-          [[ -z "$REPO_NAME" ]] && continue
-
-          OPEN_PRS=$(gh pr list --repo "$ORG/$REPO_NAME" --state open --base "$BRANCH" \
-            --json number,title \
-            --jq '.[] | select(.title | startswith("[Dependency]")) | .number' \
-            2>/dev/null || true)
-
-          while IFS= read -r PR_NUMBER; do
-            [[ -z "$PR_NUMBER" ]] && continue
-            STILL_OPEN=$((STILL_OPEN + 1))
-
-            # A pull request whose checks have not all reported cannot
-            # have been judged yet, so the wait is still worth it.
-            UNSETTLED=$(gh pr checks "$PR_NUMBER" --repo "$ORG/$REPO_NAME" \
-              --json bucket --jq '[.[] | select(.bucket == "pending")] | length' \
-              2>/dev/null || echo 1)
-            case "$UNSETTLED" in
-              ''|*[!0-9]*) UNSETTLED=1 ;;
-              *) ;;
-            esac
-            [[ "$UNSETTLED" -gt 0 ]] && STILL_RUNNING=$((STILL_RUNNING + 1))
-          done <<< "$OPEN_PRS"
-        done <<< "$REFRESHED"
+        scan_dependency_prs
 
         [[ "$STILL_OPEN" -eq 0 ]] && break
 
-        # Every remaining pull request has had its checks reported and
-        # the auto-merge sweep still left it open. It declines for a
-        # reason it will keep having — a failing check, a path outside
-        # the allowlist, a repository it excludes — so more waiting
-        # cannot change the answer. Release anyway and let the
+        # A pass over fully settled checks still left these open. It
+        # declines for a reason it will keep having — a failing check, a
+        # path outside the allowlist, a repository it excludes — so more
+        # waiting cannot change the answer. Release anyway and let the
         # outdated-dependency gate be the one to object.
         if [[ "$STILL_RUNNING" -eq 0 ]]; then
           echo "  $STILL_OPEN dependency pull request(s) will not land on their own; continuing."
           break
         fi
 
-        echo "  $STILL_OPEN dependency pull request(s) not landed yet, waiting."
-        sleep "$POLL_SECONDS"
         MERGE_REMAINING=$((STAGE_TIMEOUT - ($(date +%s) - MERGE_START)))
       done
     fi
