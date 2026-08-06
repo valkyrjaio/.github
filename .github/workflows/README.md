@@ -98,7 +98,7 @@ it names. Re-pin the repo first, then change the list.
 | `SUPPORTED_LANGUAGES`  | `php java python ts go` | Space-separated language suffixes; selects the `project-template-<lang>` scaffold and `rulesets/<lang>/` rulesets on repo create/enforce |
 | `USER_EMAIL`           | `bot@example.com`       | Git committer email for rebase, cherry-pick, and branch operations                                                                       |
 | `USER_NAME`            | `Valkyrja Bot`          | Git committer name for rebase, cherry-pick, and branch operations                                                                        |
-| `VALKYRJA_REVIEWER`    | `melechmizrachi`        | GitHub username assigned as reviewer on automated PRs                                                                                    |
+| `VALKYRJA_REVIEWER`    | `melechmizrachi`        | GitHub username the auto-merge sweep requests a review from when a bot PR needs a person                                                 |
 
 ---
 
@@ -1181,7 +1181,23 @@ A pull request merges only when **all** of the following hold:
 | Status checks | Every context the branch's ruleset requires has concluded `SUCCESS` |
 | Draft         | Not a draft                                                         |
 
-Anything else is left open for a human.
+Anything else is left open for a human, and the sweep requests a review from
+`VALKYRJA_REVIEWER` on it. The generators request no reviewer when they open a
+pull request, because a pull request that merges on its own needs nobody's
+time. This request is how a person hears about the one that did not.
+
+The sweep requests the review on each pull request it puts in the "needs a
+look" table:
+
+- A required status check concluded as a failure.
+- A changed path falls outside that type's allowlist.
+- The head branch does not begin with `deps/`.
+- The base branch requires no status checks at all.
+- The merge call itself failed.
+
+The request goes out once. The sweep skips a pull request where the reviewer is
+already requested, or has already reviewed, so a broken pull request does not
+ping the person on every hourly pass. A dry run requests nobody.
 
 ### Path allowlists
 

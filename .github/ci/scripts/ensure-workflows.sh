@@ -23,7 +23,7 @@
 # so a template pinned to a release SHA would run the released workflow rather
 # than the branch under test.
 #
-# Reads GH_TOKEN, ORG, REVIEWER, and SUPPORTED_VERSIONS from the environment.
+# Reads GH_TOKEN, ORG, and SUPPORTED_VERSIONS from the environment.
 #
 # Usage:
 #
@@ -318,11 +318,6 @@ while IFS= read -r REPO_NAME; do
         2>/dev/null || true)
 
       if [[ -z "$EXISTING_PR" ]]; then
-        REVIEWER_FLAGS=()
-        if [[ -n "$REVIEWER" ]]; then
-          REVIEWER_FLAGS=(--assignee "$REVIEWER" --reviewer "$REVIEWER")
-        fi
-
         BODY="# Description"$'\n'$'\n'
         BODY+="Ensure required workflow files exist in \`$REPO_NAME\` pinned to \`$LATEST_TAG\`."$'\n'$'\n'
         BODY+="## Types of changes"$'\n'$'\n'
@@ -347,8 +342,7 @@ while IFS= read -r REPO_NAME; do
           --title "[Workflow] ci: Ensure required workflow files" \
           --body "$BODY" \
           --base "$BASE_BRANCH" \
-          --head "$UPDATE_BRANCH" \
-          "${REVIEWER_FLAGS[@]}" 2>/dev/null; then
+          --head "$UPDATE_BRANCH" 2>/dev/null; then
           echo "  [$BASE_BRANCH] PR creation failed, skipping"
         else
           echo "  [$BASE_BRANCH] PR created."

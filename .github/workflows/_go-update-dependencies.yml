@@ -193,7 +193,6 @@ jobs:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           BASE: ${{ github.ref_name }}
           BRANCH: ${{ steps.prep-branch.outputs.branch }}
-          REVIEWER: ${{ vars.VALKYRJA_REVIEWER }}
         run: |
           BODY=""
           BODY+="# Description"$'\n'$'\n'
@@ -217,14 +216,8 @@ jobs:
             BODY+="_No pinned version changes detected — go.sum updates only._"$'\n'
           fi
 
-          REVIEWER_FLAGS=""
-          if [ -n "$REVIEWER" ]; then
-            REVIEWER_FLAGS="--assignee $REVIEWER --reviewer $REVIEWER"
-          fi
-
           gh pr create \
             --title "[Dependency] build: Update Go dependencies" \
             --body "$BODY" \
             --base "$BASE" \
-            --head "$BRANCH" \
-            $REVIEWER_FLAGS
+            --head "$BRANCH"

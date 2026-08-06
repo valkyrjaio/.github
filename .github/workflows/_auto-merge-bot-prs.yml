@@ -60,6 +60,7 @@ jobs:
           ENABLED_TYPES: ${{ inputs.types }}
           EXCLUDE_REPOS: ${{ inputs.exclude-repos }}
           SUPPORTED_VERSIONS: ${{ vars.SUPPORTED_VERSIONS }}
+          REVIEWER: ${{ vars.VALKYRJA_REVIEWER }}
           DRY_RUN: ${{ inputs.dry_run }}
           SINGLE_REPO: ${{ inputs.repo }}
         run: .github/ci/scripts/auto-merge-bot-prs.sh

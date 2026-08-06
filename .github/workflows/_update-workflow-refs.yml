@@ -41,6 +41,5 @@ jobs:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           ORG: ${{ github.repository_owner }}
           SOURCE_REPO: ${{ inputs.source-repo }}
-          REVIEWER: ${{ vars.VALKYRJA_REVIEWER }}
           SUPPORTED_VERSIONS: ${{ vars.SUPPORTED_VERSIONS }}
         run: .github/ci/scripts/update-workflow-refs.sh
