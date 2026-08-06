@@ -1,6 +1,12 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.24.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.24.1...26.x)
+
+## [v26.24.1](https://github.com/valkyrjaio/.github/compare/v26.24.0...v26.24.1) - 2026-08-06
+
+* [Workflow] ci: Request a review only when a bot pull request needs a person by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/311
+* [Workflow] docs: Record how to move a run block into a script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/308
+* [Workflow] ci: Release in staggered daily slots instead of one tiered sweep by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/313
 
 ## [v26.24.0](https://github.com/valkyrjaio/.github/compare/v26.23.1...v26.24.0) - 2026-08-05
 
