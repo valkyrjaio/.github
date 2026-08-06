@@ -168,20 +168,19 @@ shipped by the time the dependent refreshes against it. All times are UTC; the
 org's clock is America/Phoenix (UTC-7, no DST), so each cron maps to the same
 local hour all year.
 
-| Slot (UTC)                | Action  | Cohort     | Why it is here                                                 |
-| ------------------------- | ------- | ---------- | -------------------------------------------------------------- |
-| 07:00                     | release | infra      | `.github` re-pins workflow refs everywhere; ship that first    |
-| 08:00 / 10:00             | deps / release | ci  | The framework consumes the CI tools                            |
-| 11:00 / 13:00             | deps / release | frameworks | Everything else consumes the framework                   |
-| 14:00 / 16:00             | deps / release | sindri | `sindri` builds against the framework                       |
-| 17:00 / 19:00             | deps / release | projects, catchall | The leaf consumers of everything above; unmatched repos go last |
+| Slot (UTC)    | Action         | Cohort             | Why it is here                                                  |
+| ------------- | -------------- | ------------------ | --------------------------------------------------------------- |
+| 07:00         | release        | infra              | `.github` re-pins workflow refs everywhere; ship that first     |
+| 08:00 / 10:00 | deps / release | ci                 | The framework consumes the CI tools                             |
+| 11:00 / 13:00 | deps / release | frameworks         | Everything else consumes the framework                          |
+| 14:00 / 16:00 | deps / release | sindri             | `sindri` builds against the framework                           |
+| 17:00 / 19:00 | deps / release | projects, catchall | The leaf consumers of everything above; unmatched repos go last |
 
-The `infra` cohort releases without a refresh slot, and that is deliberate.
-`architecture` and `art` have no dependency workflow. `.github` has no
-outdated-dependency gate on its release, and `auto-merge-bot-prs.yml` excludes
-`.github` on purpose, to keep a person in the loop for the repository that
-every other repository pins. So `.github` keeps the cron on its own
-`update-php-dependencies.yml`, and a person merges that bump.
+The `infra` cohort releases without a refresh slot, and that is deliberate. No
+repository in the cohort has a first-party dependency to gate a release on:
+`architecture` and `art` have no dependency workflow, and `.github` carries no
+manifest and no outdated-dependency gate. A refresh slot would have nothing to
+land.
 
 A cohort is derived from the repository name, per `REPOSITORY_NAMING.md`, with
 the language suffix set read from the `SUPPORTED_LANGUAGES` org variable:
