@@ -17,23 +17,30 @@ Get Started
 
 Valkyrja is available in multiple languages. Start here:
 
-- **PHP** — [valkyrja-php][valkyrja-php url] _(production — reference
-  implementation)_
-- **Java** — [valkyrja-java][valkyrja-java url] _(in progress)_
+- **PHP** — [valkyrja-php][valkyrja-php url]
+- **Java** — [valkyrja-java][valkyrja-java url]
+- **Go** — [valkyrja-go][valkyrja-go url]
+- **Python** — [valkyrja-python][valkyrja-python url]
+- **TypeScript** — [valkyrja-ts][valkyrja-ts url]
 
-Or start a new application directly:
+Or start a new application directly from a starter template:
 
 - **PHP** — [valkyrja-starter-app-php][starter-php url] — use "Use this
   template" or `composer create-project valkyrja/application your-project`
-- **Java** — [valkyrja-starter-app-java][starter-java url] — in progress
+- **Java** — [valkyrja-starter-app-java][starter-java url]
+- **Go** — [valkyrja-starter-app-go][starter-go url]
+- **Python** — [valkyrja-starter-app-python][starter-python url]
+- **TypeScript** — [valkyrja-starter-app-ts][starter-ts url]
 
 The Ecosystem
 -------------
 
 Surrounding the framework are tools, integrations, and shared conventions:
 
-- **Build tool** — [sindri-php][sindri url] — scaffolds applications and
-  generates cache files for faster runtime performance
+- **Build tool** — Sindri scaffolds applications and generates cache files
+  for faster runtime performance: [sindri-php][sindri-php url],
+  [sindri-java][sindri-java url], [sindri-go][sindri-go url],
+  [sindri-python][sindri-python url], [sindri-ts][sindri-ts url]
 - **Worker runtimes** — persistent-worker integrations for production:
   [OpenSwoole][openswoole url], [FrankenPHP][frankenphp url],
   [RoadRunner][roadrunner url] _(PHP)_; [Netty][netty url],
@@ -62,9 +69,19 @@ Community
 [valkyrja url]: https://valkyrja.io
 [valkyrja-php url]: https://github.com/valkyrjaio/valkyrja-php
 [valkyrja-java url]: https://github.com/valkyrjaio/valkyrja-java
+[valkyrja-go url]: https://github.com/valkyrjaio/valkyrja-go
+[valkyrja-python url]: https://github.com/valkyrjaio/valkyrja-python
+[valkyrja-ts url]: https://github.com/valkyrjaio/valkyrja-ts
 [starter-php url]: https://github.com/valkyrjaio/valkyrja-starter-app-php
 [starter-java url]: https://github.com/valkyrjaio/valkyrja-starter-app-java
-[sindri url]: https://github.com/valkyrjaio/sindri-php
+[starter-go url]: https://github.com/valkyrjaio/valkyrja-starter-app-go
+[starter-python url]: https://github.com/valkyrjaio/valkyrja-starter-app-python
+[starter-ts url]: https://github.com/valkyrjaio/valkyrja-starter-app-ts
+[sindri-php url]: https://github.com/valkyrjaio/sindri-php
+[sindri-java url]: https://github.com/valkyrjaio/sindri-java
+[sindri-go url]: https://github.com/valkyrjaio/sindri-go
+[sindri-python url]: https://github.com/valkyrjaio/sindri-python
+[sindri-ts url]: https://github.com/valkyrjaio/sindri-ts
 [openswoole url]: https://github.com/valkyrjaio/valkyrja-openswoole-php
 [frankenphp url]: https://github.com/valkyrjaio/valkyrja-frankenphp-php
 [roadrunner url]: https://github.com/valkyrjaio/valkyrja-roadrunner-php
