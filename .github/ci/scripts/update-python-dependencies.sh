@@ -14,7 +14,8 @@
 # `pyproject.toml` to what the update resolved. It records the version change
 # of every package, so the pull request body can list them.
 #
-# Reads DEPENDENCIES and GITHUB_OUTPUT from the environment.
+# Reads DEPENDENCIES from the environment. It writes the version change of
+# each package to /tmp/dependency_changes.txt, which the pull request body reads.
 #
 # Usage:
 #
@@ -27,7 +28,7 @@
 # `pipefail`.
 set -e
 
-> /tmp/dependency_changes.txt
+: > /tmp/dependency_changes.txt
 
 # Helper: rewrite a pyproject.toml's dependency lower bounds to match the
 # versions resolved in its uv.lock, so the manifest tracks the lock file.
