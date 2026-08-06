@@ -693,8 +693,11 @@ added renamed every check built on it. Leave the boundary alone when it is merel
 
 Triggers:
 
-- Weekly cron (`0 9 * * 1` — Monday 09:00 UTC).
 - Manual `workflow_dispatch`.
+
+The weekly cron is retired. The `infra-github` repository owns repository
+settings, rulesets, and labels. Dispatch this sweep only for a repository that
+`infra-github` does not import yet.
 
 Behavior (via `_enforce-repo-settings.yml`):
 
@@ -827,11 +830,10 @@ is why the ruleset is applied last:
 Warning: never apply the ruleset between step 1 and step 4. The ruleset would require a name that no
 repository reports yet, and every pull request in the organization would block.
 
-Warning: `enforce-repo-settings.yml` also runs itself, on a `0 9 * * 1` cron, so leaving it alone is
-not enough. Steps 1 to 4 wait for a reference bump to reach every repository, which can take longer
-than a week, and a Monday inside that window applies the ruleset with no one asking it to. Close the
-window before the next Monday, or comment the `schedule:` trigger out of
-`enforce-repo-settings.yml` while the window is open and restore it at step 5.
+Warning: `enforce-repo-settings.yml` runs only on `workflow_dispatch`, so it applies nothing on its
+own. Do not dispatch it between step 1 and step 4. For a repository that `infra-github` imports,
+the rename procedure lives there instead: the checks must report the new name before a pull
+request changes the required context.
 
 Warning: a repository must already run the job before the ruleset reaches it. Adding a context for a
 check a repository does not have blocks that repository as surely as a rename does. Roll the check
