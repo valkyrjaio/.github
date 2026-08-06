@@ -24,7 +24,7 @@
 # The script reads and writes through the GitHub API. It never checks a
 # consumer repository out.
 #
-# Reads GH_TOKEN, ORG, SOURCE_REPO, REVIEWER, and SUPPORTED_VERSIONS from the
+# Reads GH_TOKEN, ORG, SOURCE_REPO, and SUPPORTED_VERSIONS from the
 # environment.
 #
 # Usage:
@@ -265,18 +265,13 @@ while IFS= read -r REPO_NAME; do
       NEW_TITLE="[Workflow] ci: Update $SOURCE_REPO workflow refs to $LATEST_TAG"
 
       if [[ -z "$EXISTING_PR" ]]; then
-        REVIEWER_FLAGS=()
-        if [[ -n "$REVIEWER" ]]; then
-          REVIEWER_FLAGS=(--assignee "$REVIEWER" --reviewer "$REVIEWER")
-        fi
         echo "  [$BASE_BRANCH] Creating PR from $UPDATE_BRANCH → $BASE_BRANCH..."
         if ! gh pr create \
           --repo "$ORG/$REPO_NAME" \
           --title "$NEW_TITLE" \
           --body "$BODY" \
           --base "$BASE_BRANCH" \
-          --head "$UPDATE_BRANCH" \
-          "${REVIEWER_FLAGS[@]}" 2>/dev/null; then
+          --head "$UPDATE_BRANCH" 2>/dev/null; then
           echo "  [$BASE_BRANCH] PR creation failed, skipping"
         else
           echo "  [$BASE_BRANCH] PR created."

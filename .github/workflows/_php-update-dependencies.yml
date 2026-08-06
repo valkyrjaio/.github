@@ -231,7 +231,6 @@ jobs:
           BASE: ${{ github.ref_name }}
           BRANCH: ${{ steps.prep-branch.outputs.branch }}
           DEPENDENCIES: ${{ inputs.dependencies }}
-          REVIEWER: ${{ vars.VALKYRJA_REVIEWER }}
         run: |
           BODY=""
           BODY+="# Description"$'\n'$'\n'
@@ -255,14 +254,8 @@ jobs:
             BODY+="_No explicit version changes detected — lock file or constraint updates only._"$'\n'
           fi
 
-          REVIEWER_FLAGS=""
-          if [ -n "$REVIEWER" ]; then
-            REVIEWER_FLAGS="--assignee $REVIEWER --reviewer $REVIEWER"
-          fi
-
           gh pr create \
             --title "[Dependency] build: Update composer dependencies" \
             --body "$BODY" \
             --base "$BASE" \
-            --head "$BRANCH" \
-            $REVIEWER_FLAGS
+            --head "$BRANCH"

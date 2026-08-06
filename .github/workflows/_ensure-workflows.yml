@@ -38,6 +38,5 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           ORG: ${{ github.repository_owner }}
-          REVIEWER: ${{ vars.VALKYRJA_REVIEWER }}
           SUPPORTED_VERSIONS: ${{ vars.SUPPORTED_VERSIONS }}
         run: dot-github/.github/ci/scripts/ensure-workflows.sh

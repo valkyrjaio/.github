@@ -98,7 +98,7 @@ it names. Re-pin the repo first, then change the list.
 | `SUPPORTED_LANGUAGES`  | `php java python ts go` | Space-separated language suffixes; selects the `project-template-<lang>` scaffold and `rulesets/<lang>/` rulesets on repo create/enforce |
 | `USER_EMAIL`           | `bot@example.com`       | Git committer email for rebase, cherry-pick, and branch operations                                                                       |
 | `USER_NAME`            | `Valkyrja Bot`          | Git committer name for rebase, cherry-pick, and branch operations                                                                        |
-| `VALKYRJA_REVIEWER`    | `melechmizrachi`        | GitHub username assigned as reviewer on automated PRs                                                                                    |
+| `VALKYRJA_REVIEWER`    | `melechmizrachi`        | GitHub username the auto-merge sweep requests a review from when a bot PR needs a person                                                 |
 
 ---
 
@@ -1181,7 +1181,14 @@ A pull request merges only when **all** of the following hold:
 | Status checks | Every context the branch's ruleset requires has concluded `SUCCESS` |
 | Draft         | Not a draft                                                         |
 
-Anything else is left open for a human.
+Anything else is left open for a human. A pull request the sweep flags for
+attention — failing required checks, a path outside the allowlist, a failed
+merge — also gets a review request to `VALKYRJA_REVIEWER`. The generators
+request no reviewer when they open a pull request, because a pull request that
+merges on its own needs nobody's time, so this request is how a person hears
+about the one that did not. The request goes out once: a pull request where
+the reviewer is already requested, or has already reviewed, is skipped, so a
+broken pull request does not ping the person on every hourly pass.
 
 ### Path allowlists
 

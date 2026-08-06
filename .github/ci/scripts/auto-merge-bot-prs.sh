@@ -13,7 +13,9 @@
 # own pull requests once each one qualifies. A pull request merges only when
 # the author, the title root, the base branch, the head branch, every changed
 # path, and every required status check all pass. Anything else stays open for
-# a person.
+# a person, and the script requests a review from REVIEWER on it — the
+# generators request nobody at creation, so this is how that person hears
+# about the one pull request that did not merge on its own.
 #
 # The app bypasses the required-status-check rulesets, so GitHub holds no merge
 # open on its behalf. The script therefore applies the check gate itself,
@@ -24,8 +26,8 @@
 # generator started writing files nobody expected.
 #
 # Reads GH_TOKEN, ORG, BOT_LOGIN, ENABLED_TYPES, EXCLUDE_REPOS,
-# SUPPORTED_VERSIONS, DRY_RUN, SINGLE_REPO, and GITHUB_STEP_SUMMARY from the
-# environment.
+# SUPPORTED_VERSIONS, REVIEWER, DRY_RUN, SINGLE_REPO, and GITHUB_STEP_SUMMARY
+# from the environment.
 #
 # Usage:
 #
@@ -177,10 +179,52 @@ note_merged() {
   MERGED_LIST="$MERGED_LIST"$'\n'"| $(repo_link "$repo") | $(pr_link "$repo" "$number") | $note |"
 }
 
+# The generators request no reviewer when they open a pull request,
+# because a pull request that merges on its own needs nobody's time. A
+# pull request in the attention table is the one that could not, so a
+# person must look at it — and the step summary of an hourly sweep is
+# not where a person looks. The review request is the notification.
+#
+# Warning: GitHub notifies on every repeat request, and the sweep runs
+# hourly. The function therefore skips a pull request where the
+# reviewer is already requested or has already reviewed, so a pull
+# request that stays broken pings the person once, not once an hour.
+request_reviewer() {
+  local repo="$1" number="$2"
+  local reviewer_lower login existing
+
+  [[ -z "$REVIEWER" ]] && return 0
+  [[ "$DRY_RUN" = "true" ]] && return 0
+
+  reviewer_lower=$(printf '%s' "$REVIEWER" | tr '[:upper:]' '[:lower:]')
+
+  # A failed read leaves the list empty and the request goes out again.
+  # The worst case is one extra notification, so the read does not gate
+  # the sweep the way fetch_json does elsewhere.
+  existing=$(gh pr view "$number" --repo "$ORG/$repo" \
+    --json reviewRequests,reviews \
+    --jq '(.reviewRequests[]?.login // empty), (.reviews[]?.author.login // empty)' \
+    2>/dev/null || true)
+
+  while IFS= read -r login; do
+    [[ -z "$login" ]] && continue
+    if [[ "$(printf '%s' "$login" | tr '[:upper:]' '[:lower:]')" == "$reviewer_lower" ]]; then
+      return 0
+    fi
+  done <<< "$existing"
+
+  if gh pr edit "$number" --repo "$ORG/$repo" --add-reviewer "$REVIEWER" >/dev/null 2>&1; then
+    echo "  #$number: requested review from $REVIEWER."
+  else
+    echo "  #$number: could not request review from $REVIEWER."
+  fi
+}
+
 note_attention() {
   local repo="$1" number="$2" note="$3"
 
   ATTENTION_LIST="$ATTENTION_LIST"$'\n'"| $(repo_link "$repo") | $(pr_link "$repo" "$number") | $note |"
+  request_reviewer "$repo" "$number"
 }
 
 while IFS= read -r REPO_NAME; do
