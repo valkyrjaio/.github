@@ -29,7 +29,7 @@ Identity sits in the middle.
 
 ## Repository Categories
 
-Repos in the org fall into one of four categories.
+Repos in the org fall into one of five categories.
 
 ### 1. Language-agnostic infrastructure (no suffix)
 
