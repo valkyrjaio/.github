@@ -22,7 +22,7 @@
 # repository creates its own. Both fall back to the default branch of the
 # repository under review, which is that repository's current version branch.
 # The architecture repository does not always hold that branch either, and the
-# last fallback is `master`.
+# last fallback is the default branch of the architecture repository.
 #
 # Reads ARCHITECTURE_REF, BASE_REF, DEFAULT_REF, and RUNNER_TEMP from the
 # environment. An empty ARCHITECTURE_REF follows the base branch.
@@ -71,16 +71,22 @@ elif has_branch "$BASE_REF"; then
   REF="$BASE_REF"
   echo "The pull request bases on $REF, and the architecture repository holds that branch."
 elif [[ "$BASE_REF" == "$DEFAULT_REF" ]]; then
-  REF='master'
-  echo "The architecture repository holds no $BASE_REF branch, so the guides come from $REF."
+  echo "The architecture repository holds no $BASE_REF branch, so the guides come from its own default branch."
 elif has_branch "$DEFAULT_REF"; then
   REF="$DEFAULT_REF"
   echo "The architecture repository holds no $BASE_REF branch, so the guides come from $REF."
 else
-  REF='master'
-  echo "The architecture repository holds neither $BASE_REF nor $DEFAULT_REF, so the guides come from $REF."
+  echo "The architecture repository holds neither $BASE_REF nor $DEFAULT_REF, so the guides come from its own default branch."
 fi
 
-git clone --depth 1 --branch "$REF" "$ARCHITECTURE_REPOSITORY" "$RUNNER_TEMP/architecture"
+# An empty REF clones the default branch of the architecture repository. That branch is the last
+# resort, because it is the branch the architecture repository itself considers current.
+BRANCH_ARGUMENT=()
 
-echo "The review reads the guides from $REF."
+if [[ -n "$REF" ]]; then
+  BRANCH_ARGUMENT=(--branch "$REF")
+fi
+
+git clone --depth 1 "${BRANCH_ARGUMENT[@]}" "$ARCHITECTURE_REPOSITORY" "$RUNNER_TEMP/architecture"
+
+echo "The review reads the guides from $(git -C "$RUNNER_TEMP/architecture" rev-parse --abbrev-ref HEAD)."
