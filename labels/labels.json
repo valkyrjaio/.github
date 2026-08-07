@@ -1,7 +1,0 @@
-[
-  {
-    "name": "claude-review",
-    "color": "5319e7",
-    "description": "Ask Claude to review this pull request"
-  }
-]

@@ -1,0 +1,98 @@
+#
+# This file is part of the Valkyrja GitHub package.
+#
+# Copyright (c) 2016-present Melech Mizrachi
+#
+# Released under the MIT License. See LICENSE.md for details.
+#
+
+# Runs once after `infra-github` creates a repository. It covers the two steps
+# that configuration cannot: the copyright package identifier rewrite, and the
+# immutable-releases setting, which has no configuration resource.
+name: Post Create
+
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: 'Repository name (without org prefix)'
+        type: string
+        required: true
+      package-identifier:
+        description: 'Copyright header package identifier, e.g. Valkyrja PHPStan (see COPYRIGHT_HEADER.md). Derived from the repository name when empty.'
+        type: string
+        required: false
+        default: ''
+
+run-name: 'Post-create ${{ github.repository_owner }}/${{ inputs.name }}'
+
+permissions:
+  contents: read
+
+jobs:
+  post-create:
+    name: 'Post-create ${{ github.repository_owner }}/${{ inputs.name }}'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve the package identifier
+        id: identifier
+        env:
+          REPO_NAME: ${{ inputs.name }}
+          PACKAGE_IDENTIFIER: ${{ inputs.package-identifier }}
+        run: |
+          IDENTIFIER="$PACKAGE_IDENTIFIER"
+
+          if [[ -z "$IDENTIFIER" ]]; then
+            case "${REPO_NAME%-*}" in
+              valkyrja)             IDENTIFIER='Valkyrja Framework' ;;
+              sindri)               IDENTIFIER='Sindri' ;;
+              valkyrja-starter-app) IDENTIFIER='Valkyrja Application' ;;
+              *)
+                echo "Error: cannot derive a package identifier from '$REPO_NAME'."
+                echo "Pass the package-identifier input. See COPYRIGHT_HEADER.md for the value."
+                exit 1
+                ;;
+            esac
+          fi
+
+          echo "Package identifier: $IDENTIFIER"
+          echo "package-identifier=$IDENTIFIER" >> "$GITHUB_OUTPUT"
+
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Get bot user ID
+        id: get-bot-user-id
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
+        run: printf 'bot-user-id=%s\n' "$(gh api "/users/${APP_SLUG}%5Bbot%5D" --jq .id)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Set the copyright header package identifier
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          ORG: ${{ github.repository_owner }}
+          REPO_NAME: ${{ inputs.name }}
+          IDENTIFIER: ${{ steps.identifier.outputs.package-identifier }}
+          APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
+          BOT_USER_ID: ${{ steps.get-bot-user-id.outputs.bot-user-id }}
+        run: .github/ci/scripts/set-copyright-identifier.sh
+
+      - name: Enable immutable releases
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          ORG: ${{ github.repository_owner }}
+          REPO_NAME: ${{ inputs.name }}
+        run: |
+          if [[ "$(gh api "repos/$ORG/$REPO_NAME/immutable-releases" --jq '.enabled')" != 'true' ]]; then
+            gh api --method PUT "repos/$ORG/$REPO_NAME/immutable-releases" > /dev/null
+          fi
+          echo 'Immutable releases are enabled.'
