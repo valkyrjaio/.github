@@ -486,8 +486,10 @@ A workflow reaches a script in one of two ways, and the caller decides which one
   already on disk. The workflow reaches the [`run-script`](#composite-actions) action at
   `./.github/actions/run-script`, or it names the script directly.
 - **A consumer repository calls the workflow.** The runner holds the consumer's tree, which does not
-  hold this repository's scripts. Use the [`run-script`](#composite-actions) action, which checks
-  this repository out at `job.workflow_sha` and runs the script from there.
+  hold this repository's scripts, so the job checks this repository out at `job.workflow_sha` under
+  `dot-github`. The workflow then reaches [`run-script`](#composite-actions) at
+  `./dot-github/.github/actions/run-script`, or it names
+  `dot-github/.github/ci/scripts/<name>.sh` directly.
 
 The org-management workflows are the first case. Each one runs only from this repository:
 
@@ -630,11 +632,11 @@ body taken from the raw lines carries a trailing blank line the step never had.
 
 Three shapes, and the caller decides which:
 
-| The workflow runs          | The script is reached by                                                                 | Because                                     |
-| -------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Only from this repository  | `.github/ci/scripts/<name>.sh`, or `run-script` at `./.github/actions/run-script`        | The default checkout is this repository     |
-| From a consumer repository | `dot-github/.github/ci/scripts/<name>.sh`, after a second checkout at `job.workflow_sha` | The default checkout is the consumer's tree |
-| Inside a composite action  | `"$ACTION_PATH/../../ci/scripts/<name>.sh"`                                              | An action cannot assume a working directory |
+| The workflow runs          | The script is reached by                                                                                                                               | Because                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| Only from this repository  | `.github/ci/scripts/<name>.sh`, or `run-script` at `./.github/actions/run-script`                                                                      | The default checkout is this repository     |
+| From a consumer repository | `dot-github/.github/ci/scripts/<name>.sh`, or `run-script` at `./dot-github/.github/actions/run-script`, after a second checkout at `job.workflow_sha` | The default checkout is the consumer's tree |
+| Inside a composite action  | `"$ACTION_PATH/../../ci/scripts/<name>.sh"`                                                                                                            | An action cannot assume a working directory |
 
 Warning: `run-script` **buffers**. It runs `OUTPUT=$("$SCRIPT_PATH" 2>&1)` and prints the result
 after the script exits, so a script that reports progress shows nothing until it finishes. A job that
@@ -644,7 +646,9 @@ polls for several minutes then looks identical to a job that is stuck. `run-scri
 The buffering decides the choice, and the exit status does not. `run-script` ends with the status of
 the script, so a gate fails its own job through the action as surely as it does from a `run:` block.
 Name the script directly when a person reads the output while the script runs. Take the action for a
-check that comments, because `outcome` and `report-markdown` are what the comment is built from.
+check that comments, because `outcome` and `report-markdown` are what the comment is built from, and
+for a step that must prove what it ran, because `expected-ref` fails the step unless the checkout is
+the commit the caller pinned.
 
 ---
 
