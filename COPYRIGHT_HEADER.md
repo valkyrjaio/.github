@@ -69,6 +69,7 @@ Package Identifier Resolution
 | `.github`                   | `Valkyrja GitHub`           |
 | `architecture`              | `Valkyrja Architecture`     |
 | `art`                       | `Valkyrja Art`              |
+| `infra-github`              | `Valkyrja GitHub Infra`     |
 
 The table lists each repository that exists now. A new repository takes its
 identifier from the [Pattern Rules](#pattern-rules) section. Add a row to the
@@ -85,7 +86,7 @@ closed by default and the first program file it gains must have one to name.
 Pattern Rules
 -------------
 
-The resolution table follows six patterns. New repositories should select
+The resolution table follows eight patterns. New repositories should select
 their package identifier based on which pattern applies.
 
 **1. Framework (`valkyrja-{lang}`)** → `Valkyrja Framework`
@@ -139,6 +140,13 @@ capitalization that GitHub uses, so it resolves to `Valkyrja GitHub`.
 `REPOSITORY_NAMING.md` names these three repositories, and each one is
 Valkyrja-native, so each takes the prefix.
 
+**8. Operational infrastructure (`infra-{product}`)** →
+`Valkyrja {Product} Infra`
+
+`{Product}` keeps its official capitalization, so `infra-github` resolves to
+`Valkyrja GitHub Infra`. The `Infra` suffix keeps the identifier distinct
+from `Valkyrja GitHub`, which names the `.github` repository.
+
 Naming Modes
 ------------
 
@@ -147,7 +155,7 @@ identifier:
 
 - **Valkyrja-native** → prefixed with `Valkyrja` (framework, starter
   application, worker integrations, docker, benchmarking, CI tool
-  packages, language-agnostic infrastructure)
+  packages, language-agnostic infrastructure, operational infrastructure)
 - **Standalone application** → no prefix (Sindri)
 - **Reusable template** → no prefix (project templates)
 

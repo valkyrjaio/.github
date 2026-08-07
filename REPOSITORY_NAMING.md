@@ -29,7 +29,7 @@ Identity sits in the middle.
 
 ## Repository Categories
 
-Repos in the org fall into one of four categories.
+Repos in the org fall into one of five categories.
 
 ### 1. Language-agnostic infrastructure (no suffix)
 
@@ -181,21 +181,38 @@ and tool.
 - `valkyrja-starter-tool-{lang}` — starter for building a standalone tool
   on Valkyrja (like Sindri).
 
+### 5. Operational infrastructure (`infra-{product}`)
+
+Repos that hold the configuration and automation that operate the
+organization on one product or platform.
+
+- `infra-github` — declarative GitHub organization configuration (settings,
+  rulesets, labels, and teams as OpenTofu configuration)
+
+**Rule:** An infra repo never takes a language suffix, because it is
+language-agnostic by definition — language-specific tooling belongs in
+`ci-{tool}-{lang}` (Category 2). Keep one product per repo, so each
+platform's credentials, state, and visibility stay separate.
+
 ## Decision Rules
 
 When creating a new repo, work through these questions in order:
 
-1. **Is it language-agnostic?** Does the content apply to every language port
+1. **Is it operational infrastructure for one product or platform?** Does it
+   configure or operate the organization on one external product (GitHub, a
+   website host)? If yes, use `infra-{product}` (Category 5). If no, continue.
+
+2. **Is it language-agnostic?** Does the content apply to every language port
    with no changes? If yes, no language suffix (Category 1). If no, continue.
 
-2. **Is it shared CI or tooling configuration?** Could multiple Valkyrja
+3. **Is it shared CI or tooling configuration?** Could multiple Valkyrja
    projects consume this without modification? If yes, use `ci-{tool}-{lang}`
    (Category 2). If no, continue.
 
-3. **Is it a starter template for new projects?** If yes, use
+4. **Is it a starter template for new projects?** If yes, use
    `project-template-{lang}` (Category 3). If no, continue.
 
-4. **Does it require another Valkyrja project to function?** If yes, use
+5. **Does it require another Valkyrja project to function?** If yes, use
    `{project}-{component}-{lang}` (Category 4b). If no, use `{project}-{lang}`
    (Category 4a).
 
@@ -257,8 +274,9 @@ These match the file extensions and community norms for each language.
 ## Current Organization State
 
 All repos in the Valkyrjaio organization follow the conventions defined above.
-Every repo either ends with a language suffix or is one of the three
-legitimately language-agnostic exceptions (`.github`, `architecture`, `art`).
+Every repo either ends with a language suffix or is legitimately
+language-agnostic: `.github`, `architecture`, `art`, and the `infra-{product}`
+repos.
 
 | Category               | Examples                                                                     |
 | ---------------------- | ---------------------------------------------------------------------------- |
@@ -267,6 +285,7 @@ legitimately language-agnostic exceptions (`.github`, `architecture`, `art`).
 | Project templates (3)  | `project-template-php`, `project-template-java`                              |
 | Project base (4a)      | `valkyrja-php`, `valkyrja-java`, `sindri-php`                                |
 | Project component (4b) | `valkyrja-openswoole-php`, `valkyrja-starter-app-php`, `valkyrja-docker-php` |
+| Operational infra (5)  | `infra-github`                                                               |
 
 This table is illustrative, not exhaustive. See the Valkyrjaio organization
 page on GitHub for the complete repo listing.
