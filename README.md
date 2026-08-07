@@ -23,8 +23,9 @@ What's Included
   [Valkyrjaio organization page][org-page]
 - **Reusable workflows** — PR quality gates, dependency management,
   repository management, release orchestration, and branch management
-- **Branch rulesets** — exported GitHub ruleset definitions applied across
-  Valkyrja repos via the repo-management workflows
+- **Branch rulesets** — defined in the
+  [`infra-github`](https://github.com/valkyrjaio/infra-github) repository as
+  OpenTofu configuration and applied on merge and on a weekly schedule
 - **Project conventions** — `REPOSITORY_NAMING.md` and `VOCABULARY.md`
   documenting how repos are named and what terms mean across the project
 
@@ -105,16 +106,13 @@ dispatch entry point.
 
 ### Repository Management
 
-| Workflow                                                                                     | Trigger                                          | Description                                                                                                                                                                                                                                                                                              |
-| -------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`create-repo.yml`](.github/workflows/create-repo.yml)                                       | `workflow_dispatch`                              | Creates a new public repository in the organization with the given name and description. Delegates to `_create-repo.yml`.                                                                                                                                                                                |
-| [`_create-repo.yml`](.github/workflows/_create-repo.yml)                                     | `workflow_call`                                  | Creates and configures a public repository: enables squash-only merges, deletes branches on merge, and applies all branch rulesets from `rulesets/`. Scaffolds from `project-template-<lang>` and applies `rulesets/<lang>/` rulesets when the repo's name suffix matches a `SUPPORTED_LANGUAGES` entry. |
-| [`enforce-repo-settings.yml`](.github/workflows/enforce-repo-settings.yml)                   | `schedule` (Mon 09:00 UTC) / `workflow_dispatch` | Enforces merge settings and branch rulesets across all non-archived org repos. Can target a single repo via the optional `repo` input. Delegates to `_enforce-repo-settings.yml`.                                                                                                                        |
-| [`_enforce-repo-settings.yml`](.github/workflows/_enforce-repo-settings.yml)                 | `workflow_call`                                  | Applies squash-only merge settings and any missing branch rulesets to each repo. Skips archived repos and `.github`. Also applies `rulesets/<lang>/` rulesets to repos whose name suffix matches a `SUPPORTED_LANGUAGES` entry.                                                                          |
-| [`ensure-workflows.yml`](.github/workflows/ensure-workflows.yml)                             | `schedule` (Mon 12:00 UTC) / `workflow_dispatch` | Ensures every repo carries the required workflow files from `required-workflows/`. Delegates to `_ensure-workflows.yml`, which opens PRs where files are missing or drifted.                                                                                                                             |
-| [`ensure-reusable-workflow-names.yml`](.github/workflows/ensure-reusable-workflow-names.yml) | `schedule` (Mon 13:00 UTC) / `workflow_dispatch` | Verifies reusable (`_`-prefixed, `workflow_call`-only) workflow `name:` values and filenames follow convention across repos. Delegates to `_ensure-reusable-workflow-names.yml`.                                                                                                                         |
-| [`fix-trailing-newlines.yml`](.github/workflows/fix-trailing-newlines.yml)                   | `schedule` (Mon 11:00 UTC) / `workflow_dispatch` | Adds missing trailing newlines to tracked files across all repos and opens PRs with the fixes. Delegates to `_fix-trailing-newlines.yml`.                                                                                                                                                                |
-| [`create-version-branch.yml`](.github/workflows/create-version-branch.yml)                   | `workflow_dispatch`                              | Creates a new yearly release version branch from `master`. Delegates to `_create-version-branch.yml`, which calls `_get-version.yml` then `_version-branch.yml`.                                                                                                                                         |
+| Workflow                                                                                     | Trigger                                          | Description                                                                                                                                                                      |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`post-create.yml`](.github/workflows/post-create.yml)                                       | `workflow_dispatch`                              | Runs the post-creation steps for a repository that `infra-github` created: the copyright header package identifier rewrite and the immutable-releases setting.                   |
+| [`ensure-workflows.yml`](.github/workflows/ensure-workflows.yml)                             | `schedule` (Mon 12:00 UTC) / `workflow_dispatch` | Ensures every repo carries the required workflow files from `required-workflows/`. Delegates to `_ensure-workflows.yml`, which opens PRs where files are missing or drifted.     |
+| [`ensure-reusable-workflow-names.yml`](.github/workflows/ensure-reusable-workflow-names.yml) | `schedule` (Mon 13:00 UTC) / `workflow_dispatch` | Verifies reusable (`_`-prefixed, `workflow_call`-only) workflow `name:` values and filenames follow convention across repos. Delegates to `_ensure-reusable-workflow-names.yml`. |
+| [`fix-trailing-newlines.yml`](.github/workflows/fix-trailing-newlines.yml)                   | `schedule` (Mon 11:00 UTC) / `workflow_dispatch` | Adds missing trailing newlines to tracked files across all repos and opens PRs with the fixes. Delegates to `_fix-trailing-newlines.yml`.                                        |
+| [`create-version-branch.yml`](.github/workflows/create-version-branch.yml)                   | `workflow_dispatch`                              | Creates a new yearly release version branch from `master`. Delegates to `_create-version-branch.yml`, which calls `_get-version.yml` then `_version-branch.yml`.                 |
 
 ### Release & Version Management
 
@@ -178,23 +176,23 @@ needs, and a caller passes down that list. See
 [the workflow guide](.github/workflows/README.md#which-secrets-a-caller-passes)
 for the list per workflow.
 
-| Name                         | Type     | Description                                                                                                                                                                        |
-| ---------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VALKYRJA_GHA_APP_ID`        | Secret   | GitHub App ID used to generate short-lived tokens                                                                                                                                  |
-| `VALKYRJA_GHA_PRIVATE_KEY`   | Secret   | GitHub App private key                                                                                                                                                             |
-| `MAVEN_CENTRAL_USERNAME`     | Secret   | Maven Central (Sonatype) user-token username. Required to publish Java releases.                                                                                                   |
-| `MAVEN_CENTRAL_PASSWORD`     | Secret   | Maven Central (Sonatype) user-token password. Required to publish Java releases.                                                                                                   |
-| `MAVEN_SIGNING_KEY`          | Secret   | In-memory PGP signing key used to sign Java release artifacts.                                                                                                                     |
-| `MAVEN_SIGNING_KEY_PASSWORD` | Secret   | Passphrase for the PGP signing key.                                                                                                                                                |
-| `GRADLE_PUBLISH_KEY`         | Secret   | Gradle Plugin Portal API key. Required to publish a Java Gradle plugin.                                                                                                            |
-| `GRADLE_PUBLISH_SECRET`      | Secret   | Gradle Plugin Portal API secret. Required to publish a Java Gradle plugin.                                                                                                         |
-| `PYPI_API_TOKEN`             | Secret   | PyPI API token used to publish Python releases (`uv publish`).                                                                                                                     |
-| `LATEST_MAJOR_VERSION`       | Variable | Current latest major version number (e.g. `26`). Falls back to current year's last two digits if unset.                                                                            |
-| `SUPPORTED_VERSIONS`         | Variable | Regex pattern of supported major versions (e.g. `^(26\|27)$`). Version checks are skipped if unset.                                                                                |
-| `SUPPORTED_LANGUAGES`        | Variable | Space-separated language suffixes (e.g. `php java python ts go`). Selects the `project-template-<lang>` scaffold and language-specific rulesets when creating and enforcing repos. |
-| `USER_EMAIL`                 | Variable | Git committer email for rebase/cherry-pick operations                                                                                                                              |
-| `USER_NAME`                  | Variable | Git committer name for rebase/cherry-pick operations                                                                                                                               |
-| `VALKYRJA_REVIEWER`          | Variable | GitHub username the auto-merge sweep requests a review from when a bot PR cannot merge on its own. Also identifies the Claude review requester. Optional.                          |
+| Name                         | Type     | Description                                                                                                                                               |
+| ---------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VALKYRJA_GHA_APP_ID`        | Secret   | GitHub App ID used to generate short-lived tokens                                                                                                         |
+| `VALKYRJA_GHA_PRIVATE_KEY`   | Secret   | GitHub App private key                                                                                                                                    |
+| `MAVEN_CENTRAL_USERNAME`     | Secret   | Maven Central (Sonatype) user-token username. Required to publish Java releases.                                                                          |
+| `MAVEN_CENTRAL_PASSWORD`     | Secret   | Maven Central (Sonatype) user-token password. Required to publish Java releases.                                                                          |
+| `MAVEN_SIGNING_KEY`          | Secret   | In-memory PGP signing key used to sign Java release artifacts.                                                                                            |
+| `MAVEN_SIGNING_KEY_PASSWORD` | Secret   | Passphrase for the PGP signing key.                                                                                                                       |
+| `GRADLE_PUBLISH_KEY`         | Secret   | Gradle Plugin Portal API key. Required to publish a Java Gradle plugin.                                                                                   |
+| `GRADLE_PUBLISH_SECRET`      | Secret   | Gradle Plugin Portal API secret. Required to publish a Java Gradle plugin.                                                                                |
+| `PYPI_API_TOKEN`             | Secret   | PyPI API token used to publish Python releases (`uv publish`).                                                                                            |
+| `LATEST_MAJOR_VERSION`       | Variable | Current latest major version number (e.g. `26`). Falls back to current year's last two digits if unset.                                                   |
+| `SUPPORTED_VERSIONS`         | Variable | Regex pattern of supported major versions (e.g. `^(26\|27)$`). Version checks are skipped if unset.                                                       |
+| `SUPPORTED_LANGUAGES`        | Variable | Space-separated language suffixes (e.g. `php java python ts go`) the release automation iterates over.                                                    |
+| `USER_EMAIL`                 | Variable | Git committer email for rebase/cherry-pick operations                                                                                                     |
+| `USER_NAME`                  | Variable | Git committer name for rebase/cherry-pick operations                                                                                                      |
+| `VALKYRJA_REVIEWER`          | Variable | GitHub username the auto-merge sweep requests a review from when a bot PR cannot merge on its own. Also identifies the Claude review requester. Optional. |
 
 TypeScript/npm releases publish via
 npm [trusted publishing][npm-trusted-publishing]
@@ -205,25 +203,10 @@ consumed by their respective language release workflows.
 Rulesets
 --------
 
-The [`rulesets/`](rulesets/) directory contains exported GitHub branch
-ruleset definitions applied across Valkyrja repositories by the
-repository-management workflows. Org-wide rulesets live in `rulesets/`;
-language-specific rulesets live in `rulesets/<lang>/` and are applied only to
-repos whose name suffix matches a `SUPPORTED_LANGUAGES` entry.
-
-| Ruleset                                                                                                        | Scope        | Description                                                                                                                                      |
-| -------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [Protect Against Force Pushes and Deletion](rulesets/Protect%20Against%20Force%20Pushes%20and%20Deletion.json) | All repos    | Prevents force pushes and branch deletion on version branches (`??.x`)                                                                           |
-| [Protect Master At All Times](rulesets/Protect%20Master%20At%20All%20Times.json)                               | All repos    | Prevents force pushes and deletion on `master`                                                                                                   |
-| [Protect Release Tags](rulesets/Protect%20Release%20Tags.json)                                                 | All repos    | Prevents deletion and non-fast-forward updates on version tags (`*.*.*`)                                                                         |
-| [Require Pull Request](rulesets/Require%20Pull%20Request.json)                                                 | All repos    | Requires squash-merge PRs with code owner review on `master` and version branches                                                                |
-| [Required Default PR Checks](rulesets/Required%20Default%20PR%20Checks.json)                                   | All repos    | Requires the commit-message, copyright-header, Markdown, and trailing-newline checks to pass on the default branch and version branches (`??.x`) |
-| [Restrict Changes to Unsupported Branches](rulesets/Restrict%20Changes%20to%20Unsupported%20Branches.json)     | All repos    | Locks backup branches (`*-backup`) against all changes                                                                                           |
-| [php/Required PHP PR Checks](rulesets/php/Required%20PHP%20PR%20Checks.json)                                   | PHP repos    | Requires all PHP CI checks (PHP CS Fixer, PHPCS, PHPArkitect, PHPStan, PHPUnit 8.4–8.6, Psalm, Rector)                                           |
-| [java/Required Java PR Checks](rulesets/java/Required%20Java%20PR%20Checks.json)                               | Java repos   | Requires all Java CI checks (Spotless, Error Prone, SpotBugs, ArchUnit, JUnit)                                                                   |
-| [python/Required Python PR Checks](rulesets/python/Required%20Python%20PR%20Checks.json)                       | Python repos | Requires all Python CI checks (Ruff, mypy, Bandit, import-linter, pytest)                                                                        |
-| [ts/Required TypeScript PR Checks](rulesets/ts/Required%20TypeScript%20PR%20Checks.json)                       | TS repos     | Requires all TypeScript CI checks (ESLint, Prettier, tsc, Vitest)                                                                                |
-| [go/Required Go PR Checks](rulesets/go/Required%20Go%20PR%20Checks.json)                                       | Go repos     | Requires all Go CI checks (golangci-lint, go test)                                                                                               |
+The [`infra-github`](https://github.com/valkyrjaio/infra-github) repository
+defines every ruleset, repository setting, and label as OpenTofu configuration.
+Its Apply workflow applies the configuration on every merge and on a weekly
+schedule. Change a ruleset with a pull request there.
 
 Contributing
 ------------

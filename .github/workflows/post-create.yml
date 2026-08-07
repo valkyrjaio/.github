@@ -1,0 +1,78 @@
+#
+# This file is part of the Valkyrja GitHub package.
+#
+# Copyright (c) 2016-present Melech Mizrachi
+#
+# Released under the MIT License. See LICENSE.md for details.
+#
+
+# Runs once after `infra-github` creates a repository. It covers the two steps
+# that configuration cannot: the copyright package identifier rewrite, and the
+# immutable-releases setting, which has no configuration resource.
+name: Post Create
+
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: 'Repository name (without org prefix)'
+        type: string
+        required: true
+      package-identifier:
+        description: 'Copyright header package identifier, e.g. Valkyrja PHPStan (see COPYRIGHT_HEADER.md). Derived from the repository name when empty.'
+        type: string
+        required: false
+        default: ''
+
+run-name: 'Post-create ${{ github.repository_owner }}/${{ inputs.name }}'
+
+permissions:
+  contents: read
+
+jobs:
+  post-create:
+    name: 'Post-create ${{ github.repository_owner }}/${{ inputs.name }}'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Get bot user ID
+        id: get-bot-user-id
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
+        run: |
+          BOT_USER_ID=$(gh api "/users/$APP_SLUG[bot]" --jq '.id')
+          echo "user-id=$BOT_USER_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Set the copyright header package identifier
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          ORG: ${{ github.repository_owner }}
+          REPO_NAME: ${{ inputs.name }}
+          IDENTIFIER: ${{ inputs.package-identifier }}
+          APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
+          BOT_USER_ID: ${{ steps.get-bot-user-id.outputs.user-id }}
+        uses: ./.github/actions/run-script
+        with:
+          script: set-copyright-identifier.sh
+          expected-ref: ${{ job.workflow_sha }}
+
+      - name: Enable immutable releases
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          ORG: ${{ github.repository_owner }}
+          REPO_NAME: ${{ inputs.name }}
+        uses: ./.github/actions/run-script
+        with:
+          script: enable-immutable-releases.sh
+          expected-ref: ${{ job.workflow_sha }}

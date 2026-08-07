@@ -37,12 +37,11 @@ inputs:
     description: >
       Whether a `changes_requested` verdict is submitted as `REQUEST_CHANGES` rather than `COMMENT`.
 
-      Warning: `REQUEST_CHANGES` blocks the merge. `rulesets/Require Pull Request.json` turns the
-      pull request rule on, and a review that requests changes blocks a merge under that rule even
-      though `required_approving_review_count` is `0` — the count governs approvals, not blocks. The
-      rule's only bypass actor is one integration, so an organization admin does not merge past it
-      either. Leave this off unless a wrong finding blocking a merge until somebody dismisses the
-      review is the behavior that is wanted.
+      Warning: `REQUEST_CHANGES` blocks the merge. The `Require Pull Request` ruleset, defined in
+      `infra-github`, blocks a merge on a review that requests changes even though
+      `required_approving_review_count` is `0` — the count governs approvals, not blocks. Only a
+      bypass actor merges past it. Leave this off unless a wrong finding blocking a merge until
+      somebody dismisses the review is the behavior that is wanted.
     required: false
     default: 'false'
   app-id:

@@ -17,7 +17,6 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 - [Composite Actions](#composite-actions)
 - [Choosing a Workflow or an Action](#choosing-a-workflow-or-an-action)
 - [Repository Enforcement](#repository-enforcement)
-- [Rulesets](#rulesets)
 - [Changing a Required Check Name](#changing-a-required-check-name)
 - [Commit Message Rules](#commit-message-rules)
 - [Trailing Newline Check](#trailing-newline-check)
@@ -91,14 +90,14 @@ it names. Re-pin the repo first, then change the list.
 
 ### Variables (org-level)
 
-| Variable               | Example                 | Purpose                                                                                                                                  |
-| ---------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `SUPPORTED_VERSIONS`   | `2[6-9]`                | Regex matching supported major versions (used in cherry-pick, ref updates, enforce)                                                      |
-| `LATEST_MAJOR_VERSION` | `26`                    | Latest released major version number                                                                                                     |
-| `SUPPORTED_LANGUAGES`  | `php java python ts go` | Space-separated language suffixes; selects the `project-template-<lang>` scaffold and `rulesets/<lang>/` rulesets on repo create/enforce |
-| `USER_EMAIL`           | `bot@example.com`       | Git committer email for rebase, cherry-pick, and branch operations                                                                       |
-| `USER_NAME`            | `Valkyrja Bot`          | Git committer name for rebase, cherry-pick, and branch operations                                                                        |
-| `VALKYRJA_REVIEWER`    | `melechmizrachi`        | GitHub username the auto-merge sweep requests a review from when a bot PR needs a person                                                 |
+| Variable               | Example                 | Purpose                                                                                  |
+| ---------------------- | ----------------------- | ---------------------------------------------------------------------------------------- |
+| `SUPPORTED_VERSIONS`   | `2[6-9]`                | Regex matching supported major versions (used in cherry-pick, ref updates, enforce)      |
+| `LATEST_MAJOR_VERSION` | `26`                    | Latest released major version number                                                     |
+| `SUPPORTED_LANGUAGES`  | `php java python ts go` | Space-separated language suffixes the release automation iterates over                   |
+| `USER_EMAIL`           | `bot@example.com`       | Git committer email for rebase, cherry-pick, and branch operations                       |
+| `USER_NAME`            | `Valkyrja Bot`          | Git committer name for rebase, cherry-pick, and branch operations                        |
+| `VALKYRJA_REVIEWER`    | `melechmizrachi`        | GitHub username the auto-merge sweep requests a review from when a bot PR needs a person |
 
 ---
 
@@ -637,7 +636,7 @@ Write a reusable workflow when the thing needs something only a job has:
 - Its **own runner**, because it needs a different `runs-on`, or because it must run beside another
   job rather than after it.
 - A **name a consumer depends on**. A check name is every job name down the call chain, and
-  `rulesets/*.json` pins those names. See
+  the `infra-github` configuration pins those names. See
   [Changing a Required Check Name](#changing-a-required-check-name).
 - **Several jobs** it orchestrates.
 
@@ -689,105 +688,30 @@ added renamed every check built on it. Leave the boundary alone when it is merel
 
 ## Repository Enforcement
 
-### `enforce-repo-settings.yml`
+The [`infra-github`](https://github.com/valkyrjaio/infra-github) repository
+owns repository settings, rulesets, and labels as OpenTofu configuration. Its
+Apply workflow applies the configuration on every merge and on a weekly
+schedule. Change a setting, a ruleset, or a label with a pull request there.
 
-Triggers:
+### `post-create.yml`
 
-- Manual `workflow_dispatch`.
+Runs once after `infra-github` creates a repository, on `workflow_dispatch`
+with the repository name. It covers the two steps that configuration cannot:
 
-The weekly cron is retired. The `infra-github` repository owns repository
-settings, rulesets, and labels. Dispatch this sweep only for a repository that
-`infra-github` does not import yet.
+- Rewrites the copyright header package identifier
+  (`set-copyright-identifier.sh`), because a template copy keeps the
+  template's identifier.
+- Enables immutable releases, which has no configuration resource.
 
-Behavior (via `_enforce-repo-settings.yml`):
-
-- Applies standard repository settings to all non-archived org repos:
-  - Squash merge only (`PR_TITLE` + `PR_BODY`).
-  - Auto-delete head branches on merge.
-  - No wikis, no projects.
-  - Vulnerability alerts + automated security fixes enabled.
-  - Immutable releases enabled.
-- Applies **every label** from `labels/*.json` to every repo.
-- Applies **language labels** from `labels/<lang>/*.json` (`php`, `java`,
-  `python`, `ts`, `go`) to repos of that language.
-- Applies **all rulesets** from `rulesets/*.json` to every repo.
-- Applies **language rulesets** from `rulesets/<lang>/*.json` (`php`, `java`,
-  `python`, `ts`, `go`) to repos whose name suffix matches a
-  `SUPPORTED_LANGUAGES` entry.
-- Compares each ruleset's normalized JSON against the live ruleset before
-  updating — no-ops if already in sync.
-
-### Adding a new label
-
-Append an object to a file in [`labels/`](../../labels) with a `name`, a `color`
-(six hex digits, no `#`), and a `description`. Each file holds an array, so you can
-add a label to an existing file or add a file of your own. The enforce cron picks it
-up on the next run — no workflow change is needed.
-
-```json
-[
-  {
-    "name": "claude-review",
-    "color": "5319e7",
-    "description": "Ask Claude to review this pull request"
-  }
-]
-```
-
-A label in `labels/` goes to every repo. A label in `labels/<lang>/` goes only to
-repos of that language, matched the same way language rulesets are — so
-`labels/php/*.json` reaches the PHP repos and nothing else.
-
-The job creates a label that is missing and corrects a color or description that
-has drifted. **It never deletes a label.** A label that `labels/` does not name is
-left alone, because a repository may carry labels of its own and deleting one
-would strip it from every issue and pull request already using it. To retire a
-label, remove it from `labels/` and delete it per repo by hand.
-
-### Adding a new ruleset
-
-Drop a `.json` file into `rulesets/` (org-wide) or `rulesets/<lang>/`
-(language-specific). The enforce cron and create-repo workflow pick it up
-automatically — no workflow changes needed.
-
-The JSON structure follows the GitHub Rulesets REST API response format. The
-`id` field is used to match existing rulesets for updates.
-
----
-
-## Rulesets
-
-Stored in `rulesets/` (org-wide) and `rulesets/<lang>/` (language-specific) and
-auto-applied by enforce and create-repo.
-
-| File                                                      | Scope        | Purpose                                                                                                           |
-| --------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `rulesets/Protect Against Force Pushes and Deletion.json` | All repos    | Prevents force pushes and deletion on version branches (`??.x`)                                                   |
-| `rulesets/Protect Master At All Times.json`               | All repos    | Prevents force pushes and deletion on `master`                                                                    |
-| `rulesets/Protect Release Tags.json`                      | All repos    | Prevents deletion or non-fast-forward of `*.*.*` tags                                                             |
-| `rulesets/Require Pull Request.json`                      | All repos    | Requires squash-merge PRs with code-owner review on `master`/`??.x`                                               |
-| `rulesets/Required Default PR Checks.json`                | All repos    | Requires `Commit Message Check`, `Copyright Header Check`, `Markdown Check`, and `Trailing Newline Check` to pass |
-| `rulesets/Restrict Changes to Unsupported Branches.json`  | All repos    | Locks backup branches (`*-backup`) against all changes                                                            |
-| `rulesets/php/Required PHP PR Checks.json`                | PHP repos    | Requires PHP CS Fixer, PHPCS, PHPArkitect, PHPStan, PHPUnit (8.4–8.6), Psalm, Rector                              |
-| `rulesets/java/Required Java PR Checks.json`              | Java repos   | Requires Spotless, ArchUnit, Error Prone, SpotBugs, JUnit                                                         |
-| `rulesets/python/Required Python PR Checks.json`          | Python repos | Requires Ruff, mypy, import-linter, Bandit, pytest                                                                |
-| `rulesets/ts/Required TypeScript PR Checks.json`          | TS repos     | Requires ESLint, TypeScript (`tsc`), Vitest, Prettier                                                             |
-| `rulesets/go/Required Go PR Checks.json`                  | Go repos     | Requires golangci-lint, go test                                                                                   |
-
-### Bypass actors
-
-All rulesets allow bypass for:
-
-- `OrganizationAdmin` (always)
-- Integration ID `2462900` (the Valkyrja GitHub App — always)
+The `package-identifier` input overrides the derived identifier —
+`COPYRIGHT_HEADER.md` maps every repository to its value.
 
 ---
 
 ## Changing a Required Check Name
 
-A check name is a public contract. `rulesets/Required Default PR Checks.json` and each
-`rulesets/<lang>/*.json` pin a check by its **exact** name, and a required check that never reports
-leaves a pull request pending for good. Renaming a check therefore stops every repository merging
+A check name is a public contract. The `infra-github` configuration pins a check by its **exact**
+name, and a required check that never reports leaves a pull request pending for good. Renaming a check therefore stops every repository merging
 until the ruleset agrees again.
 
 ### How a name is built
@@ -803,7 +727,7 @@ ci.yml job name            job name in _trailing-newline-check.yml
 
 Warning: the name of the calling workflow contributes nothing. The workflow above is named `CI`, and
 the context is `Trailing Newline Check / Check Trailing Newline`, which is what
-`rulesets/Required Default PR Checks.json` holds. A context written with a leading `CI /` names a
+the required-checks configuration holds. A context written with a leading `CI /` names a
 check GitHub never reports, and a required check that never reports blocks every pull request — the
 failure this section exists to prevent. Read the real name from a recent run, or from
 `gh pr checks <number>`, rather than composing it by hand.
@@ -819,21 +743,16 @@ A consumer repository pins this repository by SHA, so a rename reaches a reposit
 reference is bumped. No single ruleset state suits every repository while that is in progress, which
 is why the ruleset is applied last:
 
-1. Open a pull request that changes the context in the ruleset JSON to the new name. Merge it. The
-   file is declarative, so nothing changes yet.
-2. Open a pull request that changes the workflow. Merge it.
-3. Release this repository.
-4. Let the reference bump reach every repository, and merge those pull requests.
-5. Only now run `enforce-repo-settings.yml`, which applies the ruleset.
-6. Rebase every open pull request, so each one runs the workflow that reports the new name.
+1. Open a pull request that changes the workflow. Merge it.
+2. Release this repository.
+3. Let the reference bump reach every repository, and merge those pull requests.
+4. Open a pull request in `infra-github` that changes the required context to the new name. Its
+   merge applies the ruleset.
+5. Rebase every open pull request, so each one runs the workflow that reports the new name.
 
-Warning: never apply the ruleset between step 1 and step 4. The ruleset would require a name that no
-repository reports yet, and every pull request in the organization would block.
-
-Warning: `enforce-repo-settings.yml` runs only on `workflow_dispatch`, so it applies nothing on its
-own. Do not dispatch it between step 1 and step 4. For a repository that `infra-github` imports,
-the rename procedure lives there instead: the checks must report the new name before a pull
-request changes the required context.
+Warning: never merge the `infra-github` pull request before step 3 completes. The ruleset would
+require a name that no repository reports yet, and every pull request in the organization would
+block.
 
 Warning: a repository must already run the job before the ruleset reaches it. Adding a context for a
 check a repository does not have blocks that repository as surely as a rename does. Roll the check
@@ -988,10 +907,9 @@ jobs:
 Warning: normalize the repository's Markdown before you add the job. A repository whose documents
 were never formatted fails the check on its first pull request.
 
-`Markdown Check / Check Markdown` is a required status check in
-`rulesets/Required Default PR Checks.json`. A required check that never reports blocks a pull
-request, so a repository must have the job before `enforce-repo-settings.yml` applies the ruleset
-to it.
+`Markdown Check / Check Markdown` is a required status check in the `Required Default PR Checks`
+ruleset, which `infra-github` defines. A required check that never reports blocks a pull request,
+so a repository must have the job before the ruleset reaches it.
 
 ---
 
@@ -1128,13 +1046,12 @@ outage. `fail-on-blocking` turns the second one off, and leaves the review state
 It is off.
 
 Warning: `REQUEST_CHANGES` blocks the merge until the reviewer approves or somebody dismisses the
-review. `rulesets/Require Pull Request.json` turns the pull request rule on, and that rule blocks on
-requested changes even though `required_approving_review_count` is `0` — the count governs approvals,
-not blocks. The rule's only bypass actor is one integration, so an organization admin does not merge
-past it either. A wrong finding would hold the pull request until a person dismissed the review by
-hand. Turn the input on only when that is the behavior that is wanted.
+review. The `Require Pull Request` ruleset, defined in `infra-github`, blocks on requested changes
+even though `required_approving_review_count` is `0` — the count governs approvals, not blocks.
+Only a bypass actor merges past it. A wrong finding would hold the pull request until a person
+dismissed the review by hand. Turn the input on only when that is the behavior that is wanted.
 
-Warning: keep `Claude Review / Verdict` out of `rulesets/`. A review is opt in, so the job does not
+Warning: keep `Claude Review / Verdict` out of the required checks. A review is opt in, so the job does not
 run on a pull request that carries no label, and a required check that never reports blocks the pull
 request for good. See [Changing a Required Check Name](#changing-a-required-check-name).
 
@@ -1373,8 +1290,7 @@ reusable workflows (leading `_`) are `workflow_call` only.
 | `ci.yml`                             | `push` / `pull_request`               | Umbrella CI. On PRs runs the trailing-newline and Markdown checks     |
 | `release-new-version.yml`            | `workflow_dispatch`                   | Create a new release (patch/minor/major/rc), then repin workflow refs |
 | `create-version-branch.yml`          | `workflow_dispatch`                   | Create a new yearly release version branch from `master`              |
-| `create-repo.yml`                    | `workflow_dispatch`                   | Create and configure a new org repository                             |
-| `enforce-repo-settings.yml`          | cron (Mon 09:00) + dispatch           | Enforce settings and rulesets across all repos                        |
+| `post-create.yml`                    | `workflow_dispatch`                   | Post-creation steps for a repository `infra-github` created           |
 | `ensure-workflows.yml`               | cron (Mon 12:00) + dispatch           | Ensure required workflow files exist across all repos                 |
 | `ensure-reusable-workflow-names.yml` | cron (Mon 13:00) + dispatch           | Verify reusable workflow names/filenames follow convention            |
 | `fix-trailing-newlines.yml`          | cron (Mon 11:00) + dispatch           | Add missing trailing newlines across all repos via PRs                |
@@ -1449,8 +1365,6 @@ reusable workflows (leading `_`) are `workflow_call` only.
 
 | File                                  | Description                                                     |
 | ------------------------------------- | --------------------------------------------------------------- |
-| `_create-repo.yml`                    | Create and configure a new org repository with rulesets         |
-| `_enforce-repo-settings.yml`          | Apply settings and rulesets to a repo                           |
 | `_ensure-workflows.yml`               | Ensure required workflow files across repos (opens PRs)         |
 | `_ensure-reusable-workflow-names.yml` | Verify reusable workflow `name:`/filename conventions           |
 | `_fix-trailing-newlines.yml`          | Add missing trailing newlines across repos (opens PRs)          |

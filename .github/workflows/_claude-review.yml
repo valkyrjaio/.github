@@ -74,10 +74,10 @@ on:
           than a `COMMENT` review.
 
           Warning: `REQUEST_CHANGES` blocks the merge until the reviewer approves or somebody
-          dismisses the review. `rulesets/Require Pull Request.json` turns the pull request rule on,
-          and that rule blocks on requested changes even though `required_approving_review_count` is
-          `0`. Its only bypass actor is one integration, so an organization admin does not merge past
-          it either. Leave this off unless a wrong finding blocking a merge is wanted.
+          dismisses the review. The `Require Pull Request` ruleset, defined in `infra-github`,
+          blocks on requested changes even though `required_approving_review_count` is `0`. Only a
+          bypass actor merges past it. Leave this off unless a wrong finding blocking a merge is
+          wanted.
         type: boolean
         default: false
       fail-on-blocking:
