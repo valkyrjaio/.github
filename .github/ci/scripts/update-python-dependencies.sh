@@ -22,8 +22,8 @@
 #     .github/ci/scripts/update-python-dependencies.sh
 # ---------------------------------------------------------------------------
 
-# Warning: a bare `run:` step runs this, so `-u` and `pipefail` stay off. See
-# the shell script conventions in `architecture/AGENTS.md` §4.
+# Warning: a bare `run:` step runs this, so `-u` and `pipefail` stay off. The
+# rule and the shell table are in `.github/workflows/README.md`, under Scripts.
 set -e
 
 : > /tmp/dependency_changes.txt
