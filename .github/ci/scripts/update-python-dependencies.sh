@@ -9,10 +9,9 @@
 # ---------------------------------------------------------------------------
 # Python dependency update.
 #
-# This script runs the `uv` commands that the calling repository declares in
-# `.github/update-dependencies.yml`, and it syncs the constraints in
-# `pyproject.toml` to what the update resolved. It records the version change
-# of every package, so the pull request body can list them.
+# Runs `uv lock --upgrade` in each directory the calling repository declares in
+# `.github/update-dependencies.yml`, and syncs each declared lower bound in
+# `pyproject.toml` to the version the lock resolved.
 #
 # Reads DEPENDENCIES from the environment. It writes the version change of
 # each package to /tmp/dependency_changes.txt, which the pull request body reads.
