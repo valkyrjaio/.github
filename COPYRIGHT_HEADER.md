@@ -155,7 +155,7 @@ identifier:
 
 - **Valkyrja-native** → prefixed with `Valkyrja` (framework, starter
   application, worker integrations, docker, benchmarking, CI tool
-  packages, language-agnostic infrastructure)
+  packages, language-agnostic infrastructure, operational infrastructure)
 - **Standalone application** → no prefix (Sindri)
 - **Reusable template** → no prefix (project templates)
 

@@ -189,10 +189,10 @@ organization on one product or platform.
 - `infra-github` — declarative GitHub organization configuration (settings,
   rulesets, labels, and teams as OpenTofu configuration)
 
-**Rule:** never a language suffix. An infra repo is language-agnostic by
-definition — language-specific tooling belongs in `ci-{tool}-{lang}`
-(Category 2). One product per repo, so each platform's credentials, state,
-and visibility stay separate.
+**Rule:** An infra repo never takes a language suffix, because it is
+language-agnostic by definition — language-specific tooling belongs in
+`ci-{tool}-{lang}` (Category 2). Keep one product per repo, so each
+platform's credentials, state, and visibility stay separate.
 
 ## Decision Rules
 
@@ -281,11 +281,11 @@ repos.
 | Category               | Examples                                                                     |
 | ---------------------- | ---------------------------------------------------------------------------- |
 | Language-agnostic (1)  | `.github`, `architecture`, `art`                                             |
-| Operational infra (5)  | `infra-github`                                                               |
 | CI tooling (2)         | `ci-phpstan-php`, `ci-phpunit-php`, `ci-rector-php`                          |
 | Project templates (3)  | `project-template-php`, `project-template-java`                              |
 | Project base (4a)      | `valkyrja-php`, `valkyrja-java`, `sindri-php`                                |
 | Project component (4b) | `valkyrja-openswoole-php`, `valkyrja-starter-app-php`, `valkyrja-docker-php` |
+| Operational infra (5)  | `infra-github`                                                               |
 
 This table is illustrative, not exhaustive. See the Valkyrjaio organization
 page on GitHub for the complete repo listing.
