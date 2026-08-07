@@ -527,6 +527,71 @@ So read the shell before you copy a `set` line from a neighboring script. Then c
 one that ends in a command which always succeeds hides a failing stage today, and `pipefail` stops
 hiding it.
 
+### Shell logic belongs in a script
+
+Warning: `shellcheck` and SonarCloud read a `.sh` file, and neither one reads a workflow file. Every
+shell rule in the
+[canonical guide](https://github.com/valkyrjaio/architecture/blob/26.x/AGENTS.md#shell-scripts)
+goes unenforced while the logic sits in a `run:` block, so a defect there ships and no tool reports
+it.
+
+So the logic of a step lives in `.github/ci/scripts/<name>.sh`, and the workflow runs that script
+through the [`run-script`](#composite-actions) action. The action proves the script came from the
+commit the caller pinned, and it reports what the script wrote.
+[Reaching the script](#reaching-the-script-and-what-run-script-costs) states when a workflow names
+the script directly instead.
+
+```yaml
+# Wrong — the logic sits in a `run:` block. The `[ ]` test breaks a shell rule, and no linter
+# reports it, because no linter reads this file.
+- name: Enable immutable releases
+  env:
+      GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+      ORG: ${{ github.repository_owner }}
+      REPO_NAME: ${{ inputs.name }}
+  run: |
+      CURRENT=$(gh api "repos/$ORG/$REPO_NAME" --jq '.immutable_releases')
+
+      if [ "$CURRENT" = "false" ]; then
+          gh api --method PATCH "repos/$ORG/$REPO_NAME" -F immutable_releases=true
+      fi
+```
+
+```yaml
+# Right — the script holds the logic, and the action runs it from the pinned commit.
+- name: Enable immutable releases
+  env:
+      GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+      ORG: ${{ github.repository_owner }}
+      REPO_NAME: ${{ inputs.name }}
+  uses: ./.github/actions/run-script
+  with:
+      script: enable-immutable-releases.sh
+      expected-ref: ${{ job.workflow_sha }}
+```
+
+#### What a `run:` block keeps
+
+A `run:` block keeps glue. Glue is a line or two that moves one value: an environment value that the
+next step reads, or one API call that fills a step output. Glue holds no condition, no loop, and no
+pipeline, so a linter has nothing to report on it.
+
+```yaml
+# Right — the step moves one value into a step output, so it holds no logic.
+- name: Get bot user ID
+  id: get-bot-user-id
+  env:
+      GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+      APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
+  run: |
+      BOT_USER_ID=$(gh api "/users/$APP_SLUG[bot]" --jq '.id')
+      echo "user-id=$BOT_USER_ID" >> "$GITHUB_OUTPUT"
+```
+
+Warning: `run-script` forwards no step output of its own. It reports `outcome`, `report`, and
+`report-markdown`, and a caller reads nothing else from the script. A step that must give the job a
+new value therefore stays glue, or it folds into the script that consumes the value.
+
 ### Moving a `run:` block into a script
 
 **Take the body from the parsed `run:` value, never from the raw lines of the workflow file.** A
