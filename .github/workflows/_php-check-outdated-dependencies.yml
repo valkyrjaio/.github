@@ -90,23 +90,13 @@ jobs:
           echo "$resolution"
           echo "::endgroup::"
 
-          # The resolver answers for the whole lock, transitive packages included, and
-          # this gate claims only the direct ones — its name says so. A transitive
-          # package publishes on a schedule nobody here sets, so deciding the gate on
-          # the whole lock holds a release for a version no requirement in this
-          # repository names, and the window in which the lock is current is only as
-          # long as the quietest package in the graph. The direct requirements decide
-          # it instead, and the dependency update run takes the rest.
-          #
-          # Platform packages carry no version to take, so they are dropped: `php`
-          # itself, and the `ext-` / `lib-` / `composer-` families.
+          # The resolver answers for the whole lock, so a transitive package decides a
+          # gate that claims only the direct ones. A platform requirement holds no version to take.
           direct=$(jq -r '((.require // {}) + (."require-dev" // {})) | keys[]' "$DIR/composer.json" \
             | grep -vE '^(php$|ext-|lib-|composer-)' || true)
 
-          # Read the lock file operations alone. The dry run prints the install plan
-          # directly after them with no blank line between, and that plan names the
-          # same packages a second time — so the section ends at the first line that
-          # is not an operation rather than at a separator.
+          # No blank line separates the lock operations from the install plan that repeats
+          # them, so the section ends at the first line that is not an operation.
           moved=$(printf '%s\n' "$resolution" | awk '
             /^Lock file operations:/ { inlock = 1; next }
             inlock && /^  - (Upgrading|Downgrading|Locking|Removing|Installing) / {
@@ -118,7 +108,7 @@ jobs:
           blocking=$(comm -12 <(printf '%s\n' "$direct" | sort -u) <(printf '%s\n' "$moved" | sort -u))
 
           if [[ -z "$blocking" ]]; then
-            echo "Every direct $NAME requirement is current. Only transitive packages can move, and the dependency update run takes those. Proceeding..."
+            echo "Every direct $NAME requirement is current. Only transitive packages can move. Proceeding..."
             exit 0
           fi
 
@@ -127,8 +117,7 @@ jobs:
 
           # Only now pay for the install that `composer outdated` needs — it names the
           # packages and the versions to move to, which is what makes the failure
-          # actionable. It reports the whole graph, so it names transitive packages the
-          # list above deliberately leaves out.
+          # actionable. Warning: it reports the whole graph, not the direct list above.
           echo "Composer dependencies must be updated before releasing:"
           eval "composer ${COMPOSER_COMMAND}" 2>&1 || true
           exit 1
