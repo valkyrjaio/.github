@@ -604,8 +604,9 @@ has nothing to report on it.
 ```
 
 Warning: `run-script` forwards no step output of its own. It reports `outcome`, `report`, and
-`report-markdown`, and a caller reads nothing else from the script. A step that must give the job a
-new value therefore stays glue, or it folds into the script that consumes the value.
+`report-markdown`, and a caller reads nothing else from the script. A step that must give the job
+another value takes the direct form, where the script writes the value to `$GITHUB_OUTPUT` itself.
+`checkout-existing-pr-branch.sh` writes `branch` and `is-new` that way.
 
 ### Moving a `run:` block into a script
 
@@ -633,8 +634,9 @@ body taken from the raw lines carries a trailing blank line the step never had.
 
 ### Reaching the script, and what `run-script` costs
 
-Three cases, and the caller decides which one a workflow is in. The first two cases carry two shapes
-each, and the person who writes the workflow chooses between them on the criterion below:
+Three cases. A caller decides between the first two, and the code decides the third, because an
+action reaches a script its own way. The first two cases carry two forms each, and the person who
+writes the workflow chooses between them on the criterion below:
 
 | The workflow runs          | The script is reached by                                                                                                                               | Because                                     |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
