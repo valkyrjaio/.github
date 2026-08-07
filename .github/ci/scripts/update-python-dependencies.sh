@@ -22,19 +22,14 @@
 #     .github/ci/scripts/update-python-dependencies.sh
 # ---------------------------------------------------------------------------
 
-# Warning: `-u` and `pipefail` are deliberately absent. This script carries a
-# block from a `run:` step that names no shell, and GitHub runs that as
-# `bash -e {0}`. An action step is the other case, and a script it invokes sets
-# `pipefail`.
+# Warning: a bare `run:` step runs this, so `-u` and `pipefail` stay off. See
+# the shell script conventions in `architecture/AGENTS.md` §4.
 set -e
 
 : > /tmp/dependency_changes.txt
 
-# Helper: rewrite a pyproject.toml's dependency lower bounds to match the
-# versions resolved in its uv.lock, so the manifest tracks the lock file.
-# Only directly referenced dependencies (project deps, optional-dependency
-# extras, and dependency-groups) are touched; transitive dependencies stay
-# lock-only. Prints one "name|>=old|>=new" line per bumped dependency.
+# Warning: a transitive dependency stays lock-only. Raising a bound the manifest
+# never declared would pin a version the project does not depend on.
 cat > /tmp/sync_pyproject.py <<'PY'
 import re
 import sys
