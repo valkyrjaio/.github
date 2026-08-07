@@ -76,7 +76,7 @@ elif has_branch "$DEFAULT_REF"; then
   REF="$DEFAULT_REF"
   echo "The architecture repository holds no $BASE_REF branch, so the guides come from $REF."
 else
-  echo "The architecture repository holds neither $BASE_REF nor $DEFAULT_REF, so the guides come from its own default branch."
+  echo "The architecture repository holds no $BASE_REF or $DEFAULT_REF, so the guides come from its default branch."
 fi
 
 # An empty REF clones the default branch of the architecture repository. That branch is the last
