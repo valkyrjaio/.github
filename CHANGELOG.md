@@ -1,6 +1,17 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.24.1...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.24.2...26.x)
+
+## [v26.24.2](https://github.com/valkyrjaio/.github/compare/v26.24.1...v26.24.2) - 2026-08-07
+
+* [Workflow] ci: Retire the enforce-repo-settings cron by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/315
+* [Workflow] refactor: Move the PHP dependency update into scripts by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/309
+* [Profile] docs: List all five language framework, sindri, and starter repositories by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/316
+* [Process] docs: Document the infra-{product} repository category by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/320
+* [Workflow] chore: Retire the repository enforcement and creation sweeps by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/319
+* [Workflow] refactor: Move the Python dependency update into a script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/314
+* [Workflow] refactor: Move the TypeScript dependency update into a script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/318
+* [Workflow] ci: Pin the Claude review to Opus 5 by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/322
 
 ## [v26.24.1](https://github.com/valkyrjaio/.github/compare/v26.24.0...v26.24.1) - 2026-08-06
 
