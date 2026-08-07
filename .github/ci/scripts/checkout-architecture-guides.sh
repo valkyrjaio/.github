@@ -18,7 +18,7 @@
 #
 # Two refs cannot be followed, and each one falls back. A stacked pull request
 # bases on a feature branch, which the architecture repository does not hold.
-# A new version branch exists in this repository before the architecture
+# A new version branch exists in a framework repository before the architecture
 # repository creates its own. Both fall back to the default branch of the
 # repository under review, which is that repository's current version branch.
 # The architecture repository does not always hold that branch either, and the
