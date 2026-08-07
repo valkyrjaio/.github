@@ -553,6 +553,12 @@ A composite action obeys the rule as well, because no linter reads its `action.y
 action reaches its own script at `"$ACTION_PATH/../../ci/scripts/<name>.sh"`, since an action cannot
 assume a working directory.
 
+Warning: the check that proves the checkout is the pinned commit stays in the `run:` block. That
+check reads the tree that holds the scripts, so a script cannot carry it: a checkout at the wrong
+commit supplies the verifier as well, and a verifier that always passes proves nothing. `run-script`
+keeps its own check inline for that reason. A check that establishes trust in the scripts cannot
+depend on the scripts.
+
 ```yaml
 # Wrong — the logic sits in a `run:` block. The `[ ]` test and the `grep` inside it each break a
 # rule, and no linter reports either one, because no linter reads this file.
