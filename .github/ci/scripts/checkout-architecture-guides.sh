@@ -70,11 +70,11 @@ if [[ -n "$REF" ]]; then
 elif has_branch "$BASE_REF"; then
   REF="$BASE_REF"
   echo "The pull request bases on $REF, and the architecture repository holds that branch."
-elif has_branch "$DEFAULT_REF"; then
-  REF="$DEFAULT_REF"
-  echo "The architecture repository holds no $BASE_REF branch, so the guides come from $REF."
 elif [[ "$BASE_REF" == "$DEFAULT_REF" ]]; then
   REF='master'
+  echo "The architecture repository holds no $BASE_REF branch, so the guides come from $REF."
+elif has_branch "$DEFAULT_REF"; then
+  REF="$DEFAULT_REF"
   echo "The architecture repository holds no $BASE_REF branch, so the guides come from $REF."
 else
   REF='master'
