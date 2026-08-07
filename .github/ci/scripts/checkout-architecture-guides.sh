@@ -21,6 +21,8 @@
 # A new version branch exists in this repository before the architecture
 # repository creates its own. Both fall back to the default branch of the
 # repository under review, which is that repository's current version branch.
+# The architecture repository does not always hold that branch either, and the
+# last fallback is `master`.
 #
 # Reads ARCHITECTURE_REF, BASE_REF, DEFAULT_REF, and RUNNER_TEMP from the
 # environment. An empty ARCHITECTURE_REF follows the base branch.

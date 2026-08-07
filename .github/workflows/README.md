@@ -995,7 +995,8 @@ Behavior:
   not hold every base branch. A stacked pull request bases on a feature branch.
   A new version branch exists in a framework repository before the architecture
   repository creates its own. The ref then falls back to the default branch of
-  the repository under review. The `architecture-ref` input names a ref instead.
+  the repository under review, and to `master` after that. The
+  `architecture-ref` input names a ref instead.
 - Uses a sticky comment, so re-runs update one comment instead of accumulating.
 - Gives the reviewer read-only tools with `--allowedTools`. It reads files,
   greps, runs `git diff` / `git log` / `gh pr diff` / `gh pr view`, reads both

@@ -67,7 +67,8 @@ on:
       architecture-ref:
         description: >
           Ref of the architecture repository to read the guides from. Empty follows the base branch
-          of the pull request, which is the branch whose guides govern the change.
+          of the pull request, which is the branch whose guides govern the change. The ref falls
+          back to the default branch of the repository under review, and to `master` after that.
         type: string
         default: ''
       blocking-verdict:
