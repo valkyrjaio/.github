@@ -37,11 +37,28 @@ set -e
 
 ARCHITECTURE_REPOSITORY='https://github.com/valkyrjaio/architecture.git'
 
-# Reports whether the architecture repository holds the branch.
+# Reports whether the architecture repository holds the branch. `--exit-code`
+# reports 2 for a branch the repository does not hold, and every other non-zero
+# status is a query that failed. A failed query reported as an absent branch
+# sends the review to `master` in silence, so the script stops instead. The
+# pattern is anchored, because an unanchored one also matches a nested branch
+# that `git clone --branch` cannot check out.
 has_branch() {
   local candidate="$1"
+  local status=0
 
-  [[ -n "$candidate" ]] && git ls-remote --exit-code --heads "$ARCHITECTURE_REPOSITORY" "$candidate" > /dev/null 2>&1
+  [[ -n "$candidate" ]] || return 1
+
+  git ls-remote --exit-code --heads "$ARCHITECTURE_REPOSITORY" "refs/heads/$candidate" > /dev/null || status=$?
+
+  case "$status" in
+    0) return 0 ;;
+    2) return 1 ;;
+    *)
+      echo "The query for the $candidate branch failed with status $status." >&2
+      exit "$status"
+      ;;
+  esac
 }
 
 REF="$ARCHITECTURE_REF"
