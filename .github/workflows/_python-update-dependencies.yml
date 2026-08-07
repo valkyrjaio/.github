@@ -55,31 +55,32 @@ jobs:
         with:
           token: ${{ steps.generate-token.outputs.token }}
 
+      # The two steps below run scripts from this repository, and the checkout above holds the
+      # calling repository instead. This repository is checked out separately at the commit the
+      # caller pinned, so the scripts and the workflow can never drift.
+      #
+      # Warning: `actions/checkout` places a path under the workspace and nowhere else, so this
+      # lands a second git repository inside the first. The commit step below runs `git add -A`,
+      # which stages a nested repository as a gitlink rather than skipping it, and every dependency
+      # pull request would then carry a stray `dot-github` submodule entry. The exclude below keeps
+      # it out of `git add`, and `.git/info/exclude` is local to the checkout, so nothing is
+      # committed to the calling repository to achieve it.
+      - name: Checkout the CI scripts
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          repository: valkyrjaio/.github
+          ref: ${{ job.workflow_sha }}
+          path: dot-github
+
+      - name: Keep the CI scripts out of the dependency commit
+        run: printf '%s\n' 'dot-github/' >> .git/info/exclude
+
       - name: Checkout existing PR branch if present
         id: prep-branch
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           BASE: ${{ github.ref_name }}
-        run: |
-          EXISTING=$(gh pr list \
-            --base "$BASE" \
-            --state open \
-            --json headRefName \
-            --jq '[.[] | select(.headRefName | startswith("deps/update-dependencies-"))] | first | .headRefName // ""')
-
-          if [ -n "$EXISTING" ]; then
-            echo "Found existing PR branch: $EXISTING"
-            git fetch origin "$EXISTING"
-            git checkout "$EXISTING"
-            echo "branch=$EXISTING" >> "$GITHUB_OUTPUT"
-            echo "is-new=false" >> "$GITHUB_OUTPUT"
-          else
-            BRANCH="deps/update-dependencies-$(date +%Y-%m-%d)"
-            echo "No existing PR branch. Will create: $BRANCH"
-            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-            echo "is-new=true" >> "$GITHUB_OUTPUT"
-          fi
-
+        run: dot-github/.github/ci/scripts/checkout-existing-pr-branch.sh
       - name: Setup uv
         uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
@@ -88,104 +89,7 @@ jobs:
       - name: Update dependencies and sync pyproject constraints
         env:
           DEPENDENCIES: ${{ inputs.dependencies }}
-        run: |
-          > /tmp/dependency_changes.txt
-
-          # Helper: rewrite a pyproject.toml's dependency lower bounds to match the
-          # versions resolved in its uv.lock, so the manifest tracks the lock file.
-          # Only directly referenced dependencies (project deps, optional-dependency
-          # extras, and dependency-groups) are touched; transitive dependencies stay
-          # lock-only. Prints one "name|>=old|>=new" line per bumped dependency.
-          cat > /tmp/sync_pyproject.py <<'PY'
-          import re
-          import sys
-          import tomllib
-
-          directory = sys.argv[1]
-          manifest_path = f"{directory}/pyproject.toml"
-          lock_path = f"{directory}/uv.lock"
-
-
-          def normalize(name):
-              # PEP 503 normalization: lowercase, runs of -_. collapse to a single -.
-              return re.sub(r"[-_.]+", "-", name).lower()
-
-
-          with open(manifest_path, "rb") as fh:
-              manifest = tomllib.load(fh)
-          with open(lock_path, "rb") as fh:
-              lock = tomllib.load(fh)
-
-          # Resolved versions, excluding the project's own local (virtual/editable) root.
-          resolved = {}
-          for package in lock.get("package", []):
-              source = package.get("source", {})
-              if "virtual" in source or "editable" in source:
-                  continue
-              resolved[normalize(package["name"])] = package["version"]
-
-          # Every directly declared requirement string.
-          requirements = []
-          project = manifest.get("project", {})
-          requirements += [r for r in project.get("dependencies", []) if isinstance(r, str)]
-          for extra in project.get("optional-dependencies", {}).values():
-              requirements += [r for r in extra if isinstance(r, str)]
-          for group in manifest.get("dependency-groups", {}).values():
-              requirements += [r for r in group if isinstance(r, str)]
-
-          with open(manifest_path, encoding="utf-8") as fh:
-              raw = fh.read()
-
-          name_re = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(\[[^\]]*\])?\s*(.*)$")
-          floor_re = re.compile(r">=\s*([0-9][^,;\s]*)")
-
-          changes = []
-          for requirement in requirements:
-              match = name_re.match(requirement)
-              if not match:
-                  continue
-              floor = floor_re.search(match.group(3))
-              if not floor:
-                  continue
-              old = floor.group(1)
-              new = resolved.get(normalize(match.group(1)))
-              if not new or new == old:
-                  continue
-              updated, count = re.subn(
-                  r"(>=\s*)" + re.escape(old), r"\g<1>" + new, requirement, count=1
-              )
-              if count and updated != requirement and requirement in raw:
-                  raw = raw.replace(requirement, updated, 1)
-                  changes.append((match.group(1), old, new))
-
-          if changes:
-              with open(manifest_path, "w", encoding="utf-8") as fh:
-                  fh.write(raw)
-          for name, old, new in changes:
-              print(f"{name}|>={old}|>={new}")
-          PY
-
-          LENGTH=$(echo "$DEPENDENCIES" | jq 'length')
-          for i in $(seq 0 $((LENGTH - 1))); do
-            NAME=$(echo "$DEPENDENCIES" | jq -r ".[$i].name")
-            DIR=$(echo "$DEPENDENCIES" | jq -r ".[$i].directory")
-
-            echo "Updating $NAME ($DIR)..."
-            ( cd "$DIR" && uv lock --upgrade )
-
-            echo "Syncing $NAME pyproject.toml lower bounds to uv.lock..."
-            uv run --no-project python /tmp/sync_pyproject.py "$DIR" >> /tmp/dependency_changes.txt
-
-            # uv.lock records the manifest's constraint in [package.metadata]
-            # requires-dist, so rewriting pyproject.toml above leaves that line
-            # describing the pre-update constraint. Re-lock to bring it back in
-            # step. Without this the outdated check — which fails when
-            # `uv lock --upgrade` produces any diff — reports the dependency as
-            # outdated forever, because every update run recreates the mismatch.
-            echo "Re-locking $NAME so uv.lock records the new constraint..."
-            ( cd "$DIR" && uv lock --quiet )
-          done
-
+        run: dot-github/.github/ci/scripts/update-python-dependencies.sh
       - name: Check for changes
         id: check-changes
         run: |
