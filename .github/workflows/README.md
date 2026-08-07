@@ -17,7 +17,6 @@ events. Reusable workflows (leading underscore `_`) are called internally via
 - [Composite Actions](#composite-actions)
 - [Choosing a Workflow or an Action](#choosing-a-workflow-or-an-action)
 - [Repository Enforcement](#repository-enforcement)
-- [Rulesets](#rulesets)
 - [Changing a Required Check Name](#changing-a-required-check-name)
 - [Commit Message Rules](#commit-message-rules)
 - [Trailing Newline Check](#trailing-newline-check)

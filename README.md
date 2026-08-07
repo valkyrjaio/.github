@@ -23,8 +23,9 @@ What's Included
   [Valkyrjaio organization page][org-page]
 - **Reusable workflows** — PR quality gates, dependency management,
   repository management, release orchestration, and branch management
-- **Branch rulesets** — exported GitHub ruleset definitions applied across
-  Valkyrja repos via the repo-management workflows
+- **Branch rulesets** — defined in the
+  [`infra-github`](https://github.com/valkyrjaio/infra-github) repository as
+  OpenTofu configuration and applied on merge and on a weekly schedule
 - **Project conventions** — `REPOSITORY_NAMING.md` and `VOCABULARY.md`
   documenting how repos are named and what terms mean across the project
 
@@ -175,23 +176,23 @@ needs, and a caller passes down that list. See
 [the workflow guide](.github/workflows/README.md#which-secrets-a-caller-passes)
 for the list per workflow.
 
-| Name                         | Type     | Description                                                                                                                                                                        |
-| ---------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VALKYRJA_GHA_APP_ID`        | Secret   | GitHub App ID used to generate short-lived tokens                                                                                                                                  |
-| `VALKYRJA_GHA_PRIVATE_KEY`   | Secret   | GitHub App private key                                                                                                                                                             |
-| `MAVEN_CENTRAL_USERNAME`     | Secret   | Maven Central (Sonatype) user-token username. Required to publish Java releases.                                                                                                   |
-| `MAVEN_CENTRAL_PASSWORD`     | Secret   | Maven Central (Sonatype) user-token password. Required to publish Java releases.                                                                                                   |
-| `MAVEN_SIGNING_KEY`          | Secret   | In-memory PGP signing key used to sign Java release artifacts.                                                                                                                     |
-| `MAVEN_SIGNING_KEY_PASSWORD` | Secret   | Passphrase for the PGP signing key.                                                                                                                                                |
-| `GRADLE_PUBLISH_KEY`         | Secret   | Gradle Plugin Portal API key. Required to publish a Java Gradle plugin.                                                                                                            |
-| `GRADLE_PUBLISH_SECRET`      | Secret   | Gradle Plugin Portal API secret. Required to publish a Java Gradle plugin.                                                                                                         |
-| `PYPI_API_TOKEN`             | Secret   | PyPI API token used to publish Python releases (`uv publish`).                                                                                                                     |
-| `LATEST_MAJOR_VERSION`       | Variable | Current latest major version number (e.g. `26`). Falls back to current year's last two digits if unset.                                                                            |
-| `SUPPORTED_VERSIONS`         | Variable | Regex pattern of supported major versions (e.g. `^(26\|27)$`). Version checks are skipped if unset.                                                                                |
-| `SUPPORTED_LANGUAGES`        | Variable | Space-separated language suffixes (e.g. `php java python ts go`). Selects the `project-template-<lang>` scaffold and language-specific rulesets when creating and enforcing repos. |
-| `USER_EMAIL`                 | Variable | Git committer email for rebase/cherry-pick operations                                                                                                                              |
-| `USER_NAME`                  | Variable | Git committer name for rebase/cherry-pick operations                                                                                                                               |
-| `VALKYRJA_REVIEWER`          | Variable | GitHub username the auto-merge sweep requests a review from when a bot PR cannot merge on its own. Also identifies the Claude review requester. Optional.                          |
+| Name                         | Type     | Description                                                                                                                                               |
+| ---------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VALKYRJA_GHA_APP_ID`        | Secret   | GitHub App ID used to generate short-lived tokens                                                                                                         |
+| `VALKYRJA_GHA_PRIVATE_KEY`   | Secret   | GitHub App private key                                                                                                                                    |
+| `MAVEN_CENTRAL_USERNAME`     | Secret   | Maven Central (Sonatype) user-token username. Required to publish Java releases.                                                                          |
+| `MAVEN_CENTRAL_PASSWORD`     | Secret   | Maven Central (Sonatype) user-token password. Required to publish Java releases.                                                                          |
+| `MAVEN_SIGNING_KEY`          | Secret   | In-memory PGP signing key used to sign Java release artifacts.                                                                                            |
+| `MAVEN_SIGNING_KEY_PASSWORD` | Secret   | Passphrase for the PGP signing key.                                                                                                                       |
+| `GRADLE_PUBLISH_KEY`         | Secret   | Gradle Plugin Portal API key. Required to publish a Java Gradle plugin.                                                                                   |
+| `GRADLE_PUBLISH_SECRET`      | Secret   | Gradle Plugin Portal API secret. Required to publish a Java Gradle plugin.                                                                                |
+| `PYPI_API_TOKEN`             | Secret   | PyPI API token used to publish Python releases (`uv publish`).                                                                                            |
+| `LATEST_MAJOR_VERSION`       | Variable | Current latest major version number (e.g. `26`). Falls back to current year's last two digits if unset.                                                   |
+| `SUPPORTED_VERSIONS`         | Variable | Regex pattern of supported major versions (e.g. `^(26\|27)$`). Version checks are skipped if unset.                                                       |
+| `SUPPORTED_LANGUAGES`        | Variable | Space-separated language suffixes (e.g. `php java python ts go`) the release automation iterates over.                                                    |
+| `USER_EMAIL`                 | Variable | Git committer email for rebase/cherry-pick operations                                                                                                     |
+| `USER_NAME`                  | Variable | Git committer name for rebase/cherry-pick operations                                                                                                      |
+| `VALKYRJA_REVIEWER`          | Variable | GitHub username the auto-merge sweep requests a review from when a bot PR cannot merge on its own. Also identifies the Claude review requester. Optional. |
 
 TypeScript/npm releases publish via
 npm [trusted publishing][npm-trusted-publishing]

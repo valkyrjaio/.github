@@ -71,7 +71,9 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
-        run: printf 'bot-user-id=%s\n' "$(gh api "/users/${APP_SLUG}%5Bbot%5D" --jq .id)" >> "$GITHUB_OUTPUT"
+        run: |
+          BOT_USER_ID=$(gh api "/users/$APP_SLUG[bot]" --jq '.id')
+          echo "user-id=$BOT_USER_ID" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -83,7 +85,7 @@ jobs:
           REPO_NAME: ${{ inputs.name }}
           IDENTIFIER: ${{ steps.identifier.outputs.package-identifier }}
           APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
-          BOT_USER_ID: ${{ steps.get-bot-user-id.outputs.bot-user-id }}
+          BOT_USER_ID: ${{ steps.get-bot-user-id.outputs.user-id }}
         run: .github/ci/scripts/set-copyright-identifier.sh
 
       - name: Enable immutable releases
@@ -92,7 +94,15 @@ jobs:
           ORG: ${{ github.repository_owner }}
           REPO_NAME: ${{ inputs.name }}
         run: |
-          if [[ "$(gh api "repos/$ORG/$REPO_NAME/immutable-releases" --jq '.enabled')" != 'true' ]]; then
-            gh api --method PUT "repos/$ORG/$REPO_NAME/immutable-releases" > /dev/null
+          # Immutable releases may already be enforced org-wide by the owner, in
+          # which case the per-repo PUT returns 409 — that's the desired state,
+          # so treat only a 409 as success and surface any other error.
+          if ! IMMUTABLE_ERR=$(gh api --method PUT "repos/$ORG/$REPO_NAME/immutable-releases" 2>&1 >/dev/null); then
+            if echo "$IMMUTABLE_ERR" | grep -q "HTTP 409"; then
+              echo 'Immutable releases already enforced org-wide; skipping.'
+            else
+              echo "$IMMUTABLE_ERR" >&2
+              exit 1
+            fi
           fi
           echo 'Immutable releases are enabled.'
