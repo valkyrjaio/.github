@@ -483,7 +483,8 @@ Derive the directory from `BASH_SOURCE`, so the sibling is reachable from either
 A workflow reaches a script in one of two ways, and the caller decides which one:
 
 - **This repository calls the workflow.** The job checks this repository out, so the script is
-  already on disk. Name it directly.
+  already on disk. The workflow reaches the [`run-script`](#composite-actions) action at
+  `./.github/actions/run-script`, or it names the script directly.
 - **A consumer repository calls the workflow.** The runner holds the consumer's tree, which does not
   hold this repository's scripts. Use the [`run-script`](#composite-actions) action, which checks
   this repository out at `job.workflow_sha` and runs the script from there.
@@ -540,6 +541,10 @@ through the [`run-script`](#composite-actions) action. The action proves the scr
 commit the caller pinned, and it reports what the script wrote.
 [Reaching the script](#reaching-the-script-and-what-run-script-costs) states when a workflow names
 the script directly instead.
+
+The path to the action follows the path to a script. A workflow that runs from this repository names
+`./.github/actions/run-script`, and a workflow that a consumer repository calls names
+`./dot-github/.github/actions/run-script` after the second checkout.
 
 ```yaml
 # Wrong — the logic sits in a `run:` block. The `[ ]` test breaks a shell rule, and no linter
@@ -622,7 +627,7 @@ Three shapes, and the caller decides which:
 
 | The workflow runs          | The script is reached by                                                                 | Because                                     |
 | -------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Only from this repository  | `.github/ci/scripts/<name>.sh`                                                           | The default checkout is this repository     |
+| Only from this repository  | `.github/ci/scripts/<name>.sh`, or `run-script` at `./.github/actions/run-script`        | The default checkout is this repository     |
 | From a consumer repository | `dot-github/.github/ci/scripts/<name>.sh`, after a second checkout at `job.workflow_sha` | The default checkout is the consumer's tree |
 | Inside a composite action  | `"$ACTION_PATH/../../ci/scripts/<name>.sh"`                                              | An action cannot assume a working directory |
 
