@@ -480,7 +480,7 @@ Warning: a script cannot assume the working directory is its own. A `run:` step 
 workspace root, and a workflow may check this repository out under a path such as `dot-github`.
 Derive the directory from `BASH_SOURCE`, so the sibling is reachable from either one.
 
-A workflow reaches a script in one of two ways, and the caller decides which one:
+The caller decides which case a workflow is in, and each case carries two forms:
 
 - **This repository calls the workflow.** The job checks this repository out, so the script is
   already on disk. The workflow reaches the [`run-script`](#composite-actions) action at
@@ -584,9 +584,12 @@ The path to the action follows the path to a script. A workflow that runs from t
 
 #### What a `run:` block keeps
 
-A `run:` block keeps glue. Glue is a line or two that moves one value: an environment value that the
-next step reads, or one API call that fills a step output. Glue holds no condition, no loop, and no
-pipeline, so a linter has nothing to report on it.
+A `run:` block keeps two things. The first is the call that names a script, which the section above
+describes. The second is glue.
+
+Glue is a line or two that moves one value: an environment value that the next step reads, or one
+API call that fills a step output. Glue holds no condition, no loop, and no pipeline, so a linter
+has nothing to report on it.
 
 ```yaml
 # Right — the step moves one value into a step output, so it holds no logic.
@@ -630,7 +633,8 @@ body taken from the raw lines carries a trailing blank line the step never had.
 
 ### Reaching the script, and what `run-script` costs
 
-Three shapes, and the caller decides which:
+Three cases, and the caller decides which one a workflow is in. The first two cases carry two shapes
+each, and the person who writes the workflow chooses between them on the criterion below:
 
 | The workflow runs          | The script is reached by                                                                                                                               | Because                                     |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
@@ -645,10 +649,12 @@ polls for several minutes then looks identical to a job that is stuck. `run-scri
 
 The buffering decides the choice, and the exit status does not. `run-script` ends with the status of
 the script, so a gate fails its own job through the action as surely as it does from a `run:` block.
-Name the script directly when a person reads the output while the script runs. Take the action for a
-check that comments, because `outcome` and `report-markdown` are what the comment is built from, and
-for a step that must prove what it ran, because `expected-ref` fails the step unless the checkout is
-the commit the caller pinned.
+Name the script directly when a person reads the output while the script runs. Take the action in
+two cases:
+
+- **A check that comments.** The caller builds the comment from `outcome` and `report-markdown`.
+- **A step that must prove what it ran.** `expected-ref` fails the step unless the checkout is the
+  commit the caller pinned.
 
 ---
 

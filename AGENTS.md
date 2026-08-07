@@ -32,9 +32,9 @@ and for the `set` line each kind of caller needs.
 
 So the logic of a step lives in `.github/ci/scripts/`, and the workflow names the
 script — through the `run-script` action, or in a `run:` step that runs the
-script directly. A `run:` block holds glue alone: a line or two that moves one
-value, such as the step that reads the bot user id into a step output. The rule,
-the two forms, and the examples are in
+script directly. Besides that call, a `run:` block holds glue: a line or two
+that moves one value, such as the step that reads the bot user id into a step
+output. The rule, the two forms, and the examples are in
 [Shell logic belongs in a script](.github/workflows/README.md#shell-logic-belongs-in-a-script).
 
 ## What does NOT apply
