@@ -536,29 +536,34 @@ shell rule in the
 goes unenforced while the logic sits in a `run:` block, so a defect there ships and no tool reports
 it.
 
-So the logic of a step lives in `.github/ci/scripts/<name>.sh`, and the workflow runs that script
-through the [`run-script`](#composite-actions) action. The action proves the script came from the
-commit the caller pinned, and it reports what the script wrote.
-[Reaching the script](#reaching-the-script-and-what-run-script-costs) states when a workflow names
-the script directly instead.
+So the logic of a step lives in `.github/ci/scripts/<name>.sh`, and the workflow names that script.
+Two forms do that, and both are correct. The [`run-script`](#composite-actions) action proves the
+script came from the commit the caller pinned, and it reports what the script wrote. A `run:` step
+that names the script directly gives a person the output while the script runs.
+[Reaching the script](#reaching-the-script-and-what-run-script-costs) states which form a workflow
+takes.
 
 The path to the action follows the path to a script. A workflow that runs from this repository names
 `./.github/actions/run-script`, and a workflow that a consumer repository calls names
 `./dot-github/.github/actions/run-script` after the second checkout.
 
 ```yaml
-# Wrong — the logic sits in a `run:` block. The `[ ]` test breaks a shell rule, and no linter
-# reports it, because no linter reads this file.
+# Wrong — the logic sits in a `run:` block. The `[ ]` test and the `grep` inside it each break a
+# rule, and no linter reports either one, because no linter reads this file.
 - name: Enable immutable releases
   env:
       GH_TOKEN: ${{ steps.generate-token.outputs.token }}
       ORG: ${{ github.repository_owner }}
       REPO_NAME: ${{ inputs.name }}
   run: |
-      CURRENT=$(gh api "repos/$ORG/$REPO_NAME" --jq '.immutable_releases')
+      if ! ERR=$(gh api --method PUT "repos/$ORG/$REPO_NAME/immutable-releases" 2>&1 >/dev/null); then
+          if [ -n "$(echo "$ERR" | grep 'HTTP 409')" ]; then
+              echo 'Immutable releases already enforced org-wide; skipping.'
+              exit 0
+          fi
 
-      if [ "$CURRENT" = "false" ]; then
-          gh api --method PATCH "repos/$ORG/$REPO_NAME" -F immutable_releases=true
+          echo "$ERR" >&2
+          exit 1
       fi
 ```
 
@@ -636,8 +641,10 @@ after the script exits, so a script that reports progress shows nothing until it
 polls for several minutes then looks identical to a job that is stuck. `run-script` also reports
 `outcome` and `report-markdown` for a caller that posts a comment and decides the result itself.
 
-Use it for a check that comments. For anything else — a gate that must fail its own job, or a script
-whose output a person watches — name the script directly through the second checkout.
+The buffering decides the choice, and the exit status does not. `run-script` ends with the status of
+the script, so a gate fails its own job through the action as surely as it does from a `run:` block.
+Name the script directly when a person reads the output while the script runs. Take the action for a
+check that comments, because `outcome` and `report-markdown` are what the comment is built from.
 
 ---
 
