@@ -23,12 +23,10 @@
 #     .github/ci/scripts/set-copyright-identifier.sh
 # ---------------------------------------------------------------------------
 
-# Warning: `-u` and `pipefail` are deliberately absent. A `run:` step that names
-# no shell runs under `bash -e {0}`, and this script holds such a block. The
-# `bash --noprofile --norc -eo pipefail {0}` form is what an explicit
-# `shell: bash` selects, which is why a script that `run-script` invokes sets
-# `pipefail` and this one does not.
-set -e
+# The `run-script` action invokes this script under `shell: bash`
+# (`bash --noprofile --norc -eo pipefail {0}`), so the script sets the same
+# options itself.
+set -euo pipefail
 
 if [[ -z "${IDENTIFIER:-}" ]]; then
   case "${REPO_NAME%-*}" in
