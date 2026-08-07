@@ -7,7 +7,7 @@ on:
 
 jobs:
   update-dependencies:
-    uses: valkyrjaio/.github/.github/workflows/_go-update-dependencies.yml@9ac7da1d12861fb422fe121796b764df45d4907c
+    uses: valkyrjaio/.github/.github/workflows/_go-update-dependencies.yml@9eae3f56a2dffeb3d4d9967e1afeeaeba18cc3ff
     secrets:
       VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
       VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
