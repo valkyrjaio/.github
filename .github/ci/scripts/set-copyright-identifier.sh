@@ -14,7 +14,9 @@
 # resolves the identifier per repository, so this script replaces it in the
 # new repository and pushes the result.
 #
-# Reads GH_TOKEN, ORG, REPO_NAME, IDENTIFIER, APP_SLUG, and BOT_USER_ID from the environment.
+# Reads GH_TOKEN, ORG, REPO_NAME, APP_SLUG, and BOT_USER_ID from the environment.
+# IDENTIFIER is optional: an empty value derives from REPO_NAME, and a name the
+# derivation does not know fails with a pointer to COPYRIGHT_HEADER.md.
 #
 # Usage:
 #
@@ -27,6 +29,21 @@
 # `shell: bash` selects, which is why a script that `run-script` invokes sets
 # `pipefail` and this one does not.
 set -e
+
+if [[ -z "${IDENTIFIER:-}" ]]; then
+  case "${REPO_NAME%-*}" in
+    valkyrja)             IDENTIFIER='Valkyrja Framework' ;;
+    sindri)               IDENTIFIER='Sindri' ;;
+    valkyrja-starter-app) IDENTIFIER='Valkyrja Application' ;;
+    *)
+      echo "Error: cannot derive a package identifier from '$REPO_NAME'."
+      echo "Pass the package-identifier input. See COPYRIGHT_HEADER.md for the value."
+      exit 1
+      ;;
+  esac
+  export IDENTIFIER
+fi
+echo "Package identifier: $IDENTIFIER"
 
 # `gh repo create --template` copies the template byte for byte, so a new repo
 # starts with the template's own identifier, `Project Template`. COPYRIGHT_HEADER.md
