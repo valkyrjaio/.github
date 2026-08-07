@@ -532,13 +532,13 @@ hiding it.
 
 ### Shell logic belongs in a script
 
-Warning: `shellcheck` and SonarCloud read a `.sh` file, and neither one reads a workflow file. Every
-shell rule in the
+Warning: `shellcheck` and SonarCloud read a `.sh` file. Neither one reads a workflow file, and
+neither one reads an `action.yml`. Every shell rule in the
 [canonical guide](https://github.com/valkyrjaio/architecture/blob/26.x/AGENTS.md#shell-scripts)
 goes unenforced while the logic sits in a `run:` block, so a defect there ships and no tool reports
 it.
 
-So the logic of a step lives in `.github/ci/scripts/<name>.sh`, and the workflow names that script.
+So the logic of a step lives in `.github/ci/scripts/<name>.sh`, and the step names that script.
 Two forms do that, and both are correct. The [`run-script`](#composite-actions) action proves the
 script came from the commit the caller pinned, and it reports what the script wrote. A `run:` step
 that names the script directly gives a person the output while the script runs.
@@ -548,6 +548,10 @@ takes.
 The path to the action follows the path to a script. A workflow that runs from this repository names
 `./.github/actions/run-script`, and a workflow that a consumer repository calls names
 `./dot-github/.github/actions/run-script` after the second checkout.
+
+A composite action obeys the rule as well, because no linter reads its `action.yml` either. An
+action reaches its own script at `"$ACTION_PATH/../../ci/scripts/<name>.sh"`, since an action cannot
+assume a working directory.
 
 ```yaml
 # Wrong — the logic sits in a `run:` block. The `[ ]` test and the `grep` inside it each break a
@@ -604,8 +608,9 @@ has nothing to report on it.
 ```
 
 Warning: `run-script` forwards no step output of its own. It reports `outcome`, `report`, and
-`report-markdown`, and a caller reads nothing else from the script. A step that must give the job
-another value takes the direct form, where the script writes the value to `$GITHUB_OUTPUT` itself.
+`report-markdown`, and a caller reads nothing else from the script. Glue that fills one step output
+stays in the `run:` block, which is what the example above does. Logic that must also report a value
+takes the direct form, where the script writes to `$GITHUB_OUTPUT` itself.
 `checkout-existing-pr-branch.sh` writes `branch` and `is-new` that way.
 
 ### Moving a `run:` block into a script
