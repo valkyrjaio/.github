@@ -987,8 +987,15 @@ Behavior:
 - Shallow-clones [`valkyrjaio/architecture`](https://github.com/valkyrjaio/architecture)
   into the runner temp directory and grants read access to it via `--add-dir`,
   so the review is judged against the cross-language canonical guide and the
-  per-language guide, not just the repo's own thin `AGENTS.md`. The
-  `architecture-ref` input selects the ref (default `master`).
+  per-language guide, not just the repo's own thin `AGENTS.md`. The ref follows
+  the **base branch of the pull request**, so a change is judged against the
+  guides that govern the branch it lands on. A guide fix lands on the lowest
+  supported version branch and moves up from there, so an older version branch
+  carries the current rules for its own line. The architecture repository does
+  not hold every base branch. A stacked pull request bases on a feature branch.
+  A new version branch exists in a framework repository before the architecture
+  repository creates its own. The ref then falls back to the default branch of
+  the repository under review. The `architecture-ref` input names a ref instead.
 - Uses a sticky comment, so re-runs update one comment instead of accumulating.
 - Gives the reviewer read-only tools with `--allowedTools`. It reads files,
   greps, runs `git diff` / `git log` / `gh pr diff` / `gh pr view`, reads both
