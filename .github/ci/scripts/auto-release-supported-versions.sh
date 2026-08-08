@@ -471,12 +471,12 @@ fi
   echo "| Dispatched | $DISPATCHED |"
   echo "| Succeeded | $SUCCEEDED |"
   echo "| Failed | $FAILED |"
+  echo "| Failed (branch list unreadable) | $UNREADABLE_BRANCHES |"
   echo "| Timed out waiting | $TIMED_OUT |"
   echo "| Skipped (other cohort) | $SKIPPED_OTHER_COHORT |"
   echo "| Skipped (no $ACTION_WORKFLOW on the default branch) | $SKIPPED_NO_WORKFLOW |"
   echo "| Skipped (branch carries no $ACTION_WORKFLOW) | $SKIPPED_NO_BRANCH_WORKFLOW |"
   echo "| Skipped (no supported version branch) | $SKIPPED_NO_BRANCH |"
-  echo "| Failed (branch list unreadable) | $UNREADABLE_BRANCHES |"
 
   if [[ -n "$RESULTS" ]]; then
     echo
@@ -515,8 +515,8 @@ fi
 } >> "$GITHUB_STEP_SUMMARY"
 
 # A failure fails the slot, so the day's plan shows red where it broke. A wait
-# that ends without an answer does not. The script either stops watching a run
-# that has not finished, or never finds the run to watch. Either way the script
+# that ends without an answer does not. The script either stops watching
+# an unfinished run, or never finds the run to watch. Either way the script
 # gives up on the answer rather than on the run.
 #
 # Warning: the two conditions below are independent, and one run can hit both. Each reports

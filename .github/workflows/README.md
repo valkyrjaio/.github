@@ -204,8 +204,7 @@ a repository or a branch over and leaves the slot green. A failure means
 something the script tries does not work, and the slot goes red.
 
 A wait that ends without an answer is neither a skip nor a failure. The script
-either stops watching a run that has not finished, or never finds the run to
-watch. Either way the slot stays green, because the script gives up on the
+either stops watching an unfinished run, or never finds the run to watch. Either way the slot stays green, because the script gives up on the
 answer rather than on the run.
 
 The job summary counts what the slot dispatched, skipped and failed, and names
