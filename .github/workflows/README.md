@@ -175,9 +175,10 @@ same local hour all year.
 | 14:00      | projects, catchall | The leaf consumers of everything above; unmatched repos go last |
 
 Warning: no slot sits on 09:00. Every repository's own `update-dependencies`
-cron fires then, and a release dispatches that same workflow and waits for it on
-a short budget. Two runs of it on one branch queue against each other, and the
-release is the one holding a deadline.
+cron fires then, on its default branch. That default branch is the current-year
+`??.x`, which is also the branch a release is cut from today. So the cron's run
+and a release's own dispatch land on the same branch, both push the same
+dependency branch, and the release is the one holding a deadline.
 
 A separate sweep, `update-dependencies-all-repos.yml`, runs the `deps` action
 across every cohort at 04:00. It is not what keeps a release green — the
