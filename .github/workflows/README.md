@@ -215,8 +215,9 @@ a repository or a branch over and leaves the slot green. A failure means
 something the script tries does not work, and the slot goes red.
 
 A wait that ends without an answer is neither a skip nor a failure. The script
-either stops watching an unfinished run, or never finds the run to watch. Either way the slot stays green, because the script gives up on the
-answer rather than on the run.
+either stops watching an unfinished run, or never finds the run to watch.
+Either way the slot stays green, because the script gives up on the answer
+rather than on the run.
 
 A run the wait phase never reached is a failure rather than a skip. Once
 `stage-timeout-minutes` is spent the script reports the remaining runs as
