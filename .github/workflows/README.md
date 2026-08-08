@@ -199,9 +199,9 @@ Warning: the caller's `on.schedule` cron list and the slot table must name the
 same crons. The script fails a scheduled run whose cron the table does not
 name, so drift is loud, not silent.
 
-Warning: the script tells a deliberate skip apart from a failure. The script
-passes a repository or a branch over and leaves the slot green, and it fails
-the slot when something it tried does not work. A wait that ends without an answer is
+Warning: the script tells a deliberate skip apart from a failure. A skip passes
+a repository or a branch over and leaves the slot green. A failure means the
+script tried something that did not work, and the slot goes red. A wait that ends without an answer is
 neither. The script either stops watching a run that has not finished, or never
 finds the run to watch. Either way the run may still be going, so the slot
 stays green.
