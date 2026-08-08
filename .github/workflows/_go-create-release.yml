@@ -59,8 +59,12 @@ jobs:
       dependencies: ${{ inputs.dependencies }}
 
   update-version-files:
-    needs: [check-outdated-dependencies, check-version]
-    if: ${{ needs.check-version.outputs.should-release == 'true' && always() && needs.check-version.result == 'success' && needs.check-outdated-dependencies.result != 'failure' && needs.check-outdated-dependencies.result != 'cancelled' }}
+    # Warning: `always()` makes a skipped dependency check acceptable here, because Go skips the
+    # check when the caller declares no dependencies. A failed refresh also skips the check, so
+    # the refresh is named on its own — without that, a release would ship after the refresh it
+    # depends on had failed.
+    needs: [check-outdated-dependencies, check-version, update-dependencies]
+    if: ${{ needs.check-version.outputs.should-release == 'true' && always() && needs.check-version.result == 'success' && needs.update-dependencies.result == 'success' && needs.check-outdated-dependencies.result != 'failure' && needs.check-outdated-dependencies.result != 'cancelled' }}
     uses: ./.github/workflows/_update-version-files.yml
     secrets:
       VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
