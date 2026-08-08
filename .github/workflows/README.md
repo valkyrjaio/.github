@@ -212,8 +212,10 @@ name, so drift is loud, not silent.
 
 Warning: the script tells a deliberate skip apart from a failure. It passes a
 repository or a branch over and leaves the slot green; it fails the slot when
-something it tried did not work. A wait that timed out is neither — there the
-script watched a run and stopped, so the run may still finish.
+something it tried did not work. A wait that ended without an answer is
+neither: the script either stopped watching a run that had not finished, or
+never found the run to watch. Either way the run may still be going, so the
+slot stays green.
 
 A run the wait phase never reached is a failure rather than a skip. Once
 `stage-timeout-minutes` is spent the script reports the remaining runs as
@@ -221,8 +223,8 @@ A run the wait phase never reached is a failure rather than a skip. Once
 
 The job summary counts what the slot dispatched, skipped and failed, and names
 the repositories and branches worth acting on.
-`.github/ci/scripts/auto-release-supported-versions.sh`, which the reusable
-workflow runs, is the authority on which condition produces which outcome.
+`.github/ci/scripts/auto-release-supported-versions.sh`, the script behind this
+sweep, is the authority on which condition produces which outcome.
 
 This ordering is what a release of `@valkyrjaio/sindri` needs. Before it, the
 sweep dispatched every repository at once in `gh repo list` order, so `sindri`
