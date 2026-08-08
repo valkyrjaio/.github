@@ -210,17 +210,19 @@ Warning: the caller's `on.schedule` cron list and the slot table must name the
 same crons. The script fails a scheduled run whose cron the table does not
 name, so drift is loud, not silent.
 
-Warning: the script fails the slot when it could not complete the work the slot
-names. A wait that timed out does not fail the slot — there the script watched
-a run and stopped, so the run may still finish. A run the wait phase never
-reached is neither: once `stage-timeout-minutes` is spent the script reports
-the remaining runs as `unwatched`, an outcome nobody read rather than one that
-is probably fine, and that fails the slot.
+Warning: the script tells a deliberate skip apart from a failure. It passes a
+repository or a branch over and leaves the slot green; it fails the slot when
+something it tried did not work. A wait that timed out is neither — there the
+script watched a run and stopped, so the run may still finish.
+
+A run the wait phase never reached is a failure rather than a skip. Once
+`stage-timeout-minutes` is spent the script reports the remaining runs as
+`unwatched`, an outcome nobody read rather than one that is probably fine.
 
 The job summary counts what the slot dispatched, skipped and failed, and names
 the repositories and branches worth acting on.
-`.github/ci/scripts/auto-release-supported-versions.sh` is the authority on
-which condition produces which outcome.
+`.github/ci/scripts/auto-release-supported-versions.sh`, which the reusable
+workflow runs, is the authority on which condition produces which outcome.
 
 This ordering is what a release of `@valkyrjaio/sindri` needs. Before it, the
 sweep dispatched every repository at once in `gh repo list` order, so `sindri`
