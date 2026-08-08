@@ -196,9 +196,15 @@ summary, so it can be given a slot or a rule. Project components such as
 `valkyrja-docker-php` and `valkyrja-benchmarking-php` are `catchall` today and
 share the `projects` slot.
 
-The dispatches inside one release slot go out seconds apart, so every
-outdated-dependency gate evaluates before the first sibling publishes — one
-cohort member cannot turn another's gate red mid-slot.
+The dispatches inside one release slot still go out seconds apart, but a gate no
+longer evaluates seconds later: the refresh in front of it takes up to 30
+minutes. So the old reason one cohort member could not turn another's gate red —
+every gate ran before any sibling could publish — no longer holds.
+
+What holds instead is the cohort itself. Its members are peers that do not
+consume one another, so a sibling's publish is nothing the gate reads. A cohort
+releases after every cohort it does consume, and that ordering is what the slot
+table exists for.
 
 Warning: the caller's `on.schedule` cron list and the slot table must name the
 same crons. The script fails a scheduled run whose cron the table does not

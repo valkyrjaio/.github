@@ -18,9 +18,14 @@
 # dependencies as its first step. No slot refreshes them beforehand, and no
 # slot waits for a refresh to land. A cohort releases after the cohorts it
 # depends on, with enough of a gap for each registry to serve what the
-# dependency shipped. The dispatches inside one release slot go out seconds
-# apart, so every outdated-dependency gate evaluates before the first sibling
-# publishes.
+# dependency shipped.
+#
+# Warning: a gate no longer evaluates seconds after its dispatch. The refresh
+# in front of it takes up to 30 minutes, so the old reason one cohort member
+# could not turn another's gate red — every gate ran before any sibling could
+# publish — no longer holds. What holds instead is the cohort itself: its
+# members are peers that do not consume one another, and a cohort releases
+# after the cohorts it does consume.
 #
 # The `deps` action still exists, and `update-dependencies-all-repos.yml`
 # drives it on its own schedule. That sweep keeps every repository current
