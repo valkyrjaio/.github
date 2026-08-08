@@ -45,8 +45,9 @@ jobs:
       # names every cohort — one pass covers every repository on every supported branch, where a
       # release slot covers one cohort. A spent budget short-circuits the remaining waits to
       # `timeout`, which the sweep scores as informational rather than as a failure, so a budget
-      # sized for a release slot would report a genuinely failed update as a timeout and finish
-      # green. Nothing competes with this run: it is six hours ahead of the first release slot.
+      # sized for a release slot would report a genuinely failed update as a timeout, and the
+      # sweep would exit 0. Nothing competes with this run: it is six hours ahead of the first
+      # release slot.
       stage-timeout-minutes: 60
       dry_run: ${{ inputs.dry_run || false }}
       repo: ${{ inputs.repo || '' }}
