@@ -301,15 +301,6 @@ while IFS= read -r REPO_NAME; do
     continue
   fi
 
-  # Warning: read the exit status, never the output. `gh api --jq` leaves an
-  # error body unfiltered, so a 404 arrives as the error JSON rather than as
-  # the empty string an absent workflow should produce.
-  if ! gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows/$ACTION_WORKFLOW" \
-    --silent >/dev/null 2>&1; then
-    SKIPPED_NO_WORKFLOW=$((SKIPPED_NO_WORKFLOW + 1))
-    continue
-  fi
-
   BRANCHES=$(release_branches_for "$REPO_NAME")
 
   if [[ -z "$(printf '%s' "$BRANCHES" | tr -d '[:space:]')" ]]; then
@@ -324,6 +315,31 @@ while IFS= read -r REPO_NAME; do
 
   while IFS= read -r BRANCH; do
     [[ -z "$BRANCH" ]] && continue
+
+    # The dispatch runs the workflow file as the branch carries it, so the branch decides
+    # whether there is anything to dispatch. Asking about the default branch instead passes a
+    # repository that holds the workflow there and not here, and the dispatch then answers
+    # HTTP 422.
+    #
+    # Warning: read the message, never the body. `gh api --jq` leaves an error body
+    # unfiltered, so a 404 arrives as the error JSON rather than as the empty string an
+    # absent workflow should produce. Only a definite 404 skips. Every other answer — a token
+    # that aged out, a secondary rate limit, a 5xx — says nothing about the workflow, so it
+    # goes to the dispatch, which reports a failure and reds the slot rather than dropping
+    # the branch in silence.
+    WORKFLOW_ERR=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows/$ACTION_WORKFLOW?ref=$BRANCH" \
+      --silent 2>&1 >/dev/null || true)
+
+    if [[ "$WORKFLOW_ERR" == *"HTTP 404"* ]]; then
+      echo "$ORG/$REPO_NAME ($BRANCH): no $ACTION_WORKFLOW, skipping."
+      SKIPPED_NO_WORKFLOW=$((SKIPPED_NO_WORKFLOW + 1))
+      continue
+    fi
+
+    if [[ -n "$WORKFLOW_ERR" ]]; then
+      echo "$ORG/$REPO_NAME ($BRANCH): could not check for $ACTION_WORKFLOW, dispatching anyway: $WORKFLOW_ERR"
+    fi
+
     WORK="$WORK"$'\n'"$REPO_NAME $BRANCH"
   done <<< "$BRANCHES"
 done <<< "$REPOS"
@@ -408,7 +424,7 @@ fi
   echo "| Failed | $FAILED |"
   echo "| Timed out waiting | $TIMED_OUT |"
   echo "| Skipped (other cohort) | $SKIPPED_OTHER_COHORT |"
-  echo "| Skipped (no $ACTION_WORKFLOW) | $SKIPPED_NO_WORKFLOW |"
+  echo "| Skipped (branch carries no $ACTION_WORKFLOW) | $SKIPPED_NO_WORKFLOW |"
   echo "| Skipped (no supported version branch) | $SKIPPED_NO_BRANCH |"
 
   if [[ -n "$RESULTS" ]]; then
