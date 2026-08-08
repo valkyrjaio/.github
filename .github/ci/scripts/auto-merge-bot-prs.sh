@@ -434,6 +434,13 @@ while true; do
   # merged one. Without ERRORS here a single 5xx ends the wait on the first pass and reports
   # success, and the release then reaches its gate against a branch nothing merged into. A
   # retry is exactly what fixes a transient answer, so the loop keeps going while it can.
+  #
+  # BLOCKED deliberately does not keep it going. A read retries because the next read is a new
+  # answer; a completed check does not, because nothing re-runs it — polling a red context
+  # returns the same red context until the deadline, and the release fails later instead of
+  # sooner. That covers CANCELLED and SKIPPED as well: a required context that did not report
+  # SUCCESS has not satisfied the gate, and treating it as though it had is how a required job
+  # that never ran gets read as one that passed.
   if [[ "$WAITING" -eq 0 ]] && [[ "$ERRORS" -eq 0 ]]; then
     break
   fi
@@ -516,6 +523,16 @@ if [[ "$WAIT_MINUTES" -gt 0 ]]; then
   # release must not read that as a merge.
   if [[ "$ERRORS" -gt 0 ]]; then
     echo "$ERRORS pull request(s) could not be read after $WAIT_MINUTES minutes."
+    exit 1
+  fi
+
+  # Nor is an unmergeable one. The exit above belongs to the sweep, which reports the hygiene
+  # problem and moves on; a release cannot, because the bump it was waiting for did not land.
+  # Carrying on would fail the gate a few minutes later with an outdated package as the reason,
+  # and a rejected lock-file-only bump would not fail at all — the release would ship the
+  # manifest it was supposed to refresh.
+  if [[ "$VIOLATIONS" -gt 0 ]]; then
+    echo "$VIOLATIONS pull request(s) touched paths outside the allowlist."
     exit 1
   fi
 fi

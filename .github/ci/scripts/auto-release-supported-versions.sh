@@ -428,9 +428,10 @@ else
   WAIT_PHASE_STARTED_AT=$(date +%s)
   DISPATCHED_WORK=""
 
-  # Every dispatch in the slot goes out before the first wait starts. The
-  # release runs of one cohort therefore all evaluate their gates before any
-  # sibling publishes, so a sibling's release cannot turn a gate red mid-slot.
+  # Every dispatch in the slot goes out before the first wait starts. What keeps one
+  # cohort member from turning another's gate red is the cohort itself — its members are
+  # peers that do not consume one another — rather than the order of the two, which the
+  # refresh in front of each gate no longer guarantees. See the header.
   while read -r REPO_NAME BRANCH; do
     [[ -z "$REPO_NAME" ]] && continue
 
