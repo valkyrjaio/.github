@@ -87,7 +87,28 @@ SINCE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 # A workflow_dispatch triggered with GITHUB_TOKEN creates no run, so this
 # authenticates as the app. The token the workflow passes is already one.
-gh workflow run "$WORKFLOW" --repo "$ORG/$REPO" --ref "$BRANCH"
+#
+# Warning: this is the one call the release cannot do without, and `set -e` would
+# end the step on any non-zero exit — including a 5xx or a rate limit that a second
+# attempt clears. The probe above rules out an absent workflow, so what is left is
+# worth retrying. A dispatch that still will not go out fails the release, because
+# the gate that follows would otherwise read an unrefreshed branch.
+DISPATCH_ERR=""
+
+for attempt in 1 2 3; do
+  if DISPATCH_ERR=$(gh workflow run "$WORKFLOW" --repo "$ORG/$REPO" --ref "$BRANCH" 2>&1); then
+    DISPATCH_ERR=""
+    break
+  fi
+
+  echo "Could not dispatch $WORKFLOW (attempt $attempt): $DISPATCH_ERR"
+  sleep "$((attempt * 5))"
+done
+
+if [[ -n "$DISPATCH_ERR" ]]; then
+  echo "Giving up on $WORKFLOW for $ORG/$REPO ($BRANCH): $DISPATCH_ERR"
+  exit 1
+fi
 
 echo "Dispatched $WORKFLOW on $ORG/$REPO ($BRANCH). Waiting for it to finish..."
 

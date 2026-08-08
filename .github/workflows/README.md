@@ -382,10 +382,12 @@ package is not resolvable yet, so nothing may release against it.
 The flow above (`_create-release` → `_get-version-for-release` →
 `_update-version-files` → `_release`) drives the `.github` repo itself. Consumer
 language repos instead call `_{go,php,java,python,ts}-create-release.yml`, which
-wraps the same core steps with a pre-release outdated-dependency gate
-(`_<lang>-check-outdated-dependencies`) and a version/build-date bump in the
-language's info file (`_<lang>-update-info-files`). These orchestrators end at
-`_release.yml` (which creates the GitHub release and tag).
+wraps the same core steps with a dependency refresh
+(`_update-dependencies-for-release`), a pre-release outdated-dependency gate
+(`_check-outdated-<lang>-dependencies`) and a version/build-date bump in the
+language's info file (`_update-<lang>-info-files`). The refresh runs first, so
+the gate reads a branch that already carries the bump. These orchestrators end
+at `_release.yml` (which creates the GitHub release and tag).
 
 **Publishing** is a separate concern. The publish workflows below are standalone
 `workflow_call` building blocks — they are **not** invoked by the create-release
