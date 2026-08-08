@@ -322,9 +322,9 @@ while IFS= read -r REPO_NAME; do
   #
   # Warning: read the message, never the body. `gh api --jq` leaves an error body unfiltered,
   # so a 404 arrives as the error JSON rather than as the empty string an absent workflow
-  # should produce. Only a definite 404 skips. Every other answer — a token that aged out, a
-  # secondary rate limit, a 5xx — says nothing about the workflow, so it goes to the dispatch,
-  # which reports a failure and fails the slot rather than dropping the repository in silence.
+  # should produce. Only a definite 404 skips. Every other answer says nothing about the
+  # workflow, so it goes to the dispatch, which reports a failure and fails the slot rather
+  # than dropping the repository in silence.
   WORKFLOW_ERR=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows/$ACTION_WORKFLOW" \
     --silent 2>&1 >/dev/null || true)
 

@@ -199,9 +199,14 @@ Warning: the caller's `on.schedule` cron list and the slot table must name the
 same crons. The script fails a scheduled run whose cron the table does not
 name, so drift is loud, not silent.
 
-Warning: a failed dispatch or release fails the slot, so the day's plan shows
-red where it broke. A wait that times out does not fail the slot — the run it
-stopped watching may still finish. A cohort whose gate rejects a stale
+Warning: three conditions fail the slot, so the day's plan shows red where it
+broke — a dispatch that would not go out, a release that failed, and a branch
+list the sweep could not read. The last one fails with no dispatch involved,
+and in a dry run as well as a real one, because a repository whose branches
+will not list was neither dispatched nor deliberately skipped.
+
+A wait that times out does not fail the slot — the run it stopped watching may
+still finish. A cohort whose gate rejects a stale
 dependency self-heals the next day: the morning refresh lands the bump, and
 the next release slot ships it.
 
