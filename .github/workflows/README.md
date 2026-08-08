@@ -199,31 +199,24 @@ Warning: the caller's `on.schedule` cron list and the slot table must name the
 same crons. The script fails a scheduled run whose cron the table does not
 name, so drift is loud, not silent.
 
-Warning: the slot goes red, so the day's plan shows where it broke, when:
+Warning: the slot goes red when it could not do what it was asked to do — a
+dispatch it could not make, a dispatched run that did not succeed, a branch
+list it could not read, or a precondition it checks before sweeping anything.
+Each one prints the reason on the line it exits from, and the job summary
+counts it.
 
-- A dispatch would not go out.
-- A dispatched release failed.
-- A branch list would not read. This one fails with no dispatch involved, and
-  in a dry run as well as a real one, because a repository whose branches will
-  not list was neither dispatched nor deliberately skipped.
-- The sweep refuses to run at all — an unset `SUPPORTED_VERSIONS` or
-  `SUPPORTED_LANGUAGES`, an empty slot table, a cron the table does not name,
-  or a slot action that is neither `deps` nor `release`.
+A wait that times out does not fail the slot — there the sweep watched a run
+and stopped, so the run may still finish. A cohort whose gate rejects a stale
+dependency self-heals the next day: the morning refresh lands the bump, and the
+next release slot ships it.
 
-A wait that times out does not fail the slot — the run it stopped watching may
-still finish. A cohort whose gate rejects a stale dependency self-heals the
-next day: the morning refresh lands the bump, and the next release slot ships
-it.
-
-The slot skips a repository, and counts it in the summary, when:
-
-- Its cohort is not the one this slot names.
-- Its default branch carries no workflow for this slot's action, so the
-  dispatch would not resolve one.
-- The version branch carries none while the default branch does. Each such
-  branch is also named in a warning block, because a branch that has stopped
-  releasing is worth seeing rather than counting.
-- It has no supported version branch.
+The slot skips a repository, and counts it in the summary, when its cohort is
+not the one this slot names, when it has no supported version branch, or when
+the workflow for the slot's action is not where the dispatch would look for it
+— the default branch, which is what resolves the workflow, and the version
+branch, which is what runs it. A version branch missing that workflow is also
+named in a warning block, because a branch that has stopped releasing is worth
+seeing rather than counting.
 
 This ordering is what a release of `@valkyrjaio/sindri` needs. Before it, the
 sweep dispatched every repository at once in `gh repo list` order, so `sindri`
