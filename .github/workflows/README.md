@@ -211,8 +211,12 @@ same crons. The script fails a scheduled run whose cron the table does not
 name, so drift is loud, not silent.
 
 Warning: a failed dispatch or release fails the slot, so the day's plan shows
-red where it broke. A wait that times out does not fail the slot — the run it
-stopped watching may still finish.
+red where it broke. So does a run the wait phase never reached: `stage-timeout-minutes`
+bounds the phase rather than each wait, and once it is spent the remaining runs
+report `unwatched`, which nobody has read the outcome of.
+
+A wait that times out does not fail the slot — there the sweep watched a run and
+stopped, so the run may still finish.
 
 This ordering is what a release of `@valkyrjaio/sindri` needs. Before it, the
 sweep dispatched every repository at once in `gh repo list` order, so `sindri`
