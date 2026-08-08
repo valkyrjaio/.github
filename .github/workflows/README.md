@@ -210,7 +210,8 @@ The job summary counts what the slot dispatched, skipped and failed, and names
 the repositories and branches worth acting on.
 
 `.github/ci/scripts/auto-release-supported-versions.sh` is the script behind
-this sweep, and it is the authority on which condition produces which outcome.
+this sweep. The script is the authority on which condition produces which
+outcome.
 
 A cohort whose gate rejects a stale dependency self-heals the next day: the
 morning refresh lands the bump, and the next release slot ships it.
