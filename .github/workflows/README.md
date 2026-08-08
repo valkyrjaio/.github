@@ -210,18 +210,17 @@ Warning: the caller's `on.schedule` cron list and the slot table must name the
 same crons. The script fails a scheduled run whose cron the table does not
 name, so drift is loud, not silent.
 
-Warning: the slot goes red when it could not do what it was asked to do — a
-dispatch it could not make, a dispatched run that did not succeed, a run the
-wait phase never reached, or a precondition it checks before sweeping anything.
-Each one prints the reason on the line it exits from. A precondition fails
-before the sweep starts, so that run writes no summary at all.
+Warning: a slot that could not do what it was asked to do goes red. A wait that
+timed out does not — there the sweep watched a run and stopped, so the run may
+still finish. A run the wait phase never reached is neither: once
+`stage-timeout-minutes` is spent the remaining runs report `unwatched`, an
+outcome nobody read rather than one that is probably fine, and that fails the
+slot.
 
-`stage-timeout-minutes` bounds the wait phase rather than each wait, and once
-it is spent the remaining runs report `unwatched` — an outcome nobody read,
-rather than one that is probably fine.
-
-A wait that times out does not fail the slot — there the sweep watched a run
-and stopped, so the run may still finish.
+The job summary counts what the slot dispatched, skipped and failed, and names
+the repositories and branches worth acting on.
+`auto-release-supported-versions.sh` is the authority on which condition
+produces which outcome.
 
 This ordering is what a release of `@valkyrjaio/sindri` needs. Before it, the
 sweep dispatched every repository at once in `gh repo list` order, so `sindri`
