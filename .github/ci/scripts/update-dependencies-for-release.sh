@@ -110,6 +110,7 @@ find_run() {
 # updater on one branch force-push over each other — the failure this retry exists to
 # avoid. So look for a run before trying again.
 DISPATCH_ERR=""
+DISPATCH_UNCONFIRMED=0
 
 for attempt in 1 2 3; do
   if DISPATCH_ERR=$(gh workflow run "$WORKFLOW" --repo "$ORG/$REPO" --ref "$BRANCH" 2>&1); then
@@ -132,6 +133,7 @@ for attempt in 1 2 3; do
   if ! RUN_FOUND=$(find_run); then
     echo "Could not check for a run. Not dispatching again, in case the last one was taken."
     DISPATCH_ERR=""
+    DISPATCH_UNCONFIRMED=1
     break
   fi
 
@@ -147,7 +149,13 @@ if [[ -n "$DISPATCH_ERR" ]]; then
   exit 1
 fi
 
-echo "Dispatched $WORKFLOW on $ORG/$REPO ($BRANCH). Waiting for it to finish..."
+# The unread-probe path above breaks without knowing whether a run exists, so the log says
+# what is true on each path rather than claiming a dispatch that nothing confirmed.
+if [[ "$DISPATCH_UNCONFIRMED" -eq 1 ]]; then
+  echo "Looking for a $WORKFLOW run on $ORG/$REPO ($BRANCH) that may or may not exist..."
+else
+  echo "Dispatched $WORKFLOW on $ORG/$REPO ($BRANCH). Waiting for it to finish..."
+fi
 
 RUN_ID=""
 
