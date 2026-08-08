@@ -222,9 +222,9 @@ A run the wait phase never reached is a failure rather than a skip. Once
 `unwatched`, an outcome nobody read rather than one that is probably fine.
 
 The job summary counts what the slot dispatched, skipped and failed, and names
-the repositories and branches worth acting on. The authority on which condition
-produces which outcome is the script behind this sweep,
-`.github/ci/scripts/auto-release-supported-versions.sh`.
+the repositories and branches worth acting on.
+`.github/ci/scripts/auto-release-supported-versions.sh` is the script behind
+this sweep, and it is the authority on which condition produces which outcome.
 
 This ordering is what a release of `@valkyrjaio/sindri` needs. Before it, the
 sweep dispatched every repository at once in `gh repo list` order, so `sindri`
