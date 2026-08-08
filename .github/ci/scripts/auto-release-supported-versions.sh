@@ -463,11 +463,13 @@ else
     maybe_mint_token
     REMAINING=$(( STAGE_TIMEOUT - ($(date +%s) - WAIT_PHASE_STARTED_AT) ))
 
-    if [[ "$REMAINING" -lt 0 ]]; then
-      REMAINING=0
+    # A spent budget is not the same finding as a run that never appeared, and
+    # `wait_for_dispatch` reports `missing` for both when it cannot poll at all.
+    if [[ "$REMAINING" -le 0 ]]; then
+      OUTCOME="timeout"
+    else
+      OUTCOME=$(wait_for_dispatch "$REPO_NAME" "$ACTION_WORKFLOW" "$BRANCH" "$DISPATCH_SINCE" "$REMAINING")
     fi
-
-    OUTCOME=$(wait_for_dispatch "$REPO_NAME" "$ACTION_WORKFLOW" "$BRANCH" "$DISPATCH_SINCE" "$REMAINING")
     echo "$SLOT_ACTION $REPO_NAME ($BRANCH): $OUTCOME"
     RESULTS="$RESULTS"$'\n'"| \`$REPO_NAME\` | $BRANCH | $OUTCOME |"
 
