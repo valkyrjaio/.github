@@ -516,8 +516,8 @@ fi
 
 # A failure fails the slot, so the day's plan shows red where it broke. A wait
 # that ends without an answer does not. The script either stops watching a run
-# that has not finished, or never finds the run to watch. Either way the run may
-# still be going.
+# that has not finished, or never finds the run to watch. Either way the script
+# gives up on the answer rather than on the run.
 if [[ "$FAILED" -gt 0 ]]; then
   echo "$FAILED $SLOT_ACTION dispatch(es) failed."
   exit 1
