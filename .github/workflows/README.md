@@ -207,9 +207,9 @@ finds the run to watch. Either way the run may still be going, so the slot
 stays green.
 
 The job summary counts what the slot dispatched, skipped and failed, and names
-the repositories and branches worth acting on.
-`.github/ci/scripts/auto-release-supported-versions.sh`, the script behind this
-sweep, is the authority on which condition produces which outcome.
+the repositories and branches worth acting on. The authority on which condition
+produces which outcome is the script behind this sweep,
+`.github/ci/scripts/auto-release-supported-versions.sh`.
 
 A cohort whose gate rejects a stale dependency self-heals the next day: the
 morning refresh lands the bump, and the next release slot ships it.

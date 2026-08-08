@@ -515,7 +515,7 @@ fi
 } >> "$GITHUB_STEP_SUMMARY"
 
 # A failure fails the slot, so the day's plan shows red where it broke. A wait
-# that ends without an answer does not. The sweep either stops watching a run
+# that ends without an answer does not. The script either stops watching a run
 # that has not finished, or never finds the run to watch. Either way the run may
 # still be going.
 if [[ "$FAILED" -gt 0 ]]; then
