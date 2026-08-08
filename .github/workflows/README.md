@@ -210,13 +210,19 @@ Warning: the caller's `on.schedule` cron list and the slot table must name the
 same crons. The script fails a scheduled run whose cron the table does not
 name, so drift is loud, not silent.
 
-Warning: a failed dispatch or release fails the slot, so the day's plan shows
-red where it broke. So does a run the wait phase never reached: `stage-timeout-minutes`
-bounds the phase rather than each wait, and once it is spent the remaining runs
-report `unwatched`, which nobody has read the outcome of.
+Warning: the slot goes red, so the day's plan shows where it broke, when:
 
-A wait that times out does not fail the slot — there the sweep watched a run and
-stopped, so the run may still finish.
+- A dispatch would not go out.
+- A dispatched release failed.
+- A run the wait phase never reached. `stage-timeout-minutes` bounds the phase
+  rather than each wait, and once it is spent the remaining runs report
+  `unwatched` — an outcome nobody read, rather than one that is probably fine.
+- The sweep refuses to run at all — an unset `SUPPORTED_VERSIONS` or
+  `SUPPORTED_LANGUAGES`, an empty slot table, a cron the table does not name,
+  or a slot action that is neither `deps` nor `release`.
+
+A wait that times out does not fail the slot — there the sweep watched a run
+and stopped, so the run may still finish.
 
 This ordering is what a release of `@valkyrjaio/sindri` needs. Before it, the
 sweep dispatched every repository at once in `gh repo list` order, so `sindri`
