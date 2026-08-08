@@ -36,6 +36,9 @@ jobs:
         working-directory: ${{ matrix.dependency.directory }}
         env:
           NAME: ${{ matrix.dependency.name }}
+          # GOPRIVATE takes valkyrjaio modules off proxy.golang.org, whose cached
+          # version list can hide a first-party release from minutes earlier.
+          GOPRIVATE: github.com/valkyrjaio/*
         run: |
           # Rather than interpreting `go list -u -m` output, this performs the very
           # same upgrade `_go-update-dependencies.yml` would perform and then asks

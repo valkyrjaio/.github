@@ -86,6 +86,9 @@ jobs:
       - name: Update dependencies
         env:
           DEPENDENCIES: ${{ inputs.dependencies }}
+          # GOPRIVATE takes valkyrjaio modules off proxy.golang.org, whose cached
+          # version list can hide a first-party release from minutes earlier.
+          GOPRIVATE: github.com/valkyrjaio/*
         run: |
           > /tmp/dependency_changes.txt
 
