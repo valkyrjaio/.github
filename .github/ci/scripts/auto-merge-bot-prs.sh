@@ -262,7 +262,17 @@ sweep_once() {
     OPEN_PRS=$(gh pr list --repo "$ORG/$REPO_NAME" --state open --limit 100 \
       --json number,title,author,baseRefName,headRefName,isDraft \
       --jq '.[] | select(.author.is_bot == true and .author.login == env.BOT_LOGIN and .isDraft == false) | @json' \
-      2>/dev/null || true)
+      2>/dev/null) || OPEN_PRS="__unread__"
+
+    # Warning: an empty list and an unanswered call are not the same thing, and `|| true` would
+    # make them identical. A waiting caller reads "no pull request here" as "nothing to merge"
+    # and lets the release run against a branch nothing merged into — the outcome the ERRORS
+    # guard below exists to prevent, reached one level earlier.
+    if [[ "$OPEN_PRS" == "__unread__" ]]; then
+      echo "$ORG/$REPO_NAME: could not list pull requests, skipping."
+      ERRORS=$((ERRORS + 1))
+      continue
+    fi
 
     [[ -z "$OPEN_PRS" ]] && continue
 
