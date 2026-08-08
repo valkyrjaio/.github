@@ -213,9 +213,12 @@ name, so drift is loud, not silent.
 Warning: the slot goes red when it could not do what it was asked to do — a
 dispatch it could not make, a dispatched run that did not succeed, a run the
 wait phase never reached, or a precondition it checks before sweeping anything.
-`stage-timeout-minutes` bounds the phase rather than each wait, and once it is
-spent the remaining runs report `unwatched` — an outcome nobody read, rather
-than one that is probably fine.
+Each one prints the reason on the line it exits from. A precondition fails
+before the sweep starts, so that run writes no summary at all.
+
+`stage-timeout-minutes` bounds the wait phase rather than each wait, and once
+it is spent the remaining runs report `unwatched` — an outcome nobody read,
+rather than one that is probably fine.
 
 A wait that times out does not fail the slot — there the sweep watched a run
 and stopped, so the run may still finish.
