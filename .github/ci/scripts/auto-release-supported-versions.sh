@@ -242,7 +242,13 @@ wait_for_dispatch() {
 release_branches_for() {
   local repo="$1" all b major out=""
 
-  all=$(gh api "repos/$ORG/$repo/branches" --paginate --jq '.[].name' 2>/dev/null || true)
+  # Warning: read the exit status. `gh api --jq` leaves an error body unfiltered, so a
+  # failed read arrives as JSON that matches no branch pattern below — and an empty result
+  # reads as "this repository has no version branch". A transient answer would drop the
+  # repository from the slot in silence, which is the failure this guard exists to prevent.
+  if ! all=$(gh api "repos/$ORG/$repo/branches" --paginate --jq '.[].name' 2>/dev/null); then
+    return 1
+  fi
 
   while IFS= read -r b; do
     if [[ "$b" =~ ^([0-9]+)\.x$ ]]; then
@@ -290,6 +296,7 @@ SKIPPED_NO_WORKFLOW=0
 SKIPPED_NO_BRANCH_WORKFLOW=0
 SKIPPED_NO_BRANCH=0
 SKIPPED_OTHER_COHORT=0
+UNREADABLE_BRANCHES=0
 MISSING_BRANCH_WORKFLOW=""
 CATCHALL_REPOS=""
 
@@ -312,7 +319,7 @@ while IFS= read -r REPO_NAME; do
   # so a 404 arrives as the error JSON rather than as the empty string an absent workflow
   # should produce. Only a definite 404 skips. Every other answer — a token that aged out, a
   # secondary rate limit, a 5xx — says nothing about the workflow, so it goes to the dispatch,
-  # which reports a failure and reds the slot rather than dropping the repository in silence.
+  # which reports a failure and fails the slot rather than dropping the repository in silence.
   WORKFLOW_ERR=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows/$ACTION_WORKFLOW" \
     --silent 2>&1 >/dev/null || true)
 
@@ -326,7 +333,11 @@ while IFS= read -r REPO_NAME; do
     echo "$ORG/$REPO_NAME: could not check for $ACTION_WORKFLOW, dispatching anyway: $WORKFLOW_ERR"
   fi
 
-  BRANCHES=$(release_branches_for "$REPO_NAME")
+  if ! BRANCHES=$(release_branches_for "$REPO_NAME"); then
+    echo "$ORG/$REPO_NAME: could not read the branch list, skipping."
+    UNREADABLE_BRANCHES=$((UNREADABLE_BRANCHES + 1))
+    continue
+  fi
 
   if [[ -z "$(printf '%s' "$BRANCHES" | tr -d '[:space:]')" ]]; then
     echo "$ORG/$REPO_NAME: no supported version branch, skipping."
@@ -459,6 +470,7 @@ fi
   echo "| Skipped (no $ACTION_WORKFLOW on the default branch) | $SKIPPED_NO_WORKFLOW |"
   echo "| Skipped (branch carries no $ACTION_WORKFLOW) | $SKIPPED_NO_BRANCH_WORKFLOW |"
   echo "| Skipped (no supported version branch) | $SKIPPED_NO_BRANCH |"
+  echo "| Skipped (branch list unreadable) | $UNREADABLE_BRANCHES |"
 
   if [[ -n "$RESULTS" ]]; then
     echo
@@ -492,5 +504,12 @@ fi
 # timeout does not: the run the sweep stopped watching may still finish.
 if [[ "$FAILED" -gt 0 ]]; then
   echo "$FAILED $SLOT_ACTION dispatch(es) failed."
+  exit 1
+fi
+
+# A repository whose branch list would not read was neither dispatched nor deliberately
+# skipped, so the slot says so rather than reporting a clean run over it.
+if [[ "$UNREADABLE_BRANCHES" -gt 0 ]]; then
+  echo "$UNREADABLE_BRANCHES repository branch list(s) could not be read."
   exit 1
 fi
