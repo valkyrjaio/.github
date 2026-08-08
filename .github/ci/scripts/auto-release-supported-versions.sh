@@ -588,5 +588,9 @@ fi
 # released, and silence would read as success.
 if [[ "$UNWATCHED" -gt 0 ]]; then
   echo "$UNWATCHED dispatched run(s) were never watched — the wait budget ran out first."
+  SLOT_FAILED=1
+fi
+
+if [[ "$SLOT_FAILED" -gt 0 ]]; then
   exit 1
 fi
