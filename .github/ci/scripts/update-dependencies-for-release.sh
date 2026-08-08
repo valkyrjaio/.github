@@ -93,7 +93,7 @@ find_run() {
   gh run list --repo "$ORG/$REPO" --workflow "$WORKFLOW" --branch "$BRANCH" \
     --limit 20 --json databaseId,createdAt \
     --jq "[.[] | select(.createdAt >= \"$SINCE\")] | sort_by(.createdAt) | last | .databaseId // empty" \
-    2>/dev/null || true
+    2>/dev/null
 }
 
 # A workflow_dispatch triggered with GITHUB_TOKEN creates no run, so this
@@ -125,7 +125,17 @@ for attempt in 1 2 3; do
   # and the next attempt would start a second run.
   sleep "$((attempt * 5))"
 
-  if [[ -n "$(find_run)" ]]; then
+  # Warning: an empty answer and an unanswered call are not the same thing, and this call
+  # is made under the conditions that make asking fail. A read that did not answer cannot
+  # rule out a run, so the loop stops rather than dispatch a second one. The wait below
+  # then finds the run if there is one, and fails the release if there is not.
+  if ! RUN_FOUND=$(find_run); then
+    echo "Could not check for a run. Not dispatching again, in case the last one was taken."
+    DISPATCH_ERR=""
+    break
+  fi
+
+  if [[ -n "$RUN_FOUND" ]]; then
     echo "A run appeared even so. GitHub took the dispatch before the error."
     DISPATCH_ERR=""
     break
@@ -148,7 +158,7 @@ STARTED_AT=$(date +%s)
 
 while [[ "$(( $(date +%s) - STARTED_AT ))" -lt "$DEADLINE" ]]; do
   if [[ -z "$RUN_ID" ]]; then
-    RUN_ID=$(find_run)
+    RUN_ID=$(find_run || true)
   fi
 
   if [[ -n "$RUN_ID" ]]; then
