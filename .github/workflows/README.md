@@ -203,6 +203,29 @@ Warning: a failed dispatch or release fails the slot, so the day's plan shows
 red where it broke. A wait that times out does not fail the slot — the run it
 stopped watching may still finish.
 
+This ordering is what a release of `@valkyrjaio/sindri` needs. Before it, the
+sweep dispatched every repository at once in `gh repo list` order, so `sindri`
+released before or after `valkyrja` by chance. When it lost the toss it either
+shipped against a stale framework or failed its outdated-dependency gate.
+
+It **never dispatches to `master`.** The sibling cross-repo sweeps fall back to
+`master` when a repo has no version branch; this one skips the repo instead, because a
+release must never be cut from `master` — that is where the next year is prepared, and
+`rc` is the only release type that comes from there. Keeping `master` out of reach here
+is what makes the RC path unreachable from automation by construction rather than by a
+conditional.
+
+A dispatched run still decides for itself whether to release: `auto` exits without
+releasing when nothing is pending, so quiet branches cost a workflow run and produce
+nothing.
+
+Two mechanical constraints shape it: scheduled workflows only run from the default
+branch (the current-year `??.x` for these repos, not `master`), and a
+`workflow_dispatch` triggered with `GITHUB_TOKEN` does not create a run — so the sweep
+authenticates as the GitHub App. The script mints the installation token itself and
+re-mints it as it ages, because a minted token lives one hour and a wait on a slow
+release can approach that.
+
 #### A release refreshes its own dependencies
 
 `_update-dependencies-for-release.yml` runs as the first step of every
@@ -226,29 +249,6 @@ the branch tip rather than the commit that started the run. `actions/checkout`
 defaults to `github.sha`, which is frozen at dispatch — a job that reads it
 would report the bump as still outstanding, and a job that commits on it would
 push a non-fast-forward.
-
-This ordering is what a release of `@valkyrjaio/sindri` needs. Before it, the
-sweep dispatched every repository at once in `gh repo list` order, so `sindri`
-released before or after `valkyrja` by chance. When it lost the toss it either
-shipped against a stale framework or failed its outdated-dependency gate.
-
-It **never dispatches to `master`.** The sibling cross-repo sweeps fall back to
-`master` when a repo has no version branch; this one skips the repo instead, because a
-release must never be cut from `master` — that is where the next year is prepared, and
-`rc` is the only release type that comes from there. Keeping `master` out of reach here
-is what makes the RC path unreachable from automation by construction rather than by a
-conditional.
-
-A dispatched run still decides for itself whether to release: `auto` exits without
-releasing when nothing is pending, so quiet branches cost a workflow run and produce
-nothing.
-
-Two mechanical constraints shape it: scheduled workflows only run from the default
-branch (the current-year `??.x` for these repos, not `master`), and a
-`workflow_dispatch` triggered with `GITHUB_TOKEN` does not create a run — so the sweep
-authenticates as the GitHub App. The script mints the installation token itself and
-re-mints it as it ages, because a minted token lives one hour and a wait on a slow
-release can approach that.
 
 ### Stable release flow (`auto` / `patch` / `feature` / `yearly`)
 
@@ -1273,10 +1273,14 @@ checks run normally.
 
 Trigger: `workflow_dispatch`.
 
-Org-level fan-out entry point. Delegates to
-`_php-update-dependencies-across-repos.yml`, which iterates every non-archived
-`*-php` repo and triggers that repo's own `update-dependencies` workflow across
-its supported `??.x` branches (per `SUPPORTED_VERSIONS`).
+PHP-only fan-out, kept for a manual run against the PHP repos alone. Delegates
+to `_php-update-dependencies-across-repos.yml`, which iterates every
+non-archived `*-php` repo and triggers that repo's own `update-dependencies`
+workflow across its supported `??.x` branches (per `SUPPORTED_VERSIONS`).
+
+`update-dependencies-all-repos.yml` is the org-level entry point for every
+language, and it runs on a schedule. Reach for this one only when the target is
+PHP and nothing else.
 
 ### Per-repo dependency updates
 
@@ -1463,6 +1467,7 @@ reusable workflows (leading `_`) are `workflow_call` only.
 | `fix-trailing-newlines.yml`          | cron (Mon 11:00) + dispatch           | Add missing trailing newlines across all repos via PRs                |
 | `update-github-workflow-refs.yml`    | release + cron (Mon 10:00) + dispatch | Pin workflow refs to latest `.github` release SHA                     |
 | `update-php-dependencies.yml`        | `workflow_dispatch`                   | Fan out PHP dependency updates across all PHP repos                   |
+| `update-dependencies-all-repos.yml`  | cron (04:00) + dispatch               | Fan out dependency updates across every cohort and version branch     |
 | `auto-merge-bot-prs.yml`             | cron (hourly :30) + dispatch          | Merge qualifying bot pull requests across all repos                   |
 | `cherry-pick-commits.yml`            | `workflow_dispatch`                   | Cherry-pick a commit to a target branch                               |
 | `rebase-to-master.yml`               | `workflow_dispatch`                   | Rebase `master` onto the current (latest major) version branch        |
@@ -1522,11 +1527,12 @@ reusable workflows (leading `_`) are `workflow_call` only.
 
 ### Dependency management (reusable)
 
-| File                                                       | Description                                                  |
-| ---------------------------------------------------------- | ------------------------------------------------------------ |
-| `_{go,php,java,python,ts}-check-outdated-dependencies.yml` | Verify all direct dependencies are up to date before release |
-| `_{go,php,java,python,ts}-update-dependencies.yml`         | Run the dependency updater and open/refresh a PR             |
-| `_php-update-dependencies-across-repos.yml`                | Trigger `update-dependencies` across all PHP repos           |
+| File                                                       | Description                                                   |
+| ---------------------------------------------------------- | ------------------------------------------------------------- |
+| `_{go,php,java,python,ts}-check-outdated-dependencies.yml` | Verify all direct dependencies are up to date before release  |
+| `_{go,php,java,python,ts}-update-dependencies.yml`         | Run the dependency updater and open/refresh a PR              |
+| `_php-update-dependencies-across-repos.yml`                | Trigger `update-dependencies` across all PHP repos            |
+| `_update-dependencies-for-release.yml`                     | Refresh and merge dependencies as the first step of a release |
 
 ### Repository & workflow management (reusable)
 

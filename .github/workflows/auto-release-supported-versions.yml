@@ -64,9 +64,17 @@ jobs:
         project-release   | 0 11 * * * | release | projects catchall
       # A release run now carries the dependency refresh, its pull request's checks, and the
       # merge, on top of the publish and the wait for the registry to serve it. The longest
-      # today is a Java release at a little over half an hour, so the watch has to outlast that
-      # and still finish inside the hour before the next slot.
-      stage-timeout-minutes: 50
+      # today is a Java release at a little over half an hour, and the refresh adds at most 30
+      # (`_update-dependencies-for-release.yml` allows 12 plus 18).
+      #
+      # Warning: this has to leave the slot finishing inside the hour before the next one. The
+      # sweep waits on every dispatch it makes, slots share one concurrency group with
+      # `cancel-in-progress: false`, and GitHub holds only one run pending per group — so a slot
+      # that overran into a third would have its successor cancelled outright, dropping a
+      # cohort's release for the day rather than delaying it. 45 keeps the whole slot clear of
+      # that, and a watch that gives up does not fail the slot: the run it stopped watching
+      # carries on and still publishes.
+      stage-timeout-minutes: 45
       slot: ${{ inputs.slot || '' }}
       schedule: ${{ github.event.schedule || '' }}
       dry_run: ${{ inputs.dry_run || false }}

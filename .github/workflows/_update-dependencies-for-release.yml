@@ -28,15 +28,21 @@ on:
       run-timeout-minutes:
         description: 'How long to wait for the dependency update run to finish'
         type: number
-        default: 20
-      # Missing this deadline abandons the release rather than delaying it, so the budget is set
-      # well above what the work takes. A dependency pull request's full required suite finishes
-      # in one to three minutes in every language, Java included. A caller whose check budget is
-      # larger raises this rather than inheriting it.
+        default: 12
+      # Warning: missing either deadline abandons the release rather than delaying it, and the
+      # pair also has a ceiling. The sweep stops watching a release after `stage-timeout-minutes`
+      # (45), and slots sit an hour apart with `cancel-in-progress: false` — a slot that overruns
+      # into a third leaves GitHub cancelling the pending one, which drops a cohort's release for
+      # the day rather than delaying it. So the two budgets together stay well inside the slot.
+      #
+      # Measured, they are generous: the update run takes two to five minutes, and a dependency
+      # pull request's full required suite finishes in one to three minutes in every language,
+      # Java included. 12 and 18 leave roughly six times the observed work. A caller whose check
+      # budget is genuinely larger raises them rather than inheriting them.
       merge-timeout-minutes:
         description: 'How long to wait for the dependency pull request checks to pass'
         type: number
-        default: 40
+        default: 18
     secrets:
       VALKYRJA_GHA_APP_ID:
         description: 'App ID of the GitHub App that mints the token this workflow uses'
@@ -53,9 +59,9 @@ jobs:
 
     # Both steps below wait on work in another run, and each carries its own deadline. This is the
     # ceiling on the pair, so a job that hangs on the API cannot hold a runner for the default six
-    # hours. It has to exceed `run-timeout-minutes` plus `merge-timeout-minutes`, or it cuts a
-    # wait short that the inputs said was still allowed.
-    timeout-minutes: 70
+    # hours. It exceeds `run-timeout-minutes` plus `merge-timeout-minutes`, or it would cut short
+    # a wait the inputs still allowed.
+    timeout-minutes: 40
 
     steps:
       - name: Generate a token

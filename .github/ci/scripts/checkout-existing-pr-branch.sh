@@ -56,7 +56,12 @@ if [[ -n "$EXISTING" ]]; then
   echo "branch=$EXISTING" >> "$GITHUB_OUTPUT"
   echo "is-new=false" >> "$GITHUB_OUTPUT"
 else
-  BRANCH="deps/update-dependencies-$(date +%Y-%m-%d)"
+  # Warning: the base belongs in the name. The lookup above is already scoped to one base, so
+  # two supported majors refreshed on the same day each find nothing of their own and would
+  # otherwise pick the same new name — and the second force-push would take the first one's
+  # branch. A release now refreshes its own dependencies, so that collision would fail a
+  # release rather than a dependency run.
+  BRANCH="deps/update-dependencies-$BASE-$(date +%Y-%m-%d)"
   echo "No existing PR branch. Will create: $BRANCH"
   echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
   echo "is-new=true" >> "$GITHUB_OUTPUT"
