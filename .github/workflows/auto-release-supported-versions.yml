@@ -79,8 +79,10 @@ jobs:
       # cancelled outright, dropping a cohort's release for the day rather than delaying it.
       #
       # The script spends this budget across the whole wait phase rather than per dispatch, so
-      # the slot cannot exceed it however many runs overrun at once. A watch that gives up does
-      # not fail the slot: the run it stopped watching carries on and still publishes.
+      # the slot cannot exceed it however many runs overrun at once. A wait that reaches its own
+      # deadline does not fail the slot — the run it stopped watching carries on and still
+      # publishes. A budget spent before a run is looked at does fail it, because nobody read
+      # that outcome, so this number has to cover the work rather than merely bound it.
       stage-timeout-minutes: 45
       slot: ${{ inputs.slot || '' }}
       schedule: ${{ github.event.schedule || '' }}

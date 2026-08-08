@@ -1312,9 +1312,10 @@ scheduled workflow runs on the default branch alone.
 
 It sets its own `stage-timeout-minutes`, higher than a release slot's. That
 budget bounds the whole wait phase, and one pass here covers every repository
-where a release slot covers one cohort — a budget sized for a release slot
-would spend out mid-sweep, and every remaining wait would report `timeout`,
-which the sweep scores as informational rather than as a failure.
+where a release slot covers one cohort. The waits are serial, so a budget sized
+for a release slot would spend out mid-sweep, and every run it never reached
+would report `unwatched` and fail the sweep — red over runs that were doing
+nothing wrong.
 
 ### `update-php-dependencies.yml`
 
