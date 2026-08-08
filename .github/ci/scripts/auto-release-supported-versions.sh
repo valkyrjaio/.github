@@ -301,6 +301,29 @@ while IFS= read -r REPO_NAME; do
     continue
   fi
 
+  # Two independent conditions decide whether the dispatch below succeeds, and this is the
+  # first. `gh workflow run` resolves the workflow against the repository's registered
+  # workflows, which come from the default branch, so a file absent there answers HTTP 404
+  # before `ref` is read at all. The answer does not vary by branch, so it is asked once.
+  #
+  # Warning: read the message, never the body. `gh api --jq` leaves an error body unfiltered,
+  # so a 404 arrives as the error JSON rather than as the empty string an absent workflow
+  # should produce. Only a definite 404 skips. Every other answer — a token that aged out, a
+  # secondary rate limit, a 5xx — says nothing about the workflow, so it goes to the dispatch,
+  # which reports a failure and reds the slot rather than dropping the repository in silence.
+  WORKFLOW_ERR=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows/$ACTION_WORKFLOW" \
+    --silent 2>&1 >/dev/null || true)
+
+  if [[ "$WORKFLOW_ERR" == *"HTTP 404"* ]]; then
+    echo "$ORG/$REPO_NAME: no $ACTION_WORKFLOW on the default branch, skipping."
+    SKIPPED_NO_WORKFLOW=$((SKIPPED_NO_WORKFLOW + 1))
+    continue
+  fi
+
+  if [[ -n "$WORKFLOW_ERR" ]]; then
+    echo "$ORG/$REPO_NAME: could not check for $ACTION_WORKFLOW, dispatching anyway: $WORKFLOW_ERR"
+  fi
+
   BRANCHES=$(release_branches_for "$REPO_NAME")
 
   if [[ -z "$(printf '%s' "$BRANCHES" | tr -d '[:space:]')" ]]; then
@@ -316,28 +339,24 @@ while IFS= read -r REPO_NAME; do
   while IFS= read -r BRANCH; do
     [[ -z "$BRANCH" ]] && continue
 
-    # The dispatch runs the workflow file as the branch carries it, so the branch decides
-    # whether there is anything to dispatch. Asking about the default branch instead passes a
-    # repository that holds the workflow there and not here, and the dispatch then answers
-    # HTTP 422.
+    # The second condition. The workflow resolved against the default branch above, but the
+    # dispatch runs the file as this branch carries it, and a branch without it answers HTTP
+    # 422. The two branches differ for most of a year: the default branch follows the current
+    # major, and an older major stays supported alongside it.
     #
-    # Warning: read the message, never the body. `gh api --jq` leaves an error body
-    # unfiltered, so a 404 arrives as the error JSON rather than as the empty string an
-    # absent workflow should produce. Only a definite 404 skips. Every other answer — a token
-    # that aged out, a secondary rate limit, a 5xx — says nothing about the workflow, so it
-    # goes to the dispatch, which reports a failure and reds the slot rather than dropping
-    # the branch in silence.
-    WORKFLOW_ERR=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows/$ACTION_WORKFLOW?ref=$BRANCH" \
+    # The same reading rule as above applies — a definite 404 skips, and every other answer
+    # goes to the dispatch.
+    BRANCH_WORKFLOW_ERR=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows/$ACTION_WORKFLOW?ref=$BRANCH" \
       --silent 2>&1 >/dev/null || true)
 
-    if [[ "$WORKFLOW_ERR" == *"HTTP 404"* ]]; then
-      echo "$ORG/$REPO_NAME ($BRANCH): no $ACTION_WORKFLOW, skipping."
+    if [[ "$BRANCH_WORKFLOW_ERR" == *"HTTP 404"* ]]; then
+      echo "$ORG/$REPO_NAME ($BRANCH): branch carries no $ACTION_WORKFLOW, skipping."
       SKIPPED_NO_WORKFLOW=$((SKIPPED_NO_WORKFLOW + 1))
       continue
     fi
 
-    if [[ -n "$WORKFLOW_ERR" ]]; then
-      echo "$ORG/$REPO_NAME ($BRANCH): could not check for $ACTION_WORKFLOW, dispatching anyway: $WORKFLOW_ERR"
+    if [[ -n "$BRANCH_WORKFLOW_ERR" ]]; then
+      echo "$ORG/$REPO_NAME ($BRANCH): could not check for $ACTION_WORKFLOW, dispatching anyway: $BRANCH_WORKFLOW_ERR"
     fi
 
     WORK="$WORK"$'\n'"$REPO_NAME $BRANCH"
@@ -424,7 +443,7 @@ fi
   echo "| Failed | $FAILED |"
   echo "| Timed out waiting | $TIMED_OUT |"
   echo "| Skipped (other cohort) | $SKIPPED_OTHER_COHORT |"
-  echo "| Skipped (branch carries no $ACTION_WORKFLOW) | $SKIPPED_NO_WORKFLOW |"
+  echo "| Skipped (no $ACTION_WORKFLOW) | $SKIPPED_NO_WORKFLOW |"
   echo "| Skipped (no supported version branch) | $SKIPPED_NO_BRANCH |"
 
   if [[ -n "$RESULTS" ]]; then
