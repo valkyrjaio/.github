@@ -85,14 +85,30 @@ done
 
 SINCE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
+# The run this script started, or the empty string. `gh workflow run` reports no run
+# id, so the run is the newest one on that workflow and branch created at or after the
+# dispatch. Both timestamps are UTC in the same format, so a string comparison orders
+# them correctly.
+find_run() {
+  gh run list --repo "$ORG/$REPO" --workflow "$WORKFLOW" --branch "$BRANCH" \
+    --limit 20 --json databaseId,createdAt \
+    --jq "[.[] | select(.createdAt >= \"$SINCE\")] | sort_by(.createdAt) | last | .databaseId // empty" \
+    2>/dev/null || true
+}
+
 # A workflow_dispatch triggered with GITHUB_TOKEN creates no run, so this
 # authenticates as the app. The token the workflow passes is already one.
 #
 # Warning: this is the one call the release cannot do without, and `set -e` would
 # end the step on any non-zero exit — including a 5xx or a rate limit that a second
 # attempt clears. The probe above rules out an absent workflow, so what is left is
-# worth retrying. A dispatch that still will not go out fails the release, because
-# the gate that follows would otherwise read an unrefreshed branch.
+# worth retrying.
+#
+# Warning: a failed call does not prove nothing was queued. The dispatch endpoint
+# answers 204, so a 502 from the edge or a client-side timeout can arrive after GitHub
+# accepted the dispatch. Retrying blind would start a second run, and two runs of the
+# updater on one branch force-push over each other — the failure this retry exists to
+# avoid. So look for a run before trying again.
 DISPATCH_ERR=""
 
 for attempt in 1 2 3; do
@@ -102,6 +118,13 @@ for attempt in 1 2 3; do
   fi
 
   echo "Could not dispatch $WORKFLOW (attempt $attempt): $DISPATCH_ERR"
+
+  if [[ -n "$(find_run)" ]]; then
+    echo "A run appeared even so. GitHub took the dispatch before the error."
+    DISPATCH_ERR=""
+    break
+  fi
+
   sleep "$((attempt * 5))"
 done
 
@@ -112,9 +135,6 @@ fi
 
 echo "Dispatched $WORKFLOW on $ORG/$REPO ($BRANCH). Waiting for it to finish..."
 
-# `gh workflow run` reports no run id, so the run is the newest one on that
-# workflow and branch created at or after the dispatch. Both timestamps are
-# UTC in the same format, so a string comparison orders them correctly.
 RUN_ID=""
 
 # Warning: measure the wall clock, not the sleeping. Every pass also makes one
@@ -124,10 +144,7 @@ STARTED_AT=$(date +%s)
 
 while [[ "$(( $(date +%s) - STARTED_AT ))" -lt "$DEADLINE" ]]; do
   if [[ -z "$RUN_ID" ]]; then
-    RUN_ID=$(gh run list --repo "$ORG/$REPO" --workflow "$WORKFLOW" --branch "$BRANCH" \
-      --limit 20 --json databaseId,createdAt \
-      --jq "[.[] | select(.createdAt >= \"$SINCE\")] | sort_by(.createdAt) | last | .databaseId // empty" \
-      2>/dev/null || true)
+    RUN_ID=$(find_run)
   fi
 
   if [[ -n "$RUN_ID" ]]; then
