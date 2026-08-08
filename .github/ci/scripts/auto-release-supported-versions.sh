@@ -301,10 +301,11 @@ while IFS= read -r REPO_NAME; do
     continue
   fi
 
-  WORKFLOW_EXISTS=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows/$ACTION_WORKFLOW" \
-    --jq '.name' 2>/dev/null || true)
-
-  if [[ -z "$WORKFLOW_EXISTS" ]]; then
+  # Warning: read the exit status, never the output. `gh api --jq` leaves an
+  # error body unfiltered, so a 404 arrives as the error JSON rather than as
+  # the empty string an absent workflow should produce.
+  if ! gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows/$ACTION_WORKFLOW" \
+    --silent >/dev/null 2>&1; then
     SKIPPED_NO_WORKFLOW=$((SKIPPED_NO_WORKFLOW + 1))
     continue
   fi
