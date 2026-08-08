@@ -201,10 +201,10 @@ name, so drift is loud, not silent.
 
 Warning: the script tells a deliberate skip apart from a failure. It passes a
 repository or a branch over and leaves the slot green; it fails the slot when
-something it tried did not work. A wait that ended without an answer is
-neither: the script either stopped watching a run that had not finished, or
-never found the run to watch. Either way the run may still be going, so the
-slot stays green.
+something it tried does not work. A wait that ends without an answer is
+neither: the script either stops watching a run that has not finished, or never
+finds the run to watch. Either way the run may still be going, so the slot
+stays green.
 
 The job summary counts what the slot dispatched, skipped and failed, and names
 the repositories and branches worth acting on.

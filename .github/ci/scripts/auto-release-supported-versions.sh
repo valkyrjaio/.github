@@ -514,8 +514,10 @@ fi
   echo "\`_get-version-for-release.yml\`. Quiet branches produce nothing."
 } >> "$GITHUB_STEP_SUMMARY"
 
-# A failure fails the slot, so the day's plan shows red where it broke. A
-# timeout does not: the run the sweep stopped watching may still finish.
+# A failure fails the slot, so the day's plan shows red where it broke. A wait
+# that ends without an answer does not: the sweep either stops watching a run
+# that has not finished, or never finds the run to watch, and either way the run
+# may still be going.
 if [[ "$FAILED" -gt 0 ]]; then
   echo "$FAILED $SLOT_ACTION dispatch(es) failed."
   exit 1
