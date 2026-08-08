@@ -302,6 +302,7 @@ SKIPPED_NO_BRANCH_WORKFLOW=0
 SKIPPED_NO_BRANCH=0
 SKIPPED_OTHER_COHORT=0
 UNREADABLE_BRANCHES=0
+UNREADABLE_BRANCH_REPOS=""
 MISSING_BRANCH_WORKFLOW=""
 CATCHALL_REPOS=""
 
@@ -341,6 +342,7 @@ while IFS= read -r REPO_NAME; do
   if ! BRANCHES=$(release_branches_for "$REPO_NAME"); then
     echo "$ORG/$REPO_NAME: could not read the branch list, skipping."
     UNREADABLE_BRANCHES=$((UNREADABLE_BRANCHES + 1))
+    UNREADABLE_BRANCH_REPOS="$UNREADABLE_BRANCH_REPOS"$'\n'"$REPO_NAME"
     continue
   fi
 
@@ -363,8 +365,8 @@ while IFS= read -r REPO_NAME; do
     # major, and an older major stays supported alongside it.
     #
     # While one major is supported this repeats the probe above, because the only supported
-    # branch is the default branch. One call per repository-branch buys a guard that needs no
-    # revisiting when the next major opens, which is the cheaper side of the trade.
+    # branch is the default branch. One call per repository-branch costs less than a guard
+    # that someone must revisit when the next major opens.
     #
     # The same reading rule as above applies — a definite 404 skips, and every other answer
     # goes to the dispatch.
@@ -375,8 +377,8 @@ while IFS= read -r REPO_NAME; do
       # Warning: the two 404s do not mean the same thing. Absent on the default branch means
       # the repository never opted the workflow in, which is a steady state nobody needs to
       # hear about. Absent here, with the file on the default branch, means this branch is
-      # behind or the file was dropped, and for a release that is the repository falling off
-      # the release train. A count in a table reads green on that, so it earns a warning
+      # behind or the file was dropped, and for a release that means the branch stops
+      # releasing. A count in a table does not say which branch, so it earns a warning
       # block of its own.
       echo "$ORG/$REPO_NAME ($BRANCH): branch carries no $ACTION_WORKFLOW, skipping."
       SKIPPED_NO_BRANCH_WORKFLOW=$((SKIPPED_NO_BRANCH_WORKFLOW + 1))
@@ -482,6 +484,14 @@ fi
     echo "| Repository | Branch | Outcome |"
     echo "|------------|--------|---------|"
     printf '%s\n' "${RESULTS#$'\n'}"
+  fi
+
+  if [[ -n "$(printf '%s' "$UNREADABLE_BRANCH_REPOS" | tr -d '[:space:]')" ]]; then
+    echo
+    echo "Warning: the branch list would not read for these repositories, so the slot failed."
+    echo "The \`gh\` message for each one is in the run log:"
+    echo
+    printf '%s\n' "$UNREADABLE_BRANCH_REPOS" | awk 'NF {print "- `" $1 "`"}'
   fi
 
   if [[ -n "$(printf '%s' "$MISSING_BRANCH_WORKFLOW" | tr -d '[:space:]')" ]]; then
