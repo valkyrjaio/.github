@@ -119,13 +119,17 @@ for attempt in 1 2 3; do
 
   echo "Could not dispatch $WORKFLOW (attempt $attempt): $DISPATCH_ERR"
 
+  # Warning: wait before looking. GitHub creates the run after it answers, which is why
+  # this script hunts for the run by `createdAt` rather than taking an id from the
+  # dispatch. Asking straight away would find nothing on a dispatch that was accepted,
+  # and the next attempt would start a second run.
+  sleep "$((attempt * 5))"
+
   if [[ -n "$(find_run)" ]]; then
     echo "A run appeared even so. GitHub took the dispatch before the error."
     DISPATCH_ERR=""
     break
   fi
-
-  sleep "$((attempt * 5))"
 done
 
 if [[ -n "$DISPATCH_ERR" ]]; then
