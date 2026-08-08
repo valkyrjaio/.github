@@ -248,8 +248,8 @@ release_branches_for() {
   # repository from the slot in silence, which is the failure this guard exists to prevent.
   #
   # The message is kept rather than suppressed, because the caller fails the slot on this and
-  # a repository name alone does not say whether to run the sweep again. A rate limit, an aged
-  # token and a repository that vanished between the listing and here all reach the same line.
+  # a repository name alone does not say whether to run the sweep again. A rate limit and a
+  # token that aged out both reach this line, and only one of them is worth a second run.
   # Only stdout is captured here, so `gh` writes its message straight to the job log.
   if ! all=$(gh api "repos/$ORG/$repo/branches" --paginate --jq '.[].name'); then
     return 1
