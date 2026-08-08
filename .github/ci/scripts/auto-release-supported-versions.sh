@@ -287,6 +287,7 @@ fi
 # rather than discovers. A repository appears once per version branch.
 WORK=""
 SKIPPED_NO_WORKFLOW=0
+SKIPPED_NO_BRANCH_WORKFLOW=0
 SKIPPED_NO_BRANCH=0
 SKIPPED_OTHER_COHORT=0
 CATCHALL_REPOS=""
@@ -351,7 +352,7 @@ while IFS= read -r REPO_NAME; do
 
     if [[ "$BRANCH_WORKFLOW_ERR" == *"HTTP 404"* ]]; then
       echo "$ORG/$REPO_NAME ($BRANCH): branch carries no $ACTION_WORKFLOW, skipping."
-      SKIPPED_NO_WORKFLOW=$((SKIPPED_NO_WORKFLOW + 1))
+      SKIPPED_NO_BRANCH_WORKFLOW=$((SKIPPED_NO_BRANCH_WORKFLOW + 1))
       continue
     fi
 
@@ -443,7 +444,8 @@ fi
   echo "| Failed | $FAILED |"
   echo "| Timed out waiting | $TIMED_OUT |"
   echo "| Skipped (other cohort) | $SKIPPED_OTHER_COHORT |"
-  echo "| Skipped (no $ACTION_WORKFLOW) | $SKIPPED_NO_WORKFLOW |"
+  echo "| Skipped (no $ACTION_WORKFLOW on the default branch) | $SKIPPED_NO_WORKFLOW |"
+  echo "| Skipped (branch carries no $ACTION_WORKFLOW) | $SKIPPED_NO_BRANCH_WORKFLOW |"
   echo "| Skipped (no supported version branch) | $SKIPPED_NO_BRANCH |"
 
   if [[ -n "$RESULTS" ]]; then
