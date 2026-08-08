@@ -219,9 +219,14 @@ now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 # Echoes the run conclusion, or `timeout` / `missing`.
 wait_for_dispatch() {
   local repo="$1" workflow="$2" branch="$3" since="$4" deadline="${5:-$STAGE_TIMEOUT}"
-  local run_id="" waited=0 status
+  local run_id="" status started_at
 
-  while [[ "$waited" -lt "$deadline" ]]; do
+  # Warning: measure the wall clock, not the sleeping. Every pass also makes one or two `gh`
+  # calls, and counting only `POLL_SECONDS` would leave that time out of the budget — so the
+  # wait, and the phase budget the caller spends through it, would both run past what they say.
+  started_at=$(date +%s)
+
+  while [[ "$(( $(date +%s) - started_at ))" -lt "$deadline" ]]; do
     maybe_mint_token
 
     if [[ -z "$run_id" ]]; then
@@ -241,7 +246,6 @@ wait_for_dispatch() {
     fi
 
     sleep "$POLL_SECONDS"
-    waited=$((waited + POLL_SECONDS))
   done
 
   if [[ -n "$run_id" ]]; then echo "timeout"; else echo "missing"; fi

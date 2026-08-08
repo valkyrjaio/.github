@@ -37,8 +37,12 @@
 # `pipefail`.
 set -e
 
-if [[ -z "$ORG" ]] || [[ -z "$REPO" ]] || [[ -z "$BRANCH" ]]; then
-  echo "ORG, REPO, and BRANCH are all required."
+# Warning: WORKFLOW belongs here with the rest. `-u` is absent, so an empty one expands to
+# nothing and the probe below asks for the workflows directory instead of a file — a listing,
+# which answers 200 for every repository. Neither pass would see a 404, and the dispatch would
+# go out with no workflow named.
+if [[ -z "$ORG" ]] || [[ -z "$REPO" ]] || [[ -z "$BRANCH" ]] || [[ -z "$WORKFLOW" ]]; then
+  echo "ORG, REPO, BRANCH, and WORKFLOW are all required."
   exit 1
 fi
 

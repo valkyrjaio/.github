@@ -69,9 +69,15 @@ jobs:
         sindri-release    | 0 13 * * * | release | sindri
         project-release   | 0 14 * * * | release | projects catchall
       # A release run now carries the dependency refresh, its pull request's checks, and the
-      # merge, on top of the publish and the wait for the registry to serve it. The longest
-      # today is a Java release at a little over half an hour, and the refresh adds at most 30
-      # (`_update-dependencies-for-release.yml` allows 12 plus 18).
+      # merge, on top of the publish and the wait for the registry to serve it. Measured, that
+      # is about eight minutes of refresh in front of a release that has reached 33 — so 45
+      # leaves room for the work these runs actually do.
+      #
+      # It does not cover a run that reaches every ceiling at once: 12 plus 18 for the refresh
+      # in front of a 33-minute release exceeds it. That is the intent. Those ceilings bound a
+      # run that has gone wrong rather than describe one that has not, and a slot that spends
+      # its budget reports `unwatched` and goes red — which is the outcome worth having for a
+      # run nobody read.
       #
       # Warning: this has to leave the slot finishing inside the hour before the next one. Slots
       # share one concurrency group with `cancel-in-progress: false`, and GitHub holds only one
@@ -82,7 +88,7 @@ jobs:
       # the slot cannot exceed it however many runs overrun at once. A wait that reaches its own
       # deadline does not fail the slot — the run it stopped watching carries on and still
       # publishes. A budget spent before a run is looked at does fail it, because nobody read
-      # that outcome, so this number has to cover the work rather than merely bound it.
+      # that outcome.
       stage-timeout-minutes: 45
       slot: ${{ inputs.slot || '' }}
       schedule: ${{ github.event.schedule || '' }}
