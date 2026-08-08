@@ -202,21 +202,24 @@ name, so drift is loud, not silent.
 Warning: the slot goes red when it could not do what it was asked to do — a
 dispatch it could not make, a dispatched run that did not succeed, a branch
 list it could not read, or a precondition it checks before sweeping anything.
-Each one prints the reason on the line it exits from, and the job summary
-counts it.
+Each one prints the reason on the line it exits from. A precondition fails
+before the sweep starts, so that run writes no summary at all.
 
 A wait that times out does not fail the slot — there the sweep watched a run
 and stopped, so the run may still finish. A cohort whose gate rejects a stale
 dependency self-heals the next day: the morning refresh lands the bump, and the
 next release slot ships it.
 
-The slot skips a repository, and counts it in the summary, when its cohort is
-not the one this slot names, when it has no supported version branch, or when
-the workflow for the slot's action is not where the dispatch would look for it
-— the default branch, which is what resolves the workflow, and the version
-branch, which is what runs it. A version branch missing that workflow is also
-named in a warning block, because a branch that has stopped releasing is worth
-seeing rather than counting.
+The slot passes over a whole repository when its cohort is not the one this
+slot names, when it has no supported version branch, or when its default
+branch carries no workflow for the slot's action — that is what resolves the
+workflow, so the dispatch could not name one.
+
+It passes over a single branch, leaving the repository's other branches to
+dispatch, when that branch carries no such workflow — the dispatch runs the
+file as the branch carries it. Each such branch is named in a warning block,
+because a branch that has stopped releasing is worth seeing rather than
+counting.
 
 This ordering is what a release of `@valkyrjaio/sindri` needs. Before it, the
 sweep dispatched every repository at once in `gh repo list` order, so `sindri`
