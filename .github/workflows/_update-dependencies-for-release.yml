@@ -57,6 +57,11 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    # Both steps work through the app token minted below. The only thing that reads
+    # GITHUB_TOKEN is the checkout of this repository, and a read is all that needs.
+    permissions:
+      contents: read
+
     # Both steps below wait on work in another run, and each carries its own deadline. This is the
     # ceiling on the pair, so a job that hangs on the API cannot hold a runner for the default six
     # hours. It exceeds `run-timeout-minutes` plus `merge-timeout-minutes`, or it would cut short
@@ -74,13 +79,15 @@ jobs:
 
       # The scripts the steps below run live in this repository, and the release that calls this
       # workflow runs in another one, so the checkout names this repository at the commit the
-      # caller pinned. Both steps work through the API alone, so neither needs the calling
-      # repository on disk.
+      # caller pinned. `path:` keeps it out of the workspace root, which is the shape every
+      # sibling reached from a consumer repository uses — see the table in workflows/README.md.
+      # Both steps work through the API alone, so neither needs the calling repository on disk.
       - name: Checkout the CI scripts
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           repository: valkyrjaio/.github
           ref: ${{ job.workflow_sha }}
+          path: dot-github
 
       - name: Dispatch the dependency update and wait for it
         env:
@@ -90,7 +97,7 @@ jobs:
           BRANCH: ${{ github.ref_name }}
           WORKFLOW: update-dependencies.yml
           RUN_TIMEOUT_MINUTES: ${{ inputs.run-timeout-minutes }}
-        run: .github/ci/scripts/update-dependencies-for-release.sh
+        run: dot-github/.github/ci/scripts/update-dependencies-for-release.sh
 
       - name: Merge the dependency pull request
         env:
@@ -105,4 +112,4 @@ jobs:
           SINGLE_REPO: ${{ github.event.repository.name }}
           BASE_FILTER: ${{ github.ref_name }}
           WAIT_MINUTES: ${{ inputs.merge-timeout-minutes }}
-        run: .github/ci/scripts/auto-merge-bot-prs.sh
+        run: dot-github/.github/ci/scripts/auto-merge-bot-prs.sh

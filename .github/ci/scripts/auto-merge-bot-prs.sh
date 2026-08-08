@@ -415,10 +415,16 @@ sweep_once() {
       # that cannot merge fails here and is reported.
       MERGE_ERR=$(gh pr merge "$PR_NUMBER" --repo "$ORG/$REPO_NAME" --squash 2>&1 >/dev/null || true)
 
+      # Warning: a failed merge call is not a failed check. Its ordinary answers are the kind a
+      # second attempt clears — the base moved between the mergeability computation and the
+      # call, a 5xx, a secondary rate limit, or mergeability still computing. Counting it as
+      # BLOCKED would end a waiting caller's loop on the first pass and drop the release over a
+      # call that would have succeeded. ERRORS keeps the loop alive and still fails at the
+      # deadline.
       if [[ -n "$MERGE_ERR" ]]; then
         echo "  #$PR_NUMBER: merge failed: $MERGE_ERR"
         note_attention "$REPO_NAME" "$PR_NUMBER" "Merge failed"
-        BLOCKED=$((BLOCKED + 1))
+        ERRORS=$((ERRORS + 1))
         continue
       fi
 

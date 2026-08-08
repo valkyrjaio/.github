@@ -405,6 +405,8 @@ DISPATCHED=0
 SUCCEEDED=0
 FAILED=0
 TIMED_OUT=0
+UNWATCHED=0
+UNWATCHED_WORK=""
 RESULTS=""
 
 if [[ "$DRY_RUN" = "true" ]]; then
@@ -464,10 +466,14 @@ else
     maybe_mint_token
     REMAINING=$(( STAGE_TIMEOUT - ($(date +%s) - WAIT_PHASE_STARTED_AT) ))
 
-    # A spent budget is not the same finding as a run that never appeared, and
-    # `wait_for_dispatch` reports `missing` for both when it cannot poll at all.
+    # Warning: a spent budget is not a timeout. A timeout means the sweep watched a run and
+    # stopped, so the run may still finish — informational, and it leaves the slot green. A
+    # spent budget means the sweep never looked at this run at all, so its outcome is unknown
+    # rather than probably fine, and reporting it as a timeout would let a failed release
+    # finish the slot green.
     if [[ "$REMAINING" -le 0 ]]; then
-      OUTCOME="timeout"
+      OUTCOME="unwatched"
+      UNWATCHED_WORK="$UNWATCHED_WORK"$'\n'"$REPO_NAME $BRANCH"
     else
       OUTCOME=$(wait_for_dispatch "$REPO_NAME" "$ACTION_WORKFLOW" "$BRANCH" "$DISPATCH_SINCE" "$REMAINING")
     fi
@@ -477,6 +483,7 @@ else
     case "$OUTCOME" in
       success) SUCCEEDED=$((SUCCEEDED + 1)) ;;
       timeout|missing) TIMED_OUT=$((TIMED_OUT + 1)) ;;
+      unwatched) UNWATCHED=$((UNWATCHED + 1)) ;;
       *) FAILED=$((FAILED + 1)) ;;
     esac
   done <<< "$DISPATCHED_WORK"
@@ -498,6 +505,7 @@ fi
   echo "| Failed | $FAILED |"
   echo "| Failed (branch list unreadable) | $UNREADABLE_BRANCHES |"
   echo "| Timed out waiting | $TIMED_OUT |"
+  echo "| Never watched (budget spent) | $UNWATCHED |"
   echo "| Skipped (other cohort) | $SKIPPED_OTHER_COHORT |"
   echo "| Skipped (no $ACTION_WORKFLOW on the default branch) | $SKIPPED_NO_WORKFLOW |"
   echo "| Skipped (branch carries no $ACTION_WORKFLOW) | $SKIPPED_NO_BRANCH_WORKFLOW |"
@@ -524,6 +532,14 @@ fi
     echo "Each one is out of the $SLOT_ACTION rotation until the file reaches it:"
     echo
     printf '%s\n' "$MISSING_BRANCH_WORKFLOW" | awk 'NF {print "- `" $1 "` (" $2 ")"}'
+  fi
+
+  if [[ -n "$(printf '%s' "$UNWATCHED_WORK" | tr -d '[:space:]')" ]]; then
+    echo
+    echo "Warning: the wait budget ran out before these runs were looked at."
+    echo "Open each one to see whether it released:"
+    echo
+    printf '%s\n' "$UNWATCHED_WORK" | awk 'NF {print "- `" $1 "` (" $2 ")"}'
   fi
 
   if [[ -n "$(printf '%s' "$CATCHALL_REPOS" | tr -d '[:space:]')" ]]; then
@@ -561,5 +577,12 @@ if [[ "$UNREADABLE_BRANCHES" -gt 0 ]]; then
 fi
 
 if [[ "$SLOT_FAILED" -gt 0 ]]; then
+  exit 1
+fi
+
+# A run the wait phase never reached is not a timeout either. Nothing here knows whether it
+# released, and silence would read as success.
+if [[ "$UNWATCHED" -gt 0 ]]; then
+  echo "$UNWATCHED dispatched run(s) were never watched — the wait budget ran out first."
   exit 1
 fi
