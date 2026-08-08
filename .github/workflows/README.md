@@ -1280,6 +1280,30 @@ checks run normally.
 
 ## Dependency Updates
 
+### `update-dependencies-all-repos.yml`
+
+Trigger: cron (04:00 UTC) + `workflow_dispatch`.
+
+The org-level entry point for every language. Reuses
+`_auto-release-supported-versions.yml` with a single `all-deps` slot naming
+every cohort, so one pass dispatches each repo's own `update-dependencies`
+workflow on every supported `??.x` branch.
+
+It names the slot rather than resolving it from the fired cron, so a scheduled
+run and a manual one take the same path — a one-slot table has no second slot
+for a cron to select.
+
+It is not what keeps a release green; the release refreshes its own
+dependencies. This sweep keeps every repository current between releases, and
+it reaches the back version branches a repository's own cron cannot, because a
+scheduled workflow runs on the default branch alone.
+
+It sets its own `stage-timeout-minutes`, higher than a release slot's. That
+budget bounds the whole wait phase, and one pass here covers every repository
+where a release slot covers one cohort — a budget sized for a release slot
+would spend out mid-sweep, and every remaining wait would report `timeout`,
+which the sweep scores as informational rather than as a failure.
+
 ### `update-php-dependencies.yml`
 
 Trigger: `workflow_dispatch`.
@@ -1331,9 +1355,9 @@ dependencies: |
 Trigger: cron (hourly at `:30`) + `workflow_dispatch`.
 
 Sweeps every non-archived repo and merges the bot's own pull requests once they
-qualify. Hourly rather than daily because the release sweep at 14:00 fails a
-repo outright when a dependency bump is still sitting open — the window between
-green and merged is what that failure is made of.
+qualify. Hourly rather than daily so a green pull request does not sit open
+long. A release no longer depends on this sweep: it merges its own dependency
+pull request and waits for it.
 
 A pull request merges only when **all** of the following hold:
 
