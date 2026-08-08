@@ -201,13 +201,15 @@ name, so drift is loud, not silent.
 
 Warning: the script tells a deliberate skip apart from a failure. It passes a
 repository or a branch over and leaves the slot green; it fails the slot when
-something it tried did not work. A wait that timed out is neither — there the
-script watched a run and stopped, so the run may still finish.
+something it tried did not work. A wait that ended without an answer is
+neither: the script either stopped watching a run that had not finished, or
+never found the run to watch. Either way the run may still be going, so the
+slot stays green.
 
 The job summary counts what the slot dispatched, skipped and failed, and names
 the repositories and branches worth acting on.
-`.github/ci/scripts/auto-release-supported-versions.sh`, which the reusable
-workflow runs, is the authority on which condition produces which outcome.
+`.github/ci/scripts/auto-release-supported-versions.sh`, the script behind this
+sweep, is the authority on which condition produces which outcome.
 
 A cohort whose gate rejects a stale dependency self-heals the next day: the
 morning refresh lands the bump, and the next release slot ships it.

@@ -339,7 +339,7 @@ while IFS= read -r REPO_NAME; do
   fi
 
   if ! BRANCHES=$(release_branches_for "$REPO_NAME"); then
-    echo "$ORG/$REPO_NAME: could not read the branch list, skipping."
+    echo "$ORG/$REPO_NAME: could not read the branch list. This fails the slot."
     UNREADABLE_BRANCHES=$((UNREADABLE_BRANCHES + 1))
     UNREADABLE_BRANCH_REPOS="$UNREADABLE_BRANCH_REPOS"$'\n'"$REPO_NAME"
     continue
