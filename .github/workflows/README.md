@@ -199,14 +199,14 @@ Warning: the caller's `on.schedule` cron list and the slot table must name the
 same crons. The script fails a scheduled run whose cron the table does not
 name, so drift is loud, not silent.
 
-Warning: a slot that could not do what it was asked to do goes red. A wait that
-timed out does not — there the sweep watched a run and stopped, so the run may
-still finish.
+Warning: the script fails the slot when it could not complete the work the slot
+names. A wait that timed out does not fail the slot — there the script watched
+a run and stopped, so the run may still finish.
 
 The job summary counts what the slot dispatched, skipped and failed, and names
 the repositories and branches worth acting on.
-`auto-release-supported-versions.sh` is the authority on which condition
-produces which outcome.
+`.github/ci/scripts/auto-release-supported-versions.sh` is the authority on
+which condition produces which outcome.
 
 A cohort whose gate rejects a stale dependency self-heals the next day: the
 morning refresh lands the bump, and the next release slot ships it.
