@@ -43,8 +43,19 @@ jobs:
     with:
       bump: ${{ inputs.bump }}
 
-  check-outdated-dependencies:
+  # The release refreshes its own dependencies before the gate below reads them. A refresh that
+  # ran on an earlier schedule leaves a window in which a registry can publish, and the gate then
+  # fails on a package nothing had a chance to take.
+  update-dependencies:
     needs: check-version
+    if: needs.check-version.outputs.should-release == 'true'
+    uses: ./.github/workflows/_update-dependencies-for-release.yml
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+
+  check-outdated-dependencies:
+    needs: [check-version, update-dependencies]
     if: needs.check-version.outputs.should-release == 'true'
     uses: ./.github/workflows/_php-check-outdated-dependencies.yml
     with:

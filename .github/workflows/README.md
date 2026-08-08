@@ -158,28 +158,28 @@ takes a `slot` to run, plus `dry_run` and a single-`repo` target.
 
 #### The slot plan
 
-The slot table in the caller is the master plan. Each cohort that consumes a
-first-party dependency refreshes two hours before it releases, so the hourly
-`auto-merge-bot-prs.yml` sweep gets two passes to land the bump pull requests
-in between — no run waits on a merge. Each cohort releases hours after the
-cohorts it depends on, so every registry has served what the dependency
-shipped by the time the dependent refreshes against it. All times are UTC; the
-org's clock is America/Phoenix (UTC-7, no DST), so each cron maps to the same
-local hour all year.
+Every slot in the caller's table releases. A release refreshes its own
+dependencies as its first step, so no slot refreshes them beforehand and no
+slot waits for a refresh to land. The gap between slots covers one thing: a
+cohort releases after the cohorts it depends on, and each registry needs time
+to serve what the dependency shipped. An hour covers that. All times are UTC;
+the org's clock is America/Phoenix (UTC-7, no DST), so each cron maps to the
+same local hour all year.
 
-| Slot (UTC)    | Action         | Cohort             | Why it is here                                                  |
-| ------------- | -------------- | ------------------ | --------------------------------------------------------------- |
-| 07:00         | release        | infra              | `.github` re-pins workflow refs everywhere; ship that first     |
-| 08:00 / 10:00 | deps / release | ci                 | The framework consumes the CI tools                             |
-| 11:00 / 13:00 | deps / release | frameworks         | Everything else consumes the framework                          |
-| 14:00 / 16:00 | deps / release | sindri             | `sindri` builds against the framework                           |
-| 17:00 / 19:00 | deps / release | projects, catchall | The leaf consumers of everything above; unmatched repos go last |
+| Slot (UTC) | Cohort             | Why it is here                                                  |
+| ---------- | ------------------ | --------------------------------------------------------------- |
+| 07:00      | infra              | `.github` re-pins workflow refs everywhere; ship that first     |
+| 08:00      | ci                 | The framework consumes the CI tools                             |
+| 09:00      | frameworks         | Everything else consumes the framework                          |
+| 10:00      | sindri             | `sindri` builds against the framework                           |
+| 11:00      | projects, catchall | The leaf consumers of everything above; unmatched repos go last |
 
-The `infra` cohort releases without a refresh slot, and that is deliberate. No
-repository in the cohort has a first-party dependency to gate a release on:
-`architecture` and `art` have no dependency workflow, and `.github` carries no
-manifest and no outdated-dependency gate. A refresh slot would have nothing to
-land.
+A separate sweep, `update-dependencies-all-repos.yml`, runs the `deps` action
+across every cohort at 04:00. It is not what keeps a release green — the
+release does that itself. It keeps every repository current between releases,
+and it reaches the back version branches a repository's own
+`update-dependencies.yml` cron cannot, because a scheduled workflow runs on the
+default branch alone.
 
 A cohort is derived from the repository name, per `REPOSITORY_NAMING.md`, with
 the language suffix set read from the `SUPPORTED_LANGUAGES` org variable:
@@ -189,7 +189,7 @@ is `ci`; `valkyrja-{lang}` is `frameworks`; `sindri-{lang}` is `sindri`;
 A repository that no rule claims runs in `catchall` and is flagged in the run
 summary, so it can be given a slot or a rule. Project components such as
 `valkyrja-docker-php` and `valkyrja-benchmarking-php` are `catchall` today and
-share the `projects` slot pair.
+share the `projects` slot.
 
 The dispatches inside one release slot go out seconds apart, so every
 outdated-dependency gate evaluates before the first sibling publishes — one
@@ -199,24 +199,33 @@ Warning: the caller's `on.schedule` cron list and the slot table must name the
 same crons. The script fails a scheduled run whose cron the table does not
 name, so drift is loud, not silent.
 
-Warning: the script tells a deliberate skip apart from a failure. A skip passes
-a repository or a branch over and leaves the slot green. A failure means
-something the script tries does not work, and the slot goes red.
+Warning: a failed dispatch or release fails the slot, so the day's plan shows
+red where it broke. A wait that times out does not fail the slot — the run it
+stopped watching may still finish.
 
-A wait that ends without an answer is neither a skip nor a failure. The script
-either stops watching an unfinished run, or never finds the run to watch.
-Either way the slot stays green, because the script gives up on the answer
-rather than on the run.
+#### A release refreshes its own dependencies
 
-The job summary counts what the slot dispatched, skipped and failed, and names
-the repositories and branches worth acting on.
+`_update-dependencies-for-release.yml` runs as the first step of every
+language release, before the outdated-dependency gate. It dispatches the
+repository's own `update-dependencies.yml`, waits for that run, then merges the
+pull request it opens once every required check passes. The gate then reads a
+branch that already carries the bump.
 
-`.github/ci/scripts/auto-release-supported-versions.sh` is the script behind
-this sweep. The script is the authority on which condition produces which
-outcome.
+A registry publishes at any hour. A refresh on its own schedule leaves a window
+between itself and the release, and a package published inside that window
+fails the gate — the release fails on a bump nothing had a chance to take.
+Refreshing inside the release shortens that window to the minutes between the
+merge and the gate.
 
-A cohort whose gate rejects a stale dependency self-heals the next day: the
-morning refresh lands the bump, and the next release slot ships it.
+The merge step runs `auto-merge-bot-prs.sh`, the hourly sweep's own script,
+narrowed to one repository and one base branch and told to wait. Which pull
+request qualifies, and which checks have to pass, is decided in one place.
+
+Warning: every job that reads or writes the branch after that merge must take
+the branch tip rather than the commit that started the run. `actions/checkout`
+defaults to `github.sha`, which is frozen at dispatch — a job that reads it
+would report the bump as still outstanding, and a job that commits on it would
+push a non-fast-forward.
 
 This ordering is what a release of `@valkyrjaio/sindri` needs. Before it, the
 sweep dispatched every repository at once in `gh repo list` order, so `sindri`

@@ -7,20 +7,18 @@ on:
     # Times are UTC. The org's clock is America/Phoenix (UTC-7, no DST), so
     # each cron maps to the same local hour all year.
     #
-    # A cohort's dependencies refresh two hours before its release, so the
-    # hourly auto-merge sweep gets two passes at the bump pull requests. A
-    # cohort releases after the cohorts it depends on, with a gap for each
-    # registry to serve what shipped. Infra goes first so the workflow-ref
-    # re-pins a `.github` release pushes are in every later cohort's release.
+    # Every slot releases. A release refreshes its own dependencies as its
+    # first step, so no slot exists to refresh them beforehand and no slot
+    # waits for one to land. The gap between slots therefore covers one thing:
+    # a cohort releases after the cohorts it depends on, and each registry
+    # needs time to serve what shipped. An hour covers that. Infra goes first,
+    # because a `.github` release pushes a workflow-ref re-pin into every later
+    # cohort's release.
     - cron: '0 7 * * *'
     - cron: '0 8 * * *'
+    - cron: '0 9 * * *'
     - cron: '0 10 * * *'
     - cron: '0 11 * * *'
-    - cron: '0 13 * * *'
-    - cron: '0 14 * * *'
-    - cron: '0 16 * * *'
-    - cron: '0 17 * * *'
-    - cron: '0 19 * * *'
   workflow_dispatch:
     inputs:
       slot:
@@ -29,13 +27,9 @@ on:
         required: true
         options:
           - infra-release
-          - ci-deps
           - ci-release
-          - framework-deps
           - framework-release
-          - sindri-deps
           - sindri-release
-          - project-deps
           - project-release
       dry_run:
         description: 'Preview only — list dispatches without triggering any'
@@ -64,14 +58,15 @@ jobs:
       # cohort claims runs in `catchall` and is flagged in the run summary.
       slots: |
         infra-release     | 0 7 * * *  | release | infra
-        ci-deps           | 0 8 * * *  | deps    | ci
-        ci-release        | 0 10 * * * | release | ci
-        framework-deps    | 0 11 * * * | deps    | frameworks
-        framework-release | 0 13 * * * | release | frameworks
-        sindri-deps       | 0 14 * * * | deps    | sindri
-        sindri-release    | 0 16 * * * | release | sindri
-        project-deps      | 0 17 * * * | deps    | projects catchall
-        project-release   | 0 19 * * * | release | projects catchall
+        ci-release        | 0 8 * * *  | release | ci
+        framework-release | 0 9 * * *  | release | frameworks
+        sindri-release    | 0 10 * * * | release | sindri
+        project-release   | 0 11 * * * | release | projects catchall
+      # A release run now carries the dependency refresh, its pull request's checks, and the
+      # merge, on top of the publish and the wait for the registry to serve it. The longest
+      # today is a Java release at a little over half an hour, so the watch has to outlast that
+      # and still finish inside the hour before the next slot.
+      stage-timeout-minutes: 50
       slot: ${{ inputs.slot || '' }}
       schedule: ${{ github.event.schedule || '' }}
       dry_run: ${{ inputs.dry_run || false }}

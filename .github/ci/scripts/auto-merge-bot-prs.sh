@@ -25,9 +25,18 @@
 # pull request touched a path outside its allowlist, because that means a
 # generator started writing files nobody expected.
 #
+# WAIT_MINUTES chooses between the two callers. The hourly sweep leaves it at
+# 0: it reports what is still pending and returns, because the next sweep is
+# an hour away. A release sets it, because the release cannot continue until
+# the dependency pull request lands — so the script polls until nothing is
+# pending, and it fails when the deadline arrives with work outstanding.
+#
+# BASE_FILTER narrows the sweep to one base branch. A release on 26.x must not
+# wait on a pull request that targets 25.x, and it must not merge one either.
+#
 # Reads GH_TOKEN, ORG, BOT_LOGIN, ENABLED_TYPES, EXCLUDE_REPOS,
-# SUPPORTED_VERSIONS, REVIEWER, DRY_RUN, SINGLE_REPO, and GITHUB_STEP_SUMMARY
-# from the environment.
+# SUPPORTED_VERSIONS, REVIEWER, DRY_RUN, SINGLE_REPO, BASE_FILTER,
+# WAIT_MINUTES, and GITHUB_STEP_SUMMARY from the environment.
 #
 # Usage:
 #
@@ -156,6 +165,8 @@ VIOLATIONS=0
 ERRORS=0
 MERGED_LIST=""
 ATTENTION_LIST=""
+WAIT_MINUTES=${WAIT_MINUTES:-0}
+POLL_SECONDS=30
 
 # The summary is where a person goes after the sweep, and every row it
 # holds is a row someone has to open — a merge to confirm, a failure to
@@ -228,164 +239,209 @@ note_attention() {
   request_reviewer "$repo" "$number"
 }
 
-while IFS= read -r REPO_NAME; do
-  [[ -z "$REPO_NAME" ]] && continue
+# One pass over every repository. A pass reports what it found rather than
+# accumulating across passes, so the counters and the tables below always
+# describe the state the sweep left behind rather than every state it saw.
+sweep_once() {
+  MERGED=0
+  WAITING=0
+  BLOCKED=0
+  VIOLATIONS=0
+  ERRORS=0
+  MERGED_LIST=""
+  ATTENTION_LIST=""
 
-  if repo_excluded "$REPO_NAME"; then
-    echo "$ORG/$REPO_NAME: excluded, skipping."
-    continue
-  fi
+  while IFS= read -r REPO_NAME; do
+    [[ -z "$REPO_NAME" ]] && continue
 
-  OPEN_PRS=$(gh pr list --repo "$ORG/$REPO_NAME" --state open --limit 100 \
-    --json number,title,author,baseRefName,headRefName,isDraft \
-    --jq '.[] | select(.author.is_bot == true and .author.login == env.BOT_LOGIN and .isDraft == false) | @json' \
-    2>/dev/null || true)
-
-  [[ -z "$OPEN_PRS" ]] && continue
-
-  echo "$ORG/$REPO_NAME:"
-
-  while IFS= read -r PR_JSON; do
-    [[ -z "$PR_JSON" ]] && continue
-
-    PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number')
-    PR_TITLE=$(echo "$PR_JSON" | jq -r '.title')
-    BASE_BRANCH=$(echo "$PR_JSON" | jq -r '.baseRefName')
-    HEAD_BRANCH=$(echo "$PR_JSON" | jq -r '.headRefName')
-
-    # The title root is what classifies the pull request, and it is
-    # also what the commit-message check already enforces, so it is a
-    # shape the repository guarantees rather than one assumed here.
-    PR_TYPE=$(echo "$PR_TITLE" | sed -n 's/^\[\([A-Za-z]*\)\].*/\1/p')
-
-    if [[ -z "$PR_TYPE" ]] || ! type_enabled "$PR_TYPE"; then
+    if repo_excluded "$REPO_NAME"; then
+      echo "$ORG/$REPO_NAME: excluded, skipping."
       continue
     fi
 
-    # Release branches only. A release is never cut from master, and
-    # nothing should land there unattended either.
-    if [[ ! "$BASE_BRANCH" =~ ^([0-9]+)\.x$ ]]; then
-      echo "  #$PR_NUMBER targets $BASE_BRANCH, skipping."
-      continue
-    fi
-
-    if [[ ! "${BASH_REMATCH[1]}" =~ $SUPPORTED_VERSIONS ]]; then
-      echo "  #$PR_NUMBER targets unsupported $BASE_BRANCH, skipping."
-      continue
-    fi
-
-    if [[ ! "$HEAD_BRANCH" =~ ^deps/ ]]; then
-      echo "  #$PR_NUMBER: head $HEAD_BRANCH is not a deps/ branch, needs a look."
-      note_attention "$REPO_NAME" "$PR_NUMBER" "Unexpected head branch \`$HEAD_BRANCH\`"
-      VIOLATIONS=$((VIOLATIONS + 1))
-      continue
-    fi
-
-    CHANGED=$(fetch_json "repos/$ORG/$REPO_NAME/pulls/$PR_NUMBER/files?per_page=100") || {
-      echo "  #$PR_NUMBER: could not read changed files, skipping."
-      ERRORS=$((ERRORS + 1))
-      continue
-    }
-
-    OFFENDING=""
-    while IFS= read -r CHANGED_PATH; do
-      [[ -z "$CHANGED_PATH" ]] && continue
-      if ! path_allowed "$PR_TYPE" "$CHANGED_PATH"; then
-        OFFENDING="$OFFENDING $CHANGED_PATH"
-      fi
-    done < <(echo "$CHANGED" | jq -r '.[]?.filename')
-
-    if [[ -n "$OFFENDING" ]]; then
-      echo "  #$PR_NUMBER touches paths outside the $PR_TYPE allowlist:$OFFENDING"
-      note_attention "$REPO_NAME" "$PR_NUMBER" "Touches \`$(echo "$OFFENDING" | xargs | tr ' ' ',')\`"
-      VIOLATIONS=$((VIOLATIONS + 1))
-      continue
-    fi
-
-    # The app bypasses the required-status-check rulesets, so GitHub
-    # will not hold a merge open on its behalf. The gate has to be
-    # applied here instead, against the same contexts the ruleset
-    # names — which also keeps advisory checks (SonarCloud, Coveralls,
-    # Scrutinizer) from blocking a merge they were never meant to gate.
-    REQUIRED_JSON=$(fetch_json "repos/$ORG/$REPO_NAME/rules/branches/$BASE_BRANCH") || {
-      echo "  #$PR_NUMBER: could not read branch rules, skipping."
-      ERRORS=$((ERRORS + 1))
-      continue
-    }
-
-    REQUIRED_CONTEXTS=$(echo "$REQUIRED_JSON" \
-      | jq -r '[.[]? | select(.type == "required_status_checks")
-          | .parameters.required_status_checks[]?.context] | unique | .[]')
-
-    if [[ -z "$REQUIRED_CONTEXTS" ]]; then
-      echo "  #$PR_NUMBER: $BASE_BRANCH requires no status checks, leaving it alone."
-      note_attention "$REPO_NAME" "$PR_NUMBER" "No required status checks on \`$BASE_BRANCH\`"
-      BLOCKED=$((BLOCKED + 1))
-      continue
-    fi
-
-    ROLLUP=$(gh pr view "$PR_NUMBER" --repo "$ORG/$REPO_NAME" \
-      --json statusCheckRollup \
-      --jq '[.statusCheckRollup[]? | {name: (.name // .context), result: (.conclusion // .state)}]' \
+    OPEN_PRS=$(gh pr list --repo "$ORG/$REPO_NAME" --state open --limit 100 \
+      --json number,title,author,baseRefName,headRefName,isDraft \
+      --jq '.[] | select(.author.is_bot == true and .author.login == env.BOT_LOGIN and .isDraft == false) | @json' \
       2>/dev/null || true)
 
-    if [[ -z "$ROLLUP" ]]; then
-      echo "  #$PR_NUMBER: no checks reported yet, waiting."
-      WAITING=$((WAITING + 1))
-      continue
-    fi
+    [[ -z "$OPEN_PRS" ]] && continue
 
-    PENDING=""
-    FAILING=""
-    while IFS= read -r CONTEXT; do
-      [[ -z "$CONTEXT" ]] && continue
-      RESULT=$(echo "$ROLLUP" | jq -r --arg c "$CONTEXT" \
-        '[.[] | select(.name == $c) | .result] | last // "MISSING"')
-      case "$RESULT" in
-        SUCCESS) ;;
-        MISSING|PENDING|EXPECTED|null|"") PENDING="$PENDING $CONTEXT" ;;
-        *) FAILING="$FAILING $CONTEXT($RESULT)" ;;
-      esac
-    done <<< "$REQUIRED_CONTEXTS"
+    echo "$ORG/$REPO_NAME:"
 
-    if [[ -n "$FAILING" ]]; then
-      echo "  #$PR_NUMBER: required checks failing:$FAILING"
-      note_attention "$REPO_NAME" "$PR_NUMBER" "Failing:$FAILING"
-      BLOCKED=$((BLOCKED + 1))
-      continue
-    fi
+    while IFS= read -r PR_JSON; do
+      [[ -z "$PR_JSON" ]] && continue
 
-    if [[ -n "$PENDING" ]]; then
-      echo "  #$PR_NUMBER: waiting on$PENDING"
-      WAITING=$((WAITING + 1))
-      continue
-    fi
+      PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number')
+      PR_TITLE=$(echo "$PR_JSON" | jq -r '.title')
+      BASE_BRANCH=$(echo "$PR_JSON" | jq -r '.baseRefName')
+      HEAD_BRANCH=$(echo "$PR_JSON" | jq -r '.headRefName')
 
-    if [[ "$DRY_RUN" = "true" ]]; then
-      echo "  [dry run] would merge #$PR_NUMBER — $PR_TITLE"
+      # The title root is what classifies the pull request, and it is
+      # also what the commit-message check already enforces, so it is a
+      # shape the repository guarantees rather than one assumed here.
+      PR_TYPE=$(echo "$PR_TITLE" | sed -n 's/^\[\([A-Za-z]*\)\].*/\1/p')
+
+      if [[ -z "$PR_TYPE" ]] || ! type_enabled "$PR_TYPE"; then
+        continue
+      fi
+
+      # Release branches only. A release is never cut from master, and
+      # nothing should land there unattended either.
+      if [[ ! "$BASE_BRANCH" =~ ^([0-9]+)\.x$ ]]; then
+        echo "  #$PR_NUMBER targets $BASE_BRANCH, skipping."
+        continue
+      fi
+
+      if [[ ! "${BASH_REMATCH[1]}" =~ $SUPPORTED_VERSIONS ]]; then
+        echo "  #$PR_NUMBER targets unsupported $BASE_BRANCH, skipping."
+        continue
+      fi
+
+      # A release names the branch it is releasing. Another branch's pull
+      # request is nothing that release waits on, and merging it would land a
+      # change the release never gated.
+      if [[ -n "$BASE_FILTER" ]] && [[ "$BASE_BRANCH" != "$BASE_FILTER" ]]; then
+        echo "  #$PR_NUMBER targets $BASE_BRANCH rather than $BASE_FILTER, skipping."
+        continue
+      fi
+
+      if [[ ! "$HEAD_BRANCH" =~ ^deps/ ]]; then
+        echo "  #$PR_NUMBER: head $HEAD_BRANCH is not a deps/ branch, needs a look."
+        note_attention "$REPO_NAME" "$PR_NUMBER" "Unexpected head branch \`$HEAD_BRANCH\`"
+        VIOLATIONS=$((VIOLATIONS + 1))
+        continue
+      fi
+
+      CHANGED=$(fetch_json "repos/$ORG/$REPO_NAME/pulls/$PR_NUMBER/files?per_page=100") || {
+        echo "  #$PR_NUMBER: could not read changed files, skipping."
+        ERRORS=$((ERRORS + 1))
+        continue
+      }
+
+      OFFENDING=""
+      while IFS= read -r CHANGED_PATH; do
+        [[ -z "$CHANGED_PATH" ]] && continue
+        if ! path_allowed "$PR_TYPE" "$CHANGED_PATH"; then
+          OFFENDING="$OFFENDING $CHANGED_PATH"
+        fi
+      done < <(echo "$CHANGED" | jq -r '.[]?.filename')
+
+      if [[ -n "$OFFENDING" ]]; then
+        echo "  #$PR_NUMBER touches paths outside the $PR_TYPE allowlist:$OFFENDING"
+        note_attention "$REPO_NAME" "$PR_NUMBER" "Touches \`$(echo "$OFFENDING" | xargs | tr ' ' ',')\`"
+        VIOLATIONS=$((VIOLATIONS + 1))
+        continue
+      fi
+
+      # The app bypasses the required-status-check rulesets, so GitHub
+      # will not hold a merge open on its behalf. The gate has to be
+      # applied here instead, against the same contexts the ruleset
+      # names — which also keeps advisory checks (SonarCloud, Coveralls,
+      # Scrutinizer) from blocking a merge they were never meant to gate.
+      REQUIRED_JSON=$(fetch_json "repos/$ORG/$REPO_NAME/rules/branches/$BASE_BRANCH") || {
+        echo "  #$PR_NUMBER: could not read branch rules, skipping."
+        ERRORS=$((ERRORS + 1))
+        continue
+      }
+
+      REQUIRED_CONTEXTS=$(echo "$REQUIRED_JSON" \
+        | jq -r '[.[]? | select(.type == "required_status_checks")
+            | .parameters.required_status_checks[]?.context] | unique | .[]')
+
+      if [[ -z "$REQUIRED_CONTEXTS" ]]; then
+        echo "  #$PR_NUMBER: $BASE_BRANCH requires no status checks, leaving it alone."
+        note_attention "$REPO_NAME" "$PR_NUMBER" "No required status checks on \`$BASE_BRANCH\`"
+        BLOCKED=$((BLOCKED + 1))
+        continue
+      fi
+
+      ROLLUP=$(gh pr view "$PR_NUMBER" --repo "$ORG/$REPO_NAME" \
+        --json statusCheckRollup \
+        --jq '[.statusCheckRollup[]? | {name: (.name // .context), result: (.conclusion // .state)}]' \
+        2>/dev/null || true)
+
+      if [[ -z "$ROLLUP" ]]; then
+        echo "  #$PR_NUMBER: no checks reported yet, waiting."
+        WAITING=$((WAITING + 1))
+        continue
+      fi
+
+      PENDING=""
+      FAILING=""
+      while IFS= read -r CONTEXT; do
+        [[ -z "$CONTEXT" ]] && continue
+        RESULT=$(echo "$ROLLUP" | jq -r --arg c "$CONTEXT" \
+          '[.[] | select(.name == $c) | .result] | last // "MISSING"')
+        case "$RESULT" in
+          SUCCESS) ;;
+          MISSING|PENDING|EXPECTED|null|"") PENDING="$PENDING $CONTEXT" ;;
+          *) FAILING="$FAILING $CONTEXT($RESULT)" ;;
+        esac
+      done <<< "$REQUIRED_CONTEXTS"
+
+      if [[ -n "$FAILING" ]]; then
+        echo "  #$PR_NUMBER: required checks failing:$FAILING"
+        note_attention "$REPO_NAME" "$PR_NUMBER" "Failing:$FAILING"
+        BLOCKED=$((BLOCKED + 1))
+        continue
+      fi
+
+      if [[ -n "$PENDING" ]]; then
+        echo "  #$PR_NUMBER: waiting on$PENDING"
+        WAITING=$((WAITING + 1))
+        continue
+      fi
+
+      if [[ "$DRY_RUN" = "true" ]]; then
+        echo "  [dry run] would merge #$PR_NUMBER — $PR_TITLE"
+        note_merged "$REPO_NAME" "$PR_NUMBER" "$PR_TITLE"
+        MERGED=$((MERGED + 1))
+        continue
+      fi
+
+      # Mergeability is computed lazily and reads UNKNOWN until GitHub
+      # gets around to it, so asking first would just add a round trip
+      # that answers nothing. The merge call is the authority: a branch
+      # that cannot merge fails here and is reported.
+      MERGE_ERR=$(gh pr merge "$PR_NUMBER" --repo "$ORG/$REPO_NAME" --squash 2>&1 >/dev/null || true)
+
+      if [[ -n "$MERGE_ERR" ]]; then
+        echo "  #$PR_NUMBER: merge failed: $MERGE_ERR"
+        note_attention "$REPO_NAME" "$PR_NUMBER" "Merge failed"
+        BLOCKED=$((BLOCKED + 1))
+        continue
+      fi
+
+      echo "  #$PR_NUMBER merged — $PR_TITLE"
       note_merged "$REPO_NAME" "$PR_NUMBER" "$PR_TITLE"
       MERGED=$((MERGED + 1))
-      continue
-    fi
+    done <<< "$OPEN_PRS"
+  done <<< "$REPOS"
+}
 
-    # Mergeability is computed lazily and reads UNKNOWN until GitHub
-    # gets around to it, so asking first would just add a round trip
-    # that answers nothing. The merge call is the authority: a branch
-    # that cannot merge fails here and is reported.
-    MERGE_ERR=$(gh pr merge "$PR_NUMBER" --repo "$ORG/$REPO_NAME" --squash 2>&1 >/dev/null || true)
+# The hourly sweep takes one pass. A release waits, because it cannot continue
+# until the dependency pull request lands.
+DEADLINE=$(( $(date +%s) + WAIT_MINUTES * 60 ))
 
-    if [[ -n "$MERGE_ERR" ]]; then
-      echo "  #$PR_NUMBER: merge failed: $MERGE_ERR"
-      note_attention "$REPO_NAME" "$PR_NUMBER" "Merge failed"
-      BLOCKED=$((BLOCKED + 1))
-      continue
-    fi
+while true; do
+  sweep_once
 
-    echo "  #$PR_NUMBER merged — $PR_TITLE"
-    note_merged "$REPO_NAME" "$PR_NUMBER" "$PR_TITLE"
-    MERGED=$((MERGED + 1))
-  done <<< "$OPEN_PRS"
-done <<< "$REPOS"
+  if [[ "$WAIT_MINUTES" -eq 0 ]]; then
+    break
+  fi
+
+  if [[ "$WAITING" -eq 0 ]]; then
+    break
+  fi
+
+  if [[ "$(date +%s)" -ge "$DEADLINE" ]]; then
+    echo "Deadline reached with $WAITING pull request(s) still pending."
+    break
+  fi
+
+  echo "Waiting on $WAITING pull request(s). Polling again in ${POLL_SECONDS}s."
+  sleep "$POLL_SECONDS"
+done
 
 {
   echo "### Auto merge bot pull requests"
@@ -431,4 +487,20 @@ done <<< "$REPOS"
 if [[ "$VIOLATIONS" -gt 0 ]]; then
   echo "$VIOLATIONS pull request(s) touched paths outside the allowlist."
   exit 1
+fi
+
+# A caller that waited needs the outcome rather than the report. The release
+# holds the tag until the dependency bump is on the branch, so a bump that
+# never merged has to stop the release — the alternative is a release that
+# tags dependencies the gate is about to reject anyway.
+if [[ "$WAIT_MINUTES" -gt 0 ]]; then
+  if [[ "$BLOCKED" -gt 0 ]]; then
+    echo "$BLOCKED pull request(s) could not merge."
+    exit 1
+  fi
+
+  if [[ "$WAITING" -gt 0 ]]; then
+    echo "$WAITING pull request(s) were still pending after $WAIT_MINUTES minutes."
+    exit 1
+  fi
 fi
