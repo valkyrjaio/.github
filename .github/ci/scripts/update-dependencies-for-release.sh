@@ -45,29 +45,39 @@ fi
 POLL_SECONDS=15
 DEADLINE=$(( ${RUN_TIMEOUT_MINUTES:-20} * 60 ))
 
-# The probe asks about the branch, because the dispatch runs the workflow file as the branch
-# carries it. Without `?ref=` the contents API answers for the default branch, and both
-# directions of that mismatch break this script's contract: a workflow on the default branch and
-# not on this one passes the probe and then fails the dispatch with HTTP 422, and a workflow on
-# this branch and not on the default one reports "nothing to refresh" and lets the release run
-# against an unrefreshed branch.
+# Two independent conditions decide whether the dispatch below succeeds, and both have to be
+# asked. `gh workflow run` resolves the workflow against the repository's registered workflows,
+# which come from the default branch, so a file absent there answers HTTP 404 before `ref` is
+# read. The dispatch then runs the file as the branch carries it, so a branch without it answers
+# HTTP 422. Asking only one leaves the other to `set -e`, which fails the release — the case the
+# header promises never to fail on.
+#
+# The two branches differ for most of a year: the default branch follows the current major, and
+# an older major stays supported alongside it.
 #
 # Warning: read the message, never the body. `gh api --jq` leaves an error body unfiltered, so a
 # 404 arrives as the error JSON rather than as the empty string an absent workflow should
 # produce. Only a definite 404 means there is nothing to refresh. Every other answer says
-# nothing about the workflow, so the dispatch below decides — and a release that cannot reach
-# its own dependency update should stop rather than proceed unrefreshed.
-WORKFLOW_ERR=$(gh api "repos/$ORG/$REPO/contents/.github/workflows/$WORKFLOW?ref=$BRANCH" \
-  --silent 2>&1 >/dev/null || true)
+# nothing about the workflow, so the dispatch decides — and a release that cannot reach its own
+# dependency update should stop rather than proceed unrefreshed.
+for probe in "" "?ref=$BRANCH"; do
+  WORKFLOW_ERR=$(gh api "repos/$ORG/$REPO/contents/.github/workflows/$WORKFLOW$probe" \
+    --silent 2>&1 >/dev/null || true)
 
-if [[ "$WORKFLOW_ERR" == *"HTTP 404"* ]]; then
-  echo "$ORG/$REPO ($BRANCH) carries no $WORKFLOW. Nothing to refresh."
-  exit 0
-fi
+  if [[ "$WORKFLOW_ERR" == *"HTTP 404"* ]]; then
+    if [[ -z "$probe" ]]; then
+      echo "$ORG/$REPO carries no $WORKFLOW on its default branch. Nothing to refresh."
+    else
+      echo "$ORG/$REPO ($BRANCH) carries no $WORKFLOW. Nothing to refresh."
+    fi
 
-if [[ -n "$WORKFLOW_ERR" ]]; then
-  echo "Could not check for $WORKFLOW on $BRANCH, dispatching anyway: $WORKFLOW_ERR"
-fi
+    exit 0
+  fi
+
+  if [[ -n "$WORKFLOW_ERR" ]]; then
+    echo "Could not check for $WORKFLOW, dispatching anyway: $WORKFLOW_ERR"
+  fi
+done
 
 SINCE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
