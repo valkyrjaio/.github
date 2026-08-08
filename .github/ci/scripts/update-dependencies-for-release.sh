@@ -43,7 +43,7 @@ if [[ -z "$ORG" ]] || [[ -z "$REPO" ]] || [[ -z "$BRANCH" ]]; then
 fi
 
 POLL_SECONDS=15
-DEADLINE=$(( ${RUN_TIMEOUT_MINUTES:-20} * 60 ))
+DEADLINE=$(( ${RUN_TIMEOUT_MINUTES:-12} * 60 ))
 
 # Two independent conditions decide whether the dispatch below succeeds, and both have to be
 # asked. `gh workflow run` resolves the workflow against the repository's registered workflows,
@@ -123,9 +123,9 @@ while [[ "$WAITED" -lt "$DEADLINE" ]]; do
 done
 
 if [[ -n "$RUN_ID" ]]; then
-  echo "Timed out waiting for run $RUN_ID after ${RUN_TIMEOUT_MINUTES:-20} minutes."
+  echo "Timed out waiting for run $RUN_ID after ${RUN_TIMEOUT_MINUTES:-12} minutes."
 else
-  echo "Timed out after ${RUN_TIMEOUT_MINUTES:-20} minutes: no $WORKFLOW run appeared on $BRANCH."
+  echo "Timed out after ${RUN_TIMEOUT_MINUTES:-12} minutes: no $WORKFLOW run appeared on $BRANCH."
 fi
 
 exit 1
