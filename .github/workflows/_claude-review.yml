@@ -65,9 +65,13 @@ on:
           rest. A `changes_requested` verdict with no blocking finding
           contradicts itself, so make the two agree.
       architecture-ref:
-        description: 'Ref of the architecture repository to read the guides from'
+        description: >
+          Ref of the architecture repository to read the guides from. Empty follows the base branch
+          of the pull request, which is the branch whose guides govern the change. The ref falls
+          back to the default branch of the repository under review, and to the default branch of
+          the architecture repository after that.
         type: string
-        default: 'master'
+        default: ''
       blocking-verdict:
         description: >
           Whether a `changes_requested` verdict is submitted as a `REQUEST_CHANGES` review rather
@@ -183,13 +187,15 @@ jobs:
           ref: ${{ job.workflow_sha }}
           path: dot-github
 
+      # A review judges a change against the guides that govern the branch it lands on, so the ref
+      # follows the base branch. A guide fix lands on the lowest supported version branch and moves
+      # up from there, so an older version branch is current for its own line rather than stale.
       - name: Checkout architecture guides
         env:
           ARCHITECTURE_REF: ${{ inputs.architecture-ref }}
-        run: |
-          git clone --depth 1 --branch "$ARCHITECTURE_REF" \
-            https://github.com/valkyrjaio/architecture.git \
-            "$RUNNER_TEMP/architecture"
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          DEFAULT_REF: ${{ github.event.repository.default_branch }}
+        run: dot-github/.github/ci/scripts/checkout-architecture-guides.sh
 
       # Stamped before the review, so a comment the review is about to write is never mistaken for
       # one an earlier run left. A stamp taken afterwards would retire this run's own findings.
