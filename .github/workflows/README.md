@@ -176,7 +176,7 @@ same local hour all year.
 
 Warning: no slot sits on 09:00. Every repository's own `update-dependencies`
 cron fires then, and a release dispatches that same workflow and waits for it on
-a short budget — two runs of it on one branch queue against each other, and the
+a short budget. Two runs of it on one branch queue against each other, and the
 release is the one holding a deadline.
 
 A separate sweep, `update-dependencies-all-repos.yml`, runs the `deps` action
@@ -198,8 +198,8 @@ share the `projects` slot.
 
 The dispatches inside one release slot still go out seconds apart, but a gate no
 longer evaluates seconds later: the refresh in front of it takes up to 30
-minutes. So the old reason one cohort member could not turn another's gate red —
-every gate ran before any sibling could publish — no longer holds.
+minutes. So the old reason one cohort member could not turn another's gate red
+no longer holds: every gate ran before any sibling could publish.
 
 What holds instead is the cohort itself. Its members are peers that do not
 consume one another, so a sibling's publish is nothing the gate reads. A cohort
