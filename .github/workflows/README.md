@@ -385,8 +385,8 @@ The flow above (`_create-release` → `_get-version-for-release` →
 language repos instead call `_{go,php,java,python,ts}-create-release.yml`, which
 wraps the same core steps with a dependency refresh
 (`_update-dependencies-for-release`), a pre-release outdated-dependency gate
-(`_check-outdated-<lang>-dependencies`) and a version/build-date bump in the
-language's info file (`_update-<lang>-info-files`). The refresh runs first, so
+(`_<lang>-check-outdated-dependencies`) and a version/build-date bump in the
+language's info file (`_<lang>-update-info-files`). The refresh runs first, so
 the gate reads a branch that already carries the bump. These orchestrators end
 at `_release.yml` (which creates the GitHub release and tag).
 
