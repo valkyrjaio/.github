@@ -353,11 +353,11 @@ while IFS= read -r REPO_NAME; do
 
     if [[ "$BRANCH_WORKFLOW_ERR" == *"HTTP 404"* ]]; then
       # Warning: the two 404s do not mean the same thing. Absent on the default branch means
-      # the repository never opted the workflow in, which is a steady state — `.github` and
-      # `architecture` for `update-dependencies.yml`. Absent here, with the file on the
-      # default branch, means this branch is behind or the file was dropped, and for a
-      # release that is the repository falling off the release train. A count in a table
-      # reads green on that, so it earns a warning block of its own.
+      # the repository never opted the workflow in, which is a steady state nobody needs to
+      # hear about. Absent here, with the file on the default branch, means this branch is
+      # behind or the file was dropped, and for a release that is the repository falling off
+      # the release train. A count in a table reads green on that, so it earns a warning
+      # block of its own.
       echo "$ORG/$REPO_NAME ($BRANCH): branch carries no $ACTION_WORKFLOW, skipping."
       SKIPPED_NO_BRANCH_WORKFLOW=$((SKIPPED_NO_BRANCH_WORKFLOW + 1))
       MISSING_BRANCH_WORKFLOW="$MISSING_BRANCH_WORKFLOW"$'\n'"$REPO_NAME $BRANCH"
