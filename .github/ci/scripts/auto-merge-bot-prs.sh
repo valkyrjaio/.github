@@ -28,8 +28,10 @@
 # WAIT_MINUTES chooses between the two callers. The hourly sweep leaves it at
 # 0: it reports what is still pending and returns, because the next sweep is
 # an hour away. A release sets it, because the release cannot continue until
-# the dependency pull request lands — so the script polls until nothing is
-# pending, and it fails when the deadline arrives with work outstanding.
+# the dependency pull request lands. The script polls while a retry could still
+# change the answer, and it fails either way. An answer a retry cannot change —
+# a red required check, a pull request outside the allowlist — fails on the
+# first pass. Anything still outstanding fails when the deadline arrives.
 #
 # BASE_FILTER narrows the sweep to one base branch. A release on 26.x must not
 # wait on a pull request that targets 25.x, and it must not merge one either.

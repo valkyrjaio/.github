@@ -95,9 +95,13 @@ echo "Dispatched $WORKFLOW on $ORG/$REPO ($BRANCH). Waiting for it to finish..."
 # workflow and branch created at or after the dispatch. Both timestamps are
 # UTC in the same format, so a string comparison orders them correctly.
 RUN_ID=""
-WAITED=0
 
-while [[ "$WAITED" -lt "$DEADLINE" ]]; do
+# Warning: measure the wall clock, not the sleeping. Every pass also makes one
+# or two `gh` calls, and counting only `POLL_SECONDS` would leave that time out
+# of the budget, so the wait would run past what it says.
+STARTED_AT=$(date +%s)
+
+while [[ "$(( $(date +%s) - STARTED_AT ))" -lt "$DEADLINE" ]]; do
   if [[ -z "$RUN_ID" ]]; then
     RUN_ID=$(gh run list --repo "$ORG/$REPO" --workflow "$WORKFLOW" --branch "$BRANCH" \
       --limit 20 --json databaseId,createdAt \
@@ -123,7 +127,6 @@ while [[ "$WAITED" -lt "$DEADLINE" ]]; do
   fi
 
   sleep "$POLL_SECONDS"
-  WAITED=$((WAITED + POLL_SECONDS))
 done
 
 if [[ -n "$RUN_ID" ]]; then

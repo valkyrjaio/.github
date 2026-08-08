@@ -198,8 +198,9 @@ share the `projects` slot.
 
 The dispatches inside one release slot still go out seconds apart, but a gate no
 longer evaluates seconds later: the refresh in front of it takes up to 30
-minutes. So the old reason one cohort member could not turn another's gate red
-no longer holds: every gate ran before any sibling could publish.
+minutes. The old reason one cohort member could not turn another's gate red was
+that every gate ran before any sibling could publish. That reason no longer
+holds.
 
 What holds instead is the cohort itself. Its members are peers that do not
 consume one another, so a sibling's publish is nothing the gate reads. A cohort
