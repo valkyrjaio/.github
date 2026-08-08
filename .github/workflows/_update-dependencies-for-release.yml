@@ -29,10 +29,14 @@ on:
         description: 'How long to wait for the dependency update run to finish'
         type: number
         default: 20
+      # Missing this deadline abandons the release rather than delaying it, so the budget is set
+      # well above what the work takes. A dependency pull request's full required suite finishes
+      # in one to three minutes in every language, Java included. A caller whose check budget is
+      # larger raises this rather than inheriting it.
       merge-timeout-minutes:
         description: 'How long to wait for the dependency pull request checks to pass'
         type: number
-        default: 30
+        default: 40
     secrets:
       VALKYRJA_GHA_APP_ID:
         description: 'App ID of the GitHub App that mints the token this workflow uses'
@@ -49,8 +53,9 @@ jobs:
 
     # Both steps below wait on work in another run, and each carries its own deadline. This is the
     # ceiling on the pair, so a job that hangs on the API cannot hold a runner for the default six
-    # hours.
-    timeout-minutes: 60
+    # hours. It has to exceed `run-timeout-minutes` plus `merge-timeout-minutes`, or it cuts a
+    # wait short that the inputs said was still allowed.
+    timeout-minutes: 70
 
     steps:
       - name: Generate a token

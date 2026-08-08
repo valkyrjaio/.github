@@ -45,12 +45,28 @@ fi
 POLL_SECONDS=15
 DEADLINE=$(( ${RUN_TIMEOUT_MINUTES:-20} * 60 ))
 
-# Warning: read the exit status, never the output. `gh api --jq` leaves an
-# error body unfiltered, so a 404 arrives as the error JSON rather than as the
-# empty string an absent workflow should produce.
-if ! gh api "repos/$ORG/$REPO/contents/.github/workflows/$WORKFLOW" --silent >/dev/null 2>&1; then
-  echo "$ORG/$REPO carries no $WORKFLOW. Nothing to refresh."
+# The probe asks about the branch, because the dispatch runs the workflow file as the branch
+# carries it. Without `?ref=` the contents API answers for the default branch, and both
+# directions of that mismatch break this script's contract: a workflow on the default branch and
+# not on this one passes the probe and then fails the dispatch with HTTP 422, and a workflow on
+# this branch and not on the default one reports "nothing to refresh" and lets the release run
+# against an unrefreshed branch.
+#
+# Warning: read the message, never the body. `gh api --jq` leaves an error body unfiltered, so a
+# 404 arrives as the error JSON rather than as the empty string an absent workflow should
+# produce. Only a definite 404 means there is nothing to refresh. Every other answer says
+# nothing about the workflow, so the dispatch below decides — and a release that cannot reach
+# its own dependency update should stop rather than proceed unrefreshed.
+WORKFLOW_ERR=$(gh api "repos/$ORG/$REPO/contents/.github/workflows/$WORKFLOW?ref=$BRANCH" \
+  --silent 2>&1 >/dev/null || true)
+
+if [[ "$WORKFLOW_ERR" == *"HTTP 404"* ]]; then
+  echo "$ORG/$REPO ($BRANCH) carries no $WORKFLOW. Nothing to refresh."
   exit 0
+fi
+
+if [[ -n "$WORKFLOW_ERR" ]]; then
+  echo "Could not check for $WORKFLOW on $BRANCH, dispatching anyway: $WORKFLOW_ERR"
 fi
 
 SINCE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
