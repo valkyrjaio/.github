@@ -518,14 +518,23 @@ fi
 # that ends without an answer does not. The script either stops watching a run
 # that has not finished, or never finds the run to watch. Either way the script
 # gives up on the answer rather than on the run.
+#
+# Warning: the two conditions below are independent, and one run can hit both. Each reports
+# before anything exits, so the last lines of the log name every reason the slot is red.
+SLOT_FAILED=0
+
 if [[ "$FAILED" -gt 0 ]]; then
   echo "$FAILED $SLOT_ACTION dispatch(es) failed."
-  exit 1
+  SLOT_FAILED=1
 fi
 
 # A repository whose branch list would not read was neither dispatched nor deliberately
 # skipped, so the slot says so rather than reporting a clean run over it.
 if [[ "$UNREADABLE_BRANCHES" -gt 0 ]]; then
   echo "$UNREADABLE_BRANCHES repository branch list(s) could not be read."
+  SLOT_FAILED=1
+fi
+
+if [[ "$SLOT_FAILED" -gt 0 ]]; then
   exit 1
 fi
