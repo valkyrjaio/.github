@@ -346,6 +346,10 @@ while IFS= read -r REPO_NAME; do
     # 422. The two branches differ for most of a year: the default branch follows the current
     # major, and an older major stays supported alongside it.
     #
+    # While one major is supported this repeats the probe above, because the only supported
+    # branch is the default branch. One call per repository-branch buys a guard that needs no
+    # revisiting when the next major opens, which is the cheaper side of the trade.
+    #
     # The same reading rule as above applies — a definite 404 skips, and every other answer
     # goes to the dispatch.
     BRANCH_WORKFLOW_ERR=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows/$ACTION_WORKFLOW?ref=$BRANCH" \
@@ -465,7 +469,7 @@ fi
 
   if [[ -n "$(printf '%s' "$MISSING_BRANCH_WORKFLOW" | tr -d '[:space:]')" ]]; then
     echo
-    echo "Warning: these branches carry no \`$ACTION_WORKFLOW\` while their default branch does."
+    echo "Warning: these branches carry no \`$ACTION_WORKFLOW\`, and the repository passed the default branch check."
     echo "Each one is out of the $SLOT_ACTION rotation until the file reaches it:"
     echo
     printf '%s\n' "$MISSING_BRANCH_WORKFLOW" | awk 'NF {print "- `" $1 "` (" $2 ")"}'
