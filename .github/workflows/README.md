@@ -210,16 +210,12 @@ Warning: the caller's `on.schedule` cron list and the slot table must name the
 same crons. The script fails a scheduled run whose cron the table does not
 name, so drift is loud, not silent.
 
-Warning: the slot goes red, so the day's plan shows where it broke, when:
-
-- A dispatch would not go out.
-- A dispatched release failed.
-- A run the wait phase never reached. `stage-timeout-minutes` bounds the phase
-  rather than each wait, and once it is spent the remaining runs report
-  `unwatched` — an outcome nobody read, rather than one that is probably fine.
-- The sweep refuses to run at all — an unset `SUPPORTED_VERSIONS` or
-  `SUPPORTED_LANGUAGES`, an empty slot table, a cron the table does not name,
-  or a slot action that is neither `deps` nor `release`.
+Warning: the slot goes red when it could not do what it was asked to do — a
+dispatch it could not make, a dispatched run that did not succeed, a run the
+wait phase never reached, or a precondition it checks before sweeping anything.
+`stage-timeout-minutes` bounds the phase rather than each wait, and once it is
+spent the remaining runs report `unwatched` — an outcome nobody read, rather
+than one that is probably fine.
 
 A wait that times out does not fail the slot — there the sweep watched a run
 and stopped, so the run may still finish.
