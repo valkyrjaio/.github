@@ -199,27 +199,17 @@ Warning: the caller's `on.schedule` cron list and the slot table must name the
 same crons. The script fails a scheduled run whose cron the table does not
 name, so drift is loud, not silent.
 
-Warning: the slot goes red when it could not do what it was asked to do — a
-dispatch it could not make, a dispatched run that did not succeed, a branch
-list it could not read, or a precondition it checks before sweeping anything.
-Each one prints the reason on the line it exits from. A precondition fails
-before the sweep starts, so that run writes no summary at all.
+Warning: a slot that could not do what it was asked to do goes red. A wait that
+timed out does not — there the sweep watched a run and stopped, so the run may
+still finish.
 
-A wait that times out does not fail the slot — there the sweep watched a run
-and stopped, so the run may still finish. A cohort whose gate rejects a stale
-dependency self-heals the next day: the morning refresh lands the bump, and the
-next release slot ships it.
+The job summary counts what the slot dispatched, skipped and failed, and names
+the repositories and branches worth acting on.
+`auto-release-supported-versions.sh` is the authority on which condition
+produces which outcome.
 
-The slot passes over a whole repository when its cohort is not the one this
-slot names, when it has no supported version branch, or when its default
-branch carries no workflow for the slot's action — that is what resolves the
-workflow, so the dispatch could not name one.
-
-It passes over a single branch, leaving the repository's other branches to
-dispatch, when that branch carries no such workflow — the dispatch runs the
-file as the branch carries it. Each such branch is named in a warning block,
-because a branch that has stopped releasing is worth seeing rather than
-counting.
+A cohort whose gate rejects a stale dependency self-heals the next day: the
+morning refresh lands the bump, and the next release slot ships it.
 
 This ordering is what a release of `@valkyrjaio/sindri` needs. Before it, the
 sweep dispatched every repository at once in `gh repo list` order, so `sindri`
