@@ -168,11 +168,16 @@ same local hour all year.
 
 | Slot (UTC) | Cohort             | Why it is here                                                  |
 | ---------- | ------------------ | --------------------------------------------------------------- |
-| 07:00      | infra              | `.github` re-pins workflow refs everywhere; ship that first     |
-| 08:00      | ci                 | The framework consumes the CI tools                             |
-| 09:00      | frameworks         | Everything else consumes the framework                          |
-| 10:00      | sindri             | `sindri` builds against the framework                           |
-| 11:00      | projects, catchall | The leaf consumers of everything above; unmatched repos go last |
+| 10:00      | infra              | `.github` re-pins workflow refs everywhere; ship that first     |
+| 11:00      | ci                 | The framework consumes the CI tools                             |
+| 12:00      | frameworks         | Everything else consumes the framework                          |
+| 13:00      | sindri             | `sindri` builds against the framework                           |
+| 14:00      | projects, catchall | The leaf consumers of everything above; unmatched repos go last |
+
+Warning: no slot sits on 09:00. Every repository's own `update-dependencies`
+cron fires then, and a release dispatches that same workflow and waits for it on
+a short budget — two runs of it on one branch queue against each other, and the
+release is the one holding a deadline.
 
 A separate sweep, `update-dependencies-all-repos.yml`, runs the `deps` action
 across every cohort at 04:00. It is not what keeps a release green — the
@@ -1527,12 +1532,12 @@ reusable workflows (leading `_`) are `workflow_call` only.
 
 ### Dependency management (reusable)
 
-| File                                                       | Description                                                   |
-| ---------------------------------------------------------- | ------------------------------------------------------------- |
-| `_{go,php,java,python,ts}-check-outdated-dependencies.yml` | Verify all direct dependencies are up to date before release  |
-| `_{go,php,java,python,ts}-update-dependencies.yml`         | Run the dependency updater and open/refresh a PR              |
-| `_php-update-dependencies-across-repos.yml`                | Trigger `update-dependencies` across all PHP repos            |
-| `_update-dependencies-for-release.yml`                     | Refresh and merge dependencies as the first step of a release |
+| File                                                       | Description                                                  |
+| ---------------------------------------------------------- | ------------------------------------------------------------ |
+| `_{go,php,java,python,ts}-check-outdated-dependencies.yml` | Verify all direct dependencies are up to date before release |
+| `_{go,php,java,python,ts}-update-dependencies.yml`         | Run the dependency updater and open/refresh a PR             |
+| `_php-update-dependencies-across-repos.yml`                | Trigger `update-dependencies` across all PHP repos           |
+| `_update-dependencies-for-release.yml`                     | Refresh and merge dependencies before a release              |
 
 ### Repository & workflow management (reusable)
 

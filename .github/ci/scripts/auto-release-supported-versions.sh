@@ -413,6 +413,14 @@ else
   maybe_mint_token
 
   DISPATCH_SINCE=$(now_utc)
+  # One deadline for the whole wait phase, not one per wait. `wait_for_dispatch` is called once
+  # per repository-branch in sequence, so a per-call budget adds up: two runs that both overrun
+  # would hold the slot for twice STAGE_TIMEOUT. Slots sit an hour apart and share one
+  # concurrency group with `cancel-in-progress: false`, and GitHub holds only one run pending per
+  # group — so a slot that overran into a third would have its successor cancelled outright,
+  # dropping a cohort's release for the day. Every run was dispatched at DISPATCH_SINCE, so each
+  # wait gets what is left of the budget measured from here.
+  WAIT_PHASE_STARTED_AT=$(date +%s)
   DISPATCHED_WORK=""
 
   # Every dispatch in the slot goes out before the first wait starts. The
@@ -448,7 +456,13 @@ else
     [[ -z "$REPO_NAME" ]] && continue
 
     maybe_mint_token
-    OUTCOME=$(wait_for_dispatch "$REPO_NAME" "$ACTION_WORKFLOW" "$BRANCH" "$DISPATCH_SINCE")
+    REMAINING=$(( STAGE_TIMEOUT - ($(date +%s) - WAIT_PHASE_STARTED_AT) ))
+
+    if [[ "$REMAINING" -lt 0 ]]; then
+      REMAINING=0
+    fi
+
+    OUTCOME=$(wait_for_dispatch "$REPO_NAME" "$ACTION_WORKFLOW" "$BRANCH" "$DISPATCH_SINCE" "$REMAINING")
     echo "$SLOT_ACTION $REPO_NAME ($BRANCH): $OUTCOME"
     RESULTS="$RESULTS"$'\n'"| \`$REPO_NAME\` | $BRANCH | $OUTCOME |"
 

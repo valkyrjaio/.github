@@ -14,11 +14,17 @@ on:
     # needs time to serve what shipped. An hour covers that. Infra goes first,
     # because a `.github` release pushes a workflow-ref re-pin into every later
     # cohort's release.
-    - cron: '0 7 * * *'
-    - cron: '0 8 * * *'
-    - cron: '0 9 * * *'
+    #
+    # Warning: no slot sits on 09:00. Every repository's own `update-dependencies`
+    # cron fires then, and a release dispatches that same workflow and waits for it
+    # on a short budget — two runs of it on one branch queue against each other, and
+    # the release is the one holding a deadline. The first slot is an hour later, and
+    # the cohort that consumes dependencies is three.
     - cron: '0 10 * * *'
     - cron: '0 11 * * *'
+    - cron: '0 12 * * *'
+    - cron: '0 13 * * *'
+    - cron: '0 14 * * *'
   workflow_dispatch:
     inputs:
       slot:
@@ -57,23 +63,24 @@ jobs:
       # REPOSITORY_NAMING.md — see `cohort_of` in the script. A repository no
       # cohort claims runs in `catchall` and is flagged in the run summary.
       slots: |
-        infra-release     | 0 7 * * *  | release | infra
-        ci-release        | 0 8 * * *  | release | ci
-        framework-release | 0 9 * * *  | release | frameworks
-        sindri-release    | 0 10 * * * | release | sindri
-        project-release   | 0 11 * * * | release | projects catchall
+        infra-release     | 0 10 * * * | release | infra
+        ci-release        | 0 11 * * * | release | ci
+        framework-release | 0 12 * * * | release | frameworks
+        sindri-release    | 0 13 * * * | release | sindri
+        project-release   | 0 14 * * * | release | projects catchall
       # A release run now carries the dependency refresh, its pull request's checks, and the
       # merge, on top of the publish and the wait for the registry to serve it. The longest
       # today is a Java release at a little over half an hour, and the refresh adds at most 30
       # (`_update-dependencies-for-release.yml` allows 12 plus 18).
       #
-      # Warning: this has to leave the slot finishing inside the hour before the next one. The
-      # sweep waits on every dispatch it makes, slots share one concurrency group with
-      # `cancel-in-progress: false`, and GitHub holds only one run pending per group — so a slot
-      # that overran into a third would have its successor cancelled outright, dropping a
-      # cohort's release for the day rather than delaying it. 45 keeps the whole slot clear of
-      # that, and a watch that gives up does not fail the slot: the run it stopped watching
-      # carries on and still publishes.
+      # Warning: this has to leave the slot finishing inside the hour before the next one. Slots
+      # share one concurrency group with `cancel-in-progress: false`, and GitHub holds only one
+      # run pending per group — so a slot that overran into a third would have its successor
+      # cancelled outright, dropping a cohort's release for the day rather than delaying it.
+      #
+      # The script spends this budget across the whole wait phase rather than per dispatch, so
+      # the slot cannot exceed it however many runs overrun at once. A watch that gives up does
+      # not fail the slot: the run it stopped watching carries on and still publishes.
       stage-timeout-minutes: 45
       slot: ${{ inputs.slot || '' }}
       schedule: ${{ github.event.schedule || '' }}

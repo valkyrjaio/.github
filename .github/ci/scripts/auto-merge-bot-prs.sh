@@ -430,16 +430,20 @@ while true; do
     break
   fi
 
-  if [[ "$WAITING" -eq 0 ]]; then
+  # A read that failed leaves the pull request unjudged, and an unjudged pull request is not a
+  # merged one. Without ERRORS here a single 5xx ends the wait on the first pass and reports
+  # success, and the release then reaches its gate against a branch nothing merged into. A
+  # retry is exactly what fixes a transient answer, so the loop keeps going while it can.
+  if [[ "$WAITING" -eq 0 ]] && [[ "$ERRORS" -eq 0 ]]; then
     break
   fi
 
   if [[ "$(date +%s)" -ge "$DEADLINE" ]]; then
-    echo "Deadline reached with $WAITING pull request(s) still pending."
+    echo "Deadline reached with $WAITING pending and $ERRORS unread."
     break
   fi
 
-  echo "Waiting on $WAITING pull request(s). Polling again in ${POLL_SECONDS}s."
+  echo "Waiting on $WAITING pending and $ERRORS unread. Polling again in ${POLL_SECONDS}s."
   sleep "$POLL_SECONDS"
 done
 
@@ -484,7 +488,11 @@ done
 # over. Checks that merely fail are the gate doing its job, and a
 # transient API error resolves itself on the next run, so neither
 # fails the sweep.
-if [[ "$VIOLATIONS" -gt 0 ]]; then
+#
+# Warning: this belongs to the sweep alone. It reports a repository-hygiene problem — an
+# unexpected head branch, a path the allowlist does not name — and a release is the wrong thing
+# to abandon over one. A waiting caller fails on what it waited for instead, below.
+if [[ "$WAIT_MINUTES" -eq 0 ]] && [[ "$VIOLATIONS" -gt 0 ]]; then
   echo "$VIOLATIONS pull request(s) touched paths outside the allowlist."
   exit 1
 fi
@@ -501,6 +509,13 @@ if [[ "$WAIT_MINUTES" -gt 0 ]]; then
 
   if [[ "$WAITING" -gt 0 ]]; then
     echo "$WAITING pull request(s) were still pending after $WAIT_MINUTES minutes."
+    exit 1
+  fi
+
+  # A pull request the sweep could not read is a pull request it could not merge, and the
+  # release must not read that as a merge.
+  if [[ "$ERRORS" -gt 0 ]]; then
+    echo "$ERRORS pull request(s) could not be read after $WAIT_MINUTES minutes."
     exit 1
   fi
 fi
