@@ -1,6 +1,10 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.24.2...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.24.3...26.x)
+
+## [v26.24.3](https://github.com/valkyrjaio/.github/compare/v26.24.2...v26.24.3) - 2026-08-09
+
+* [Workflow] fix: Read the architecture guides from the base branch by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/323
 
 ## [v26.24.2](https://github.com/valkyrjaio/.github/compare/v26.24.1...v26.24.2) - 2026-08-07
 
