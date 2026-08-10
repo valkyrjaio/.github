@@ -661,8 +661,14 @@ polls for several minutes then looks identical to a job that is stuck. `run-scri
 
 The buffering decides the choice, and the exit status does not. `run-script` ends with the status of
 the script, so a gate fails its own job through the action as surely as it does from a `run:` block.
-Name the script directly when a person reads the output while the script runs. Take the action in
-two cases:
+Name the script directly in two cases:
+
+- **A person reads the output while the script runs.** The action buffers, so the log stays empty
+  until the script exits.
+- **The step gives the job another value.** The script writes the value to `$GITHUB_OUTPUT`, which
+  the action cannot forward.
+
+Take the action in two cases:
 
 - **A check that comments.** The caller builds the comment from `outcome` and `report-markdown`.
 - **A step that must prove what it ran.** `expected-ref` fails the step unless the checkout is the
