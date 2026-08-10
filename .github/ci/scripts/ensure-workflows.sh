@@ -321,17 +321,31 @@ while IFS= read -r REPO_NAME; do
     FILES_ADDED=0
     FILES_LIST=""
 
+    # 2 means the branch could not be created, so the rest of this branch's files cannot
+    # land either. Any other non-zero is one file's failure, and the loop carries on.
+    #
+    # Warning: capture the status into a variable rather than testing `$?` inside a `||`
+    # group. The group's own status then decides whether the list failed, which puts the
+    # control flow at the mercy of how `set -e` reads a compound command.
     for WORKFLOW in "${REQUIRED_WORKFLOWS[@]}"; do
+      WORKFLOW_RC=0
       ensure_workflow "$WORKFLOW" "$TEMPLATE_DIR/$WORKFLOW" \
-        "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || \
-        { [[ $? -eq 2 ]] && break; }
+        "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || WORKFLOW_RC=$?
+
+      if [[ "$WORKFLOW_RC" -eq 2 ]]; then
+        break
+      fi
     done
 
     if [[ -n "$LANG_DIR" ]]; then
       for WORKFLOW in "${LANG_WORKFLOWS[@]}"; do
+        WORKFLOW_RC=0
         ensure_workflow "$WORKFLOW" "$TEMPLATE_DIR/$LANG_DIR/$WORKFLOW" \
-          "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || \
-          { [[ $? -eq 2 ]] && break; }
+          "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || WORKFLOW_RC=$?
+
+        if [[ "$WORKFLOW_RC" -eq 2 ]]; then
+          break
+        fi
       done
       ensure_workflow "create-version-branch.yml" "$TEMPLATE_DIR/$LANG_DIR/create-version-branch.yml" \
         "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
