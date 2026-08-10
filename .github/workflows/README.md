@@ -268,6 +268,18 @@ fails the gate — the release fails on a bump nothing had a chance to take.
 Refreshing inside the release shortens that window to the minutes between the
 merge and the gate.
 
+A branch with nothing else pending is not refreshed by its release. The refresh
+sits behind `should-release`, and `check-version` reports false for a branch
+with no pending commits. The two dependency sweeps cover that case: each
+repository's own cron at 09:00, and `update-dependencies-all-repos.yml` at
+04:00. The hourly auto-merge sweep lands each bump as a `[Dependency] build:`
+commit before the first release slot at 10:00, so the same day's release ships
+it.
+
+The alternative is to refresh before the version is computed. Every quiet
+repository would then run a full dependency update to discover it has nothing
+to release.
+
 The merge step runs `auto-merge-bot-prs.sh`, the hourly sweep's own script,
 narrowed to one repository and one base branch and told to wait. Which pull
 request qualifies, and which checks have to pass, is decided in one place.
