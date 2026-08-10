@@ -506,10 +506,13 @@ while IFS= read -r REPO_NAME; do
 
         echo "  [$BASE_BRANCH] Creating PR from $UPDATE_BRANCH → $BASE_BRANCH..."
 
-        # Keep the reason. This create is the one a failed pull request list hands off to. Its
-        # answers differ: a pull request already exists, or the create was refused. The second
-        # is a defect in this run, and only the message tells them apart. Keep the URL too —
-        # `gh pr create` writes it to stdout, and it is how an operator finds the new work.
+        # Keep the reason. This create is the one a failed pull request list hands off to, and
+        # only the message separates its two answers. GitHub refuses a create because the pull
+        # request is open already, and that refusal leaves nothing undone. Every other refusal
+        # leaves commits on a branch that no pull request shows, so the count below takes it.
+        #
+        # Keep the URL too. `gh pr create` writes the new pull request's address to stdout, and
+        # an operator reads that line to find what the sweep opened.
         PR_CREATE_ERR_FILE=$(mktemp)
         PR_URL=$(gh pr create \
           --repo "$ORG/$REPO_NAME" \
@@ -523,6 +526,10 @@ while IFS= read -r REPO_NAME; do
 
         if [[ "$PR_CREATE_OK" -eq 0 ]]; then
           echo "  [$BASE_BRANCH] PR creation failed: ${PR_CREATE_ERR:-no message}"
+
+          if [[ "$PR_CREATE_ERR" != *"already exists"* ]]; then
+            record_unfinished "$REPO_NAME [$BASE_BRANCH]: PR creation failed: ${PR_CREATE_ERR:-no message}"
+          fi
         else
           echo "  [$BASE_BRANCH] PR created: $PR_URL"
         fi
