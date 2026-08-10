@@ -594,8 +594,9 @@ commit supplies the verifier as well, and a verifier that always passes proves n
 
 #### What a `run:` block keeps
 
-A `run:` block keeps two things. The first is the call that names a script, which the section above
-describes. The second is glue.
+A `run:` block keeps three things. The first is the call that names a script, which the section
+above describes. The second is the check that proves a checkout is the pinned commit, which the
+warning above covers. The third is glue.
 
 Glue is a line or two that moves one value: an environment value that the next step reads, or one
 API call that fills a step output. Glue holds no condition, no loop, and no pipeline, so a linter
