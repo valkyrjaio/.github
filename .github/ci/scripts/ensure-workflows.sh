@@ -94,20 +94,38 @@ REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
 # Warning: `unread` also covers a `--jq` filter that does not fit a response the server
 # returned in full. That is a defect in this script rather than a transient answer. It
 # reaches the same exit, because neither gives the sweep a result it can use.
+#
+# The read runs up to three times, as `fetch_json` does in `update-workflow-refs.sh` and in
+# `auto-merge-bot-prs.sh`. This sweep asks more of the API than either of them: a branch list
+# per repository, then two ref reads and nine contents reads per base branch. A 403 secondary
+# rate limit or a 5xx is the ordinary answer at that rate, and one of them would otherwise
+# fail the whole run. A 2xx and a 404 are answers, so both end the loop at once.
 read_exists() {
   local url="$1"
   local jq_filter="${2:-}"
   local paginate="${3:-}"
-  local err_file status message
+  local err_file status message attempt
   local args=(api "$url")
 
   [[ -n "$jq_filter" ]] && args+=(--jq "$jq_filter")
   [[ -n "$paginate" ]] && args+=(--paginate)
 
   err_file=$(mktemp)
-  READ_BODY=$(gh "${args[@]}" 2>"$err_file") && status=0 || status=$?
 
-  message=$(cat "$err_file")
+  for attempt in 1 2 3; do
+    READ_BODY=$(gh "${args[@]}" 2>"$err_file") && status=0 || status=$?
+    message=$(cat "$err_file")
+
+    if [[ "$status" -eq 0 ]] || [[ "$message" == *"HTTP 404"* ]]; then
+      break
+    fi
+
+    if [[ "$attempt" -lt 3 ]]; then
+      echo "  Retrying $url after: ${message:-gh exited $status with no message}"
+      sleep "$attempt"
+    fi
+  done
+
   rm -f "$err_file"
 
   if [[ "$status" -eq 0 ]]; then
