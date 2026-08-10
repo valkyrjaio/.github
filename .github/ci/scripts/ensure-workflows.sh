@@ -118,11 +118,19 @@ ensure_workflow() {
 
   local file_path=".github/workflows/$workflow"
 
-  local existing
-  existing=$(gh api "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch" \
-    --jq '.name' 2>/dev/null) || existing=""
+  # Warning: this read decides whether the file gets created, so a transient answer must not
+  # look like an absent file. `|| existing=""` blanked every error alike, including a 403.
+  # Only a definite 404 means the file is absent.
+  local existing_err
+  existing_err=$(gh api "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch" \
+    --silent 2>&1 >/dev/null || true)
 
-  if [[ -n "$existing" ]]; then
+  if [[ -n "$existing_err" ]] && [[ "$existing_err" != *"HTTP 404"* ]]; then
+    echo "  [$base_branch] $file_path: could not read: $existing_err"
+    return 1
+  fi
+
+  if [[ -z "$existing_err" ]]; then
     echo "  [$base_branch] $file_path: already exists, skipping"
     return 0
   fi
