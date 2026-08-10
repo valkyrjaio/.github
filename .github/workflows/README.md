@@ -599,8 +599,8 @@ above describes. The second is the check that proves a checkout is the pinned co
 warning above covers. The third is glue.
 
 Glue is a line or two that moves one value. Glue holds no condition, no loop, and no pipeline, so a
-linter has nothing to report on it. The value lands where the next step reads it: a step output, or
-a line in a file.
+linter has nothing to report on it. The value lands where a later step reads it: a step output, or a
+line in a file.
 
 ```yaml
 # Right — the step moves one value into a step output, so it holds no logic.
