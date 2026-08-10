@@ -316,10 +316,10 @@ while IFS= read -r REPO_NAME; do
   # branch pattern below. The repository would then look like one with no supported branch,
   # and the fallback further down would aim the sweep at `master`.
   #
-  # Paginated, because a repository can carry more version branches than one page holds. The
-  # page size goes with it: `gh api` sets none, so the endpoint would serve 30 at a time.
+  # Paginated, because a repository can carry more version branches than one page holds.
+  # `gh` sets `per_page=100` itself under `--paginate`, so the path names no page size.
   # `--paginate` fails the whole read, so no partial list reaches the loop below.
-  read_exists "repos/$ORG/$REPO_NAME/branches?per_page=100" '.[].name' paginate
+  read_exists "repos/$ORG/$REPO_NAME/branches" '.[].name' paginate
   ALL_BRANCHES="$READ_BODY"
 
   if [[ "$READ_STATE" != "ok" ]]; then
