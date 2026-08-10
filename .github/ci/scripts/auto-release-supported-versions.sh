@@ -475,7 +475,11 @@ else
     # spent budget means the sweep never looked at this run at all, so its outcome is unknown
     # rather than probably fine, and reporting it as a timeout would let a failed release
     # finish the slot green.
-    if [[ "$REMAINING" -le 0 ]]; then
+    #
+    # The boundary is one poll rather than zero. A budget shorter than a single pass buys one
+    # query and one sleep, and `wait_for_dispatch` then reports `timeout` — the green answer —
+    # for a run it had no time to watch.
+    if [[ "$REMAINING" -le "$POLL_SECONDS" ]]; then
       OUTCOME="unwatched"
       UNWATCHED_WORK="$UNWATCHED_WORK"$'\n'"$REPO_NAME $BRANCH"
     else
