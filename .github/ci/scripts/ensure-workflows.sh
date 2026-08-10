@@ -88,11 +88,23 @@ create_branch_if_needed() {
   # read arrives as the error JSON rather than as an empty string. The branch below would then
   # be created from it. `local` is declared apart from the assignment, so the assignment carries
   # gh's status rather than `local`'s.
-  local base_sha
-  if ! base_sha=$(gh api "repos/$ORG/$repo_name/git/refs/heads/$base_branch" \
-    --jq '.object.sha'); then
-    echo "  [$base_branch] Could not get base branch SHA, skipping"
-    UNREADABLE=$((UNREADABLE + 1))
+  # A 404 here is an answer: the base branch does not exist, which the `master` fallback can
+  # produce for a repository that carries neither a version branch nor `master`. Counting it
+  # as unread would fail the sweep on a fact the API stated.
+  local base_sha base_err err_msg
+  base_err=$(mktemp)
+  base_sha=$(gh api "repos/$ORG/$repo_name/git/refs/heads/$base_branch" \
+    --jq '.object.sha' 2>"$base_err") || base_sha=""
+  err_msg=$(cat "$base_err")
+  rm -f "$base_err"
+
+  if [[ -n "$err_msg" ]]; then
+    echo "  [$base_branch] Could not get base branch SHA: $err_msg"
+
+    if [[ "$err_msg" != *"HTTP 404"* ]]; then
+      UNREADABLE=$((UNREADABLE + 1))
+    fi
+
     return 2
   fi
 
@@ -274,10 +286,21 @@ while IFS= read -r REPO_NAME; do
   # The message is kept rather than suppressed, because a repository name alone does not say
   # whether a second run would answer differently. Only stdout is captured here, so `gh`
   # writes its message straight to the job log.
-  if ! ALL_BRANCHES=$(gh api "repos/$ORG/$REPO_NAME/branches" --paginate \
-    --jq '.[].name'); then
-    echo "  Could not read the branch list, skipping."
-    UNREADABLE=$((UNREADABLE + 1))
+  BRANCH_ERR_FILE=$(mktemp)
+  ALL_BRANCHES=$(gh api "repos/$ORG/$REPO_NAME/branches" --paginate \
+    --jq '.[].name' 2>"$BRANCH_ERR_FILE") || ALL_BRANCHES=""
+  BRANCH_ERR=$(cat "$BRANCH_ERR_FILE")
+  rm -f "$BRANCH_ERR_FILE"
+
+  if [[ -n "$BRANCH_ERR" ]]; then
+    echo "  Could not read the branch list, skipping: $BRANCH_ERR"
+
+    # A 404 is an answer: the repository is gone since the listing. Every other answer leaves
+    # the sweep without one.
+    if [[ "$BRANCH_ERR" != *"HTTP 404"* ]]; then
+      UNREADABLE=$((UNREADABLE + 1))
+    fi
+
     continue
   fi
 
@@ -416,10 +439,9 @@ while IFS= read -r REPO_NAME; do
   done <<< "$BASE_BRANCHES"
 done <<< "$REPOS"
 
-# Every read above answers the same question — does this exist? — and a transient answer means
-# the sweep does not know. A run that passed over work it could not see is not a clean run, so
-# the count decides the exit rather than the log alone.
+# Every read above asks the same question: does this exist? A transient answer means the sweep
+# does not know. The count decides the exit, because a log line alone reports a clean run.
 if [[ "$UNREADABLE" -gt 0 ]]; then
-  echo "$UNREADABLE read(s) went unanswered. The sweep passed over work it could not see."
+  echo "$UNREADABLE read(s) went unanswered. The sweep cannot report a clean run over them."
   exit 1
 fi
