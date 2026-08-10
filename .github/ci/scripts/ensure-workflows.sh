@@ -76,6 +76,46 @@ PHP_EXCLUDED_REPOS="valkyrja-benchmarking-php valkyrja-docker-php"
 REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
   --jq '.[] | select(.isArchived == false and .name != ".github") | .name')
 
+# Asks whether something exists, and separates the three answers a read can give. Sets
+# READ_BODY to the response, and READ_STATE to one of `ok`, `absent` or `unread`.
+#
+# Warning: the exit status decides, not the message. A `gh` call that fails while writing
+# nothing to stderr would otherwise look like a success with an empty body, which is how a
+# missing branch list once aimed this sweep at `master`.
+read_exists() {
+  local url="$1"
+  local jq_filter="${2:-}"
+  local err_file status message
+
+  err_file=$(mktemp)
+
+  if [[ -n "$jq_filter" ]]; then
+    READ_BODY=$(gh api "$url" --jq "$jq_filter" 2>"$err_file") && status=0 || status=$?
+  else
+    READ_BODY=$(gh api "$url" 2>"$err_file") && status=0 || status=$?
+  fi
+
+  message=$(cat "$err_file")
+  rm -f "$err_file"
+
+  if [[ "$status" -eq 0 ]]; then
+    READ_STATE="ok"
+    READ_MESSAGE=""
+    return 0
+  fi
+
+  READ_BODY=""
+  READ_MESSAGE="${message:-gh exited $status with no message}"
+
+  if [[ "$message" == *"HTTP 404"* ]]; then
+    READ_STATE="absent"
+  else
+    READ_STATE="unread"
+  fi
+
+  return 0
+}
+
 create_branch_if_needed() {
   local base_branch="$1"
   local update_branch="$2"
@@ -84,27 +124,15 @@ create_branch_if_needed() {
   [[ -n "$BRANCH_EXISTS" ]] && return 0
 
   echo "  [$base_branch] Creating branch $update_branch..."
-  # Warning: read the exit status. `gh api --jq` leaves an error body unfiltered, so a failed
-  # read arrives as the error JSON rather than as an empty string. The branch below would then
-  # be created from it. `local` is declared apart from the assignment, so the assignment carries
-  # gh's status rather than `local`'s.
   # A 404 here is an answer: the base branch does not exist. The `master` fallback produces
   # that for a repository carrying neither a version branch nor `master`. Counting it as unread
   # would fail the sweep on a fact the API stated.
-  local base_sha base_err err_msg
-  base_err=$(mktemp)
-  base_sha=$(gh api "repos/$ORG/$repo_name/git/refs/heads/$base_branch" \
-    --jq '.object.sha' 2>"$base_err") || base_sha=""
-  err_msg=$(cat "$base_err")
-  rm -f "$base_err"
+  read_exists "repos/$ORG/$repo_name/git/refs/heads/$base_branch" '.object.sha'
+  local base_sha="$READ_BODY"
 
-  if [[ -n "$err_msg" ]]; then
-    echo "  [$base_branch] Could not get base branch SHA: $err_msg"
-
-    if [[ "$err_msg" != *"HTTP 404"* ]]; then
-      UNREADABLE=$((UNREADABLE + 1))
-    fi
-
+  if [[ "$READ_STATE" != "ok" ]]; then
+    echo "  [$base_branch] Could not get base branch SHA: $READ_MESSAGE"
+    [[ "$READ_STATE" == "unread" ]] && UNREADABLE=$((UNREADABLE + 1))
     return 2
   fi
 
@@ -138,17 +166,15 @@ ensure_workflow() {
   # Warning: this read decides whether the file gets created, so a transient answer must not
   # look like an absent file. `|| existing=""` blanked every error alike, including a 403.
   # Only a definite 404 means the file is absent.
-  local existing_err
-  existing_err=$(gh api "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch" \
-    --silent 2>&1 >/dev/null || true)
+  read_exists "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch" '.name'
 
-  if [[ -n "$existing_err" ]] && [[ "$existing_err" != *"HTTP 404"* ]]; then
-    echo "  [$base_branch] $file_path: could not read: $existing_err"
+  if [[ "$READ_STATE" == "unread" ]]; then
+    echo "  [$base_branch] $file_path: could not read: $READ_MESSAGE"
     UNREADABLE=$((UNREADABLE + 1))
     return 1
   fi
 
-  if [[ -z "$existing_err" ]]; then
+  if [[ "$READ_STATE" == "ok" ]]; then
     echo "  [$base_branch] $file_path: already exists, skipping"
     return 0
   fi
@@ -202,20 +228,16 @@ ensure_ci_jobs() {
   # Warning: an absent file and an unanswered call are not the same thing. `|| true` made every
   # answer non-empty, including a 404. The test below then read every file as present, and the
   # create path never ran. Only a definite 404 means the file is absent.
-  local file_data file_err err_msg
-  file_err=$(mktemp)
-  file_data=$(gh api "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch" 2>"$file_err") \
-    || file_data=""
-  err_msg=$(cat "$file_err")
-  rm -f "$file_err"
+  read_exists "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch"
+  local file_data="$READ_BODY"
 
-  if [[ -n "$err_msg" ]] && [[ "$err_msg" != *"HTTP 404"* ]]; then
-    echo "  [$base_branch] $file_path: could not read: $err_msg"
+  if [[ "$READ_STATE" == "unread" ]]; then
+    echo "  [$base_branch] $file_path: could not read: $READ_MESSAGE"
     UNREADABLE=$((UNREADABLE + 1))
     return 1
   fi
 
-  if [[ -z "$file_data" ]]; then
+  if [[ "$READ_STATE" == "absent" ]]; then
     echo "  [$base_branch] $file_path: missing, will create"
     create_branch_if_needed "$base_branch" "$update_branch" "$repo_name" || return $?
 
@@ -286,21 +308,13 @@ while IFS= read -r REPO_NAME; do
   # The message is kept rather than suppressed, because a repository name alone does not say
   # whether a second run would answer differently. Only stdout is captured here, so `gh`
   # writes its message straight to the job log.
-  BRANCH_ERR_FILE=$(mktemp)
-  ALL_BRANCHES=$(gh api "repos/$ORG/$REPO_NAME/branches" --paginate \
-    --jq '.[].name' 2>"$BRANCH_ERR_FILE") || ALL_BRANCHES=""
-  BRANCH_ERR=$(cat "$BRANCH_ERR_FILE")
-  rm -f "$BRANCH_ERR_FILE"
+  # `--paginate` fails the whole read, so no partial list reaches the loop below.
+  read_exists "repos/$ORG/$REPO_NAME/branches?per_page=100" '.[].name'
+  ALL_BRANCHES="$READ_BODY"
 
-  if [[ -n "$BRANCH_ERR" ]]; then
-    echo "  Could not read the branch list, skipping: $BRANCH_ERR"
-
-    # A 404 is an answer: the repository is gone since the listing. Every other answer leaves
-    # the sweep without one.
-    if [[ "$BRANCH_ERR" != *"HTTP 404"* ]]; then
-      UNREADABLE=$((UNREADABLE + 1))
-    fi
-
+  if [[ "$READ_STATE" != "ok" ]]; then
+    echo "  Could not read the branch list, skipping: $READ_MESSAGE"
+    [[ "$READ_STATE" == "unread" ]] && UNREADABLE=$((UNREADABLE + 1))
     continue
   fi
 
@@ -346,8 +360,14 @@ while IFS= read -r REPO_NAME; do
       UPDATE_BRANCH="deps/ensure-workflows-$BASE_BRANCH"
     fi
 
-    BRANCH_EXISTS=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/$UPDATE_BRANCH" \
-      --jq '.object.sha' 2>/dev/null) || BRANCH_EXISTS=""
+    read_exists "repos/$ORG/$REPO_NAME/git/refs/heads/$UPDATE_BRANCH" '.object.sha'
+    BRANCH_EXISTS="$READ_BODY"
+
+    if [[ "$READ_STATE" == "unread" ]]; then
+      echo "  [$BASE_BRANCH] Could not check for $UPDATE_BRANCH: $READ_MESSAGE"
+      UNREADABLE=$((UNREADABLE + 1))
+      continue
+    fi
 
     FILES_ADDED=0
     FILES_LIST=""
