@@ -646,8 +646,8 @@ body taken from the raw lines carries a trailing blank line the step never had.
 ### Reaching the script, and what `run-script` costs
 
 Three cases. A caller decides between the first two, and the code decides the third, because an
-action reaches a script its own way. The first two cases carry two forms each, and the person who
-writes the workflow chooses between them on the criterion below:
+action reaches a script its own way. The first two cases carry two forms each. One constraint and
+three preferences, listed below the table, decide which form a step takes:
 
 | The workflow runs          | The script is reached by                                                                                                                               | Because                                     |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
@@ -677,10 +677,12 @@ Three preferences remain. The first takes the direct form, and the other two tak
 - **A step that must prove what it ran.** `expected-ref` fails the step unless the checkout is the
   commit the caller pinned.
 
-Warning: a step that matches the constraint and a preference at once takes the direct form. A
-workflow recovers each preference another way. It pins its own checkout at `job.workflow_sha`, and
-it builds a comment from a value the script wrote. `checkout-existing-pr-branch.sh` is that step,
-and its three callers pin the checkout themselves.
+A workflow recovers most of what the direct form gives up. It pins its own checkout at
+`job.workflow_sha`, which every direct call in this repository does, and it builds a comment from a
+value the script wrote. The live log is the one thing the action cannot give back.
+
+Warning: the constraint outranks every preference. A step that matches the constraint and a
+preference at once takes the direct form.
 
 ---
 

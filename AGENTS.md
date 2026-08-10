@@ -30,9 +30,10 @@ workflow, so moving the shell into a script is what puts it under a linter. See
 [Scripts](.github/workflows/README.md#scripts) for how a workflow reaches one,
 and for the `set` line each kind of caller needs.
 
-So the logic of a step lives in `.github/ci/scripts/`, and the workflow or the
-action names the script — through the `run-script` action, or in a `run:` step
-that runs the script directly. Besides that call, a `run:` block holds glue: a
+So the logic of a step lives in `.github/ci/scripts/`, and the step names the
+script. A workflow takes one of two forms: the `run-script` action, or a `run:`
+step that runs the script directly. An action takes the direct form alone, and
+it reaches its script through `$ACTION_PATH`. Besides that call, a `run:` block holds glue: a
 line or two that moves one value, such as the step that reads the bot user id
 into a step output. Warning: one check stays inline whatever it holds. The check
 that proves a checkout is the pinned commit reads the tree that holds the
