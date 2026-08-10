@@ -1356,8 +1356,8 @@ force-pushes onto the same branch. Each language also has a
 `_<lang>-check-outdated-dependencies.yml` gate, which runs before a release
 proceeds.
 
-To pass extra flags (e.g., ignore a platform requirement), embed them directly
-in the `command` string of that input:
+The input is a JSON array in a block scalar. To pass extra flags (e.g., ignore a
+platform requirement), embed them directly in the `command` string:
 
 ```yaml
 dependencies: |
