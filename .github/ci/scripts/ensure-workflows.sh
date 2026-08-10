@@ -86,10 +86,10 @@ REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
 # to what `gh` said. Read all three straight after the call, because the next call overwrites
 # them.
 #
-# Warning: the exit status decides, not the body and not the message. `gh api` skips `--jq`
-# on an error, so an error body reaches stdout unfiltered and reads as data. That is how an
-# unreadable branch list once aimed this sweep at `master`. A call that fails while writing
-# nothing to stderr is the same trap from the other side.
+# Warning: the exit status decides whether the read succeeded. `gh api` skips `--jq` on an
+# error, so an error body reaches stdout unfiltered and reads as data. That is how an
+# unreadable branch list once aimed this sweep at `master`. The body and the message then
+# separate the three states, but neither one decides success.
 #
 # Warning: `unread` also covers a `--jq` filter that does not fit a response the server
 # returned in full. That is a defect in this script rather than a transient answer. It
@@ -151,16 +151,17 @@ create_branch_if_needed() {
   read_exists "repos/$ORG/$repo_name/git/refs/heads/$base_branch" '.object.sha'
   local base_sha="$READ_BODY"
 
-  if [[ "$READ_STATE" != "ok" ]]; then
-    echo "  [$base_branch] Could not get base branch SHA: $READ_MESSAGE"
-    [[ "$READ_STATE" == "unread" ]] && UNREADABLE=$((UNREADABLE + 1))
+  if [[ "$READ_STATE" == "unread" ]]; then
+    echo "  [$base_branch] Could not read the base branch SHA: $READ_MESSAGE"
+    UNREADABLE=$((UNREADABLE + 1))
     return 2
   fi
 
-  if [[ -z "$base_sha" ]]; then
-    echo "  [$base_branch] Base branch SHA is empty, skipping"
+  if [[ "$READ_STATE" == "absent" ]]; then
+    echo "  [$base_branch] Base branch does not exist, skipping"
     return 2
   fi
+
   local branch_create_err
   branch_create_err=$(gh api --method POST "repos/$ORG/$repo_name/git/refs" \
     --field "ref=refs/heads/$update_branch" \
@@ -435,8 +436,9 @@ while IFS= read -r REPO_NAME; do
       echo "  [$BASE_BRANCH] $FILES_ADDED file(s) added/updated — checking for existing PR..."
 
       # `read_exists` reads `gh api`, and this reads `gh pr list`, so it applies the same rule
-      # by hand: the exit status decides. An empty list is an answer here, and a failed call is
-      # not, so the two must not both arrive as the empty string.
+      # by hand: the exit status decides. A failed read then takes the create path with the
+      # count already incremented, because a branch carrying commits and no pull request is
+      # worse than a create that fails on one already there.
       PR_ERR_FILE=$(mktemp)
       EXISTING_PR=$(gh pr list --repo "$ORG/$REPO_NAME" \
         --state open \
