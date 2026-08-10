@@ -106,7 +106,9 @@ jobs:
           BOT_LOGIN: ${{ inputs.bot-login }}
           ENABLED_TYPES: 'Dependency'
           EXCLUDE_REPOS: ''
-          SUPPORTED_VERSIONS: ${{ vars.SUPPORTED_VERSIONS }}
+          # No SUPPORTED_VERSIONS. BASE_FILTER below names the one branch this release is cut
+          # from, which is the stricter constraint, and a version filter that disagreed with it
+          # would skip the merge the release is waiting for.
           REVIEWER: ${{ vars.VALKYRJA_REVIEWER }}
           DRY_RUN: false
           SINGLE_REPO: ${{ github.event.repository.name }}
