@@ -37,6 +37,10 @@
 # `run-script` invokes sets `pipefail` and this one does not.
 set -e
 
+# Counts a read that went unanswered, at any of the four sites that ask whether
+# something exists. The exit at the end of the file reports them together.
+UNREADABLE=0
+
 # The script names a sibling file below, and the caller runs it from the workspace root
 # rather than from this directory. `BASH_SOURCE` is what makes the sibling reachable from
 # either one.
@@ -86,8 +90,9 @@ create_branch_if_needed() {
   # gh's status rather than `local`'s.
   local base_sha
   if ! base_sha=$(gh api "repos/$ORG/$repo_name/git/refs/heads/$base_branch" \
-    --jq '.object.sha' 2>/dev/null); then
+    --jq '.object.sha'); then
     echo "  [$base_branch] Could not get base branch SHA, skipping"
+    UNREADABLE=$((UNREADABLE + 1))
     return 2
   fi
 
@@ -127,6 +132,7 @@ ensure_workflow() {
 
   if [[ -n "$existing_err" ]] && [[ "$existing_err" != *"HTTP 404"* ]]; then
     echo "  [$base_branch] $file_path: could not read: $existing_err"
+    UNREADABLE=$((UNREADABLE + 1))
     return 1
   fi
 
@@ -193,6 +199,7 @@ ensure_ci_jobs() {
 
   if [[ -n "$err_msg" ]] && [[ "$err_msg" != *"HTTP 404"* ]]; then
     echo "  [$base_branch] $file_path: could not read: $err_msg"
+    UNREADABLE=$((UNREADABLE + 1))
     return 1
   fi
 
@@ -270,6 +277,7 @@ while IFS= read -r REPO_NAME; do
   if ! ALL_BRANCHES=$(gh api "repos/$ORG/$REPO_NAME/branches" --paginate \
     --jq '.[].name'); then
     echo "  Could not read the branch list, skipping."
+    UNREADABLE=$((UNREADABLE + 1))
     continue
   fi
 
@@ -407,3 +415,11 @@ while IFS= read -r REPO_NAME; do
     fi
   done <<< "$BASE_BRANCHES"
 done <<< "$REPOS"
+
+# Every read above answers the same question — does this exist? — and a transient answer means
+# the sweep does not know. A run that passed over work it could not see is not a clean run, so
+# the count decides the exit rather than the log alone.
+if [[ "$UNREADABLE" -gt 0 ]]; then
+  echo "$UNREADABLE read(s) went unanswered. The sweep passed over work it could not see."
+  exit 1
+fi
