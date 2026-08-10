@@ -81,9 +81,9 @@ create_branch_if_needed() {
 
   echo "  [$base_branch] Creating branch $update_branch..."
   # Warning: read the exit status. `gh api --jq` leaves an error body unfiltered, so a failed
-  # read arrives as the error JSON rather than as the empty string this test looks for, and the
-  # branch below would be created from it. `local` is declared apart from the assignment, so the
-  # assignment carries gh's status rather than `local`'s.
+  # read arrives as the error JSON rather than as an empty string. The branch below would then
+  # be created from it. `local` is declared apart from the assignment, so the assignment carries
+  # gh's status rather than `local`'s.
   local base_sha
   if ! base_sha=$(gh api "repos/$ORG/$repo_name/git/refs/heads/$base_branch" \
     --jq '.object.sha' 2>/dev/null); then
@@ -91,7 +91,9 @@ create_branch_if_needed() {
     return 2
   fi
 
-  if [[ -z "$base_sha" ]]; then
+  # `--jq` writes a string raw and encodes anything else. An absent `.object.sha` on a 200
+  # therefore arrives as the four characters `null`, not as an empty string.
+  if [[ -z "$base_sha" ]] || [[ "$base_sha" == "null" ]]; then
     echo "  [$base_branch] Base branch SHA came back empty, skipping"
     return 2
   fi
@@ -171,10 +173,9 @@ ensure_ci_jobs() {
     return 1
   fi
 
-  # Warning: an absent file and an unanswered call are not the same thing. `|| true` made them
-  # identical, and the empty-string test below then read a rate limit or a 5xx as "the file is
-  # missing" — which creates a branch and commits over a file that is already there. Only a
-  # definite 404 means the file is absent.
+  # Warning: an absent file and an unanswered call are not the same thing. `|| true` made every
+  # answer non-empty, including a 404. The test below then read every file as present, and the
+  # create path never ran. Only a definite 404 means the file is absent.
   local file_data file_err err_msg
   file_err=$(mktemp)
   file_data=$(gh api "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch" 2>"$file_err") \
@@ -251,8 +252,13 @@ ensure_ci_jobs() {
 while IFS= read -r REPO_NAME; do
   echo "Checking $ORG/$REPO_NAME..."
 
-  ALL_BRANCHES=$(gh api "repos/$ORG/$REPO_NAME/branches" --paginate \
-    --jq '.[].name' 2>/dev/null || true)
+  # Warning: read the exit status. A failed read arrives as the error JSON, which matches no
+  # branch pattern below, so the repository would look like one with no supported branch.
+  if ! ALL_BRANCHES=$(gh api "repos/$ORG/$REPO_NAME/branches" --paginate \
+    --jq '.[].name' 2>/dev/null); then
+    echo "  Could not read the branch list, skipping."
+    continue
+  fi
 
   BASE_BRANCHES=""
   while IFS= read -r b; do
