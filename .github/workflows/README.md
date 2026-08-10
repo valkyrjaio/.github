@@ -1357,7 +1357,7 @@ force-pushes onto the same branch. Each language also has a
 proceeds.
 
 To pass extra flags (e.g., ignore a platform requirement), embed them directly
-in the `command` string:
+in the `command` string of that input:
 
 ```yaml
 dependencies: |
