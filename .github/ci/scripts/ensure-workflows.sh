@@ -471,11 +471,15 @@ while IFS= read -r REPO_NAME; do
       # by hand: the exit status decides. A failed read then takes the create path, with the
       # count already incremented. A branch carrying commits and no pull request is worse than
       # a create that fails on one already there.
+      # `--head` asks the server the question. `gh pr list` pages at 30, so a repository that
+      # holds more open pull requests than that can carry this branch's outside the page, and a
+      # filter over the page would then answer a definite no.
       PR_ERR_FILE=$(mktemp)
       EXISTING_PR=$(gh pr list --repo "$ORG/$REPO_NAME" \
         --state open \
+        --head "$UPDATE_BRANCH" \
         --json headRefName \
-        --jq "[.[] | select(.headRefName == \"$UPDATE_BRANCH\")] | first | .headRefName // \"\"" \
+        --jq 'first | .headRefName // ""' \
         2>"$PR_ERR_FILE") && PR_READ_OK=1 || PR_READ_OK=0
       PR_ERR=$(cat "$PR_ERR_FILE")
       rm -f "$PR_ERR_FILE"
