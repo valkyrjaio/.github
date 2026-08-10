@@ -646,8 +646,8 @@ body taken from the raw lines carries a trailing blank line the step never had.
 ### Reaching the script, and what `run-script` costs
 
 Three cases. A caller decides between the first two, and the code decides the third, because an
-action reaches a script its own way. The first two cases carry two forms each. One constraint and
-three preferences, listed below the table, decide which form a step takes:
+action reaches a script its own way. The first two cases carry two forms each, and the list below
+the table decides which form a step takes:
 
 | The workflow runs          | The script is reached by                                                                                                                               | Because                                     |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
@@ -664,7 +664,7 @@ The exit status decides nothing. `run-script` ends with the status of the script
 own job through the action as surely as it does from a `run:` block. One constraint and three
 preferences decide the form instead.
 
-The constraint takes the direct form, and it outranks every preference below:
+The constraint takes the direct form:
 
 - **The step gives the job another value.** The script writes the value to `$GITHUB_OUTPUT`, and the
   action forwards no output of its own. No workflow works around this one.
@@ -677,12 +677,10 @@ Three preferences remain. The first takes the direct form, and the other two tak
 - **A step that must prove what it ran.** `expected-ref` fails the step unless the checkout is the
   commit the caller pinned.
 
-A workflow recovers most of what the direct form gives up. It pins its own checkout at
-`job.workflow_sha`, which every direct call in this repository does, and it builds a comment from a
-value the script wrote. The live log is the one thing the action cannot give back.
+A workflow recovers both preferences that the direct form gives up. It pins its own checkout at
+`job.workflow_sha`, and it builds a comment from a value the script wrote.
 
-Warning: the constraint outranks every preference. A step that matches the constraint and a
-preference at once takes the direct form.
+Warning: a step that matches the constraint and a preference at once takes the direct form.
 
 ---
 

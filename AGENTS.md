@@ -33,12 +33,12 @@ and for the `set` line each kind of caller needs.
 So the logic of a step lives in `.github/ci/scripts/`, and the step names the
 script. A workflow takes one of two forms: the `run-script` action, or a `run:`
 step that runs the script directly. An action takes the direct form alone, and
-it reaches its script through `$ACTION_PATH`. Besides that call, a `run:` block holds glue: a
-line or two that moves one value, such as the step that reads the bot user id
-into a step output. Warning: one check stays inline whatever it holds. The check
-that proves a checkout is the pinned commit reads the tree that holds the
-scripts, so a script cannot carry it. The rule, the two forms, the exception,
-and the examples are in
+it reaches its script through `$ACTION_PATH`. Besides that call, a `run:` block
+holds glue: a line or two that moves one value, such as the step that reads the
+bot user id into a step output. Warning: one check stays inline whatever it
+holds. The check that proves a checkout is the pinned commit reads the tree that
+holds the scripts, so a script cannot carry it. The rule, the two forms, the
+exception, and the examples are in
 [Shell logic belongs in a script](.github/workflows/README.md#shell-logic-belongs-in-a-script).
 
 ## What does NOT apply
