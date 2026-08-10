@@ -34,8 +34,8 @@ So the logic of a step lives in `.github/ci/scripts/`, and the step names the
 script. A workflow takes one of two forms: the `run-script` action, or a `run:`
 step that runs the script directly. An action takes the direct form alone, and
 it reaches its script through `$ACTION_PATH`. Besides that call, a `run:` block
-holds glue: a line or two that moves one value, such as the step that reads the
-bot user id into a step output.
+holds glue. Glue is a line or two that moves one value. The step that reads the
+bot user id into a step output is glue.
 
 Warning: one check stays inline whatever it holds. The check that proves a
 checkout is the pinned commit reads the tree that holds the scripts, so a script
