@@ -535,7 +535,7 @@ hiding it.
 Warning: `shellcheck` and SonarCloud read a `.sh` file. Neither one reads a workflow file, and
 neither one reads an `action.yml`. Every shell rule in the
 [canonical guide](https://github.com/valkyrjaio/architecture/blob/26.x/AGENTS.md#shell-scripts)
-goes unenforced while the logic sits in a `run:` block, so a defect there ships and no tool reports
+goes unenforced while the logic sits in a `run:` block. A defect there ships, and no tool reports
 it.
 
 So the logic of a step lives in `.github/ci/scripts/<name>.sh`, and the step names that script.
@@ -599,8 +599,8 @@ above describes. The second is the check that proves a checkout is the pinned co
 warning above covers. The third is glue.
 
 Glue is a line or two that moves one value: an environment value that the next step reads, or one
-API call that fills a step output. Glue holds no condition, no loop, and no pipeline, so a linter
-has nothing to report on it.
+API call that fills a step output. Glue holds no condition, no loop, and no pipeline. A linter has
+nothing to report on it.
 
 ```yaml
 # Right — the step moves one value into a step output, so it holds no logic.
@@ -661,7 +661,7 @@ after the script exits, so a script that reports progress shows nothing until it
 polls for several minutes then looks identical to a job that is stuck. `run-script` also reports
 `outcome` and `report-markdown` for a caller that posts a comment and decides the result itself.
 
-The exit status decides nothing. `run-script` ends with the status of the script, so a gate fails its
+The exit status decides nothing. `run-script` ends with the status of the script. A gate fails its
 own job through the action as surely as it does from a `run:` block. One constraint and three
 preferences decide the form instead.
 
