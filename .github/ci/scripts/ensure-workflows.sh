@@ -37,8 +37,8 @@
 # `run-script` invokes sets `pipefail` and this one does not.
 set -e
 
-# Counts a read that went unanswered, at every site that asks whether something
-# exists. The exit at the end of the file reports them together.
+# Counts a read that gave no usable answer, at every site that asks whether
+# something exists. The exit at the end of the file reports them together.
 UNREADABLE=0
 
 # The script names a sibling file below, and the caller runs it from the workspace root
@@ -86,9 +86,10 @@ REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
 # to what `gh` said. Read all three straight after the call, because the next call overwrites
 # them.
 #
-# Warning: the exit status decides, not the message. A `gh` call that fails while writing
-# nothing to stderr would otherwise look like a success with an empty body. That is how a
-# missing branch list once aimed this sweep at `master`.
+# Warning: the exit status decides, not the body and not the message. `gh api` skips `--jq`
+# on an error, so an error body reaches stdout unfiltered and reads as data. That is how an
+# unreadable branch list once aimed this sweep at `master`. A call that fails while writing
+# nothing to stderr is the same trap from the other side.
 #
 # Warning: `unread` also covers a `--jq` filter that does not fit a response the server
 # returned in full. That is a defect in this script rather than a transient answer. It
@@ -110,8 +111,17 @@ read_exists() {
   rm -f "$err_file"
 
   if [[ "$status" -eq 0 ]]; then
-    READ_STATE="ok"
     READ_MESSAGE=""
+
+    # `--jq` writes a string raw and encodes anything else, so a filter that finds nothing on
+    # a 200 arrives as the four characters `null`. That is an absent thing, not a body.
+    if [[ "$READ_BODY" == "null" ]]; then
+      READ_BODY=""
+      READ_STATE="absent"
+    else
+      READ_STATE="ok"
+    fi
+
     return 0
   fi
 
@@ -147,10 +157,8 @@ create_branch_if_needed() {
     return 2
   fi
 
-  # `--jq` writes a string raw and encodes anything else. An absent `.object.sha` on a 200
-  # therefore arrives as the four characters `null`, not as an empty string.
-  if [[ -z "$base_sha" ]] || [[ "$base_sha" == "null" ]]; then
-    echo "  [$base_branch] Base branch SHA is empty or null, skipping"
+  if [[ -z "$base_sha" ]]; then
+    echo "  [$base_branch] Base branch SHA is empty, skipping"
     return 2
   fi
   local branch_create_err
@@ -426,11 +434,23 @@ while IFS= read -r REPO_NAME; do
     if [[ "$FILES_ADDED" -gt 0 ]]; then
       echo "  [$BASE_BRANCH] $FILES_ADDED file(s) added/updated — checking for existing PR..."
 
+      # `read_exists` reads `gh api`, and this reads `gh pr list`, so it applies the same rule
+      # by hand: the exit status decides. An empty list is an answer here, and a failed call is
+      # not, so the two must not both arrive as the empty string.
+      PR_ERR_FILE=$(mktemp)
       EXISTING_PR=$(gh pr list --repo "$ORG/$REPO_NAME" \
         --state open \
         --json headRefName \
         --jq "[.[] | select(.headRefName == \"$UPDATE_BRANCH\")] | first | .headRefName // \"\"" \
-        2>/dev/null || true)
+        2>"$PR_ERR_FILE") && PR_READ_OK=1 || PR_READ_OK=0
+      PR_ERR=$(cat "$PR_ERR_FILE")
+      rm -f "$PR_ERR_FILE"
+
+      if [[ "$PR_READ_OK" -eq 0 ]]; then
+        echo "  [$BASE_BRANCH] Could not list pull requests: ${PR_ERR:-no message}"
+        UNREADABLE=$((UNREADABLE + 1))
+        EXISTING_PR=""
+      fi
 
       if [[ -z "$EXISTING_PR" ]]; then
         BODY="# Description"$'\n'$'\n'
