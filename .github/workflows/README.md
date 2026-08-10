@@ -681,13 +681,15 @@ Three preferences remain. The first takes the direct form, and the other two tak
 A workflow recovers one of the two preferences that it gives up. It builds a comment from a value
 the script wrote.
 
-Warning: the direct form recovers the commit, and it does not recover the proof. A `run:` step pins
-its own checkout at `job.workflow_sha`, and nothing reads the result back. An expression that names
-a property no context holds evaluates to an empty string, `actions/checkout` reads an empty `ref` as
+Warning: the direct form recovers the commit, and it does not recover the proof. The job checks this
+repository out at `job.workflow_sha`, and no step reads the result back. An expression that names a
+property no context holds evaluates to an empty string, `actions/checkout` reads an empty `ref` as
 the default branch, and the job then runs the script from an unpinned commit and reports success.
 `expected-ref` fails the step on that.
 
-A step that matches the constraint and a preference at once takes the direct form.
+A step that matches the constraint and a preference at once takes the direct form, because no
+workflow works around the constraint. That step accepts the weaker guarantee, and the job's own
+pinned checkout is what it has. `checkout-existing-pr-branch.sh` is that step.
 
 ---
 
