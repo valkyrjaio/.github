@@ -76,14 +76,23 @@ PHP_EXCLUDED_REPOS="valkyrja-benchmarking-php valkyrja-docker-php"
 REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
   --jq '.[] | select(.isArchived == false and .name != ".github") | .name')
 
-# Asks whether something exists, and separates the three answers a read can give. Sets
-# READ_BODY to the response, READ_STATE to one of `ok`, `absent` or `unread`, and
-# READ_MESSAGE to what `gh` said. Read all three straight after the call, because the next
-# call overwrites them.
+# Asks whether something exists, and separates the answers a read can give.
+#
+# Takes the API path, an optional `--jq` filter, and an optional third argument that turns on
+# `--paginate`. Any non-empty third argument does it; the call sites pass `paginate` so the
+# line reads.
+#
+# Sets READ_BODY to the response, READ_STATE to `ok`, `absent` or `unread`, and READ_MESSAGE
+# to what `gh` said. Read all three straight after the call, because the next call overwrites
+# them.
 #
 # Warning: the exit status decides, not the message. A `gh` call that fails while writing
-# nothing to stderr would otherwise look like a success with an empty body, which is how a
+# nothing to stderr would otherwise look like a success with an empty body. That is how a
 # missing branch list once aimed this sweep at `master`.
+#
+# Warning: `unread` also covers a `--jq` filter that does not fit a response the server
+# returned in full. That is a defect in this script rather than a transient answer. It
+# reaches the same exit, because neither gives the sweep a result it can use.
 read_exists() {
   local url="$1"
   local jq_filter="${2:-}"
@@ -307,9 +316,10 @@ while IFS= read -r REPO_NAME; do
   # branch pattern below. The repository would then look like one with no supported branch,
   # and the fallback further down would aim the sweep at `master`.
   #
-  # Paginated, because a repository can carry more version branches than one page holds.
+  # Paginated, because a repository can carry more version branches than one page holds. The
+  # page size goes with it: `gh api` sets none, so the endpoint would serve 30 at a time.
   # `--paginate` fails the whole read, so no partial list reaches the loop below.
-  read_exists "repos/$ORG/$REPO_NAME/branches" '.[].name' paginate
+  read_exists "repos/$ORG/$REPO_NAME/branches?per_page=100" '.[].name' paginate
   ALL_BRANCHES="$READ_BODY"
 
   if [[ "$READ_STATE" != "ok" ]]; then
@@ -459,9 +469,10 @@ while IFS= read -r REPO_NAME; do
   done <<< "$BASE_BRANCHES"
 done <<< "$REPOS"
 
-# Every read above asks the same question: does this exist? A transient answer means the sweep
-# does not know. The count decides the exit, because a log line alone reports a clean run.
+# Every read above asks the same question: does this exist? An answer the sweep cannot use
+# leaves it without one. The count decides the exit, because a log line alone reports a clean
+# run.
 if [[ "$UNREADABLE" -gt 0 ]]; then
-  echo "$UNREADABLE read(s) went unanswered. The sweep cannot report a clean run over them."
+  echo "$UNREADABLE read(s) gave no usable answer. The sweep cannot report a clean run."
   exit 1
 fi
