@@ -80,11 +80,19 @@ create_branch_if_needed() {
   [[ -n "$BRANCH_EXISTS" ]] && return 0
 
   echo "  [$base_branch] Creating branch $update_branch..."
+  # Warning: read the exit status. `gh api --jq` leaves an error body unfiltered, so a failed
+  # read arrives as the error JSON rather than as the empty string this test looks for, and the
+  # branch below would be created from it. `local` is declared apart from the assignment, so the
+  # assignment carries gh's status rather than `local`'s.
   local base_sha
-  base_sha=$(gh api "repos/$ORG/$repo_name/git/refs/heads/$base_branch" \
-    --jq '.object.sha' 2>/dev/null || true)
-  if [[ -z "$base_sha" ]]; then
+  if ! base_sha=$(gh api "repos/$ORG/$repo_name/git/refs/heads/$base_branch" \
+    --jq '.object.sha' 2>/dev/null); then
     echo "  [$base_branch] Could not get base branch SHA, skipping"
+    return 2
+  fi
+
+  if [[ -z "$base_sha" ]]; then
+    echo "  [$base_branch] Base branch SHA came back empty, skipping"
     return 2
   fi
   local branch_create_err
@@ -163,8 +171,21 @@ ensure_ci_jobs() {
     return 1
   fi
 
-  local file_data
-  file_data=$(gh api "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch" 2>/dev/null || true)
+  # Warning: an absent file and an unanswered call are not the same thing. `|| true` made them
+  # identical, and the empty-string test below then read a rate limit or a 5xx as "the file is
+  # missing" — which creates a branch and commits over a file that is already there. Only a
+  # definite 404 means the file is absent.
+  local file_data file_err err_msg
+  file_err=$(mktemp)
+  file_data=$(gh api "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch" 2>"$file_err") \
+    || file_data=""
+  err_msg=$(cat "$file_err")
+  rm -f "$file_err"
+
+  if [[ -n "$err_msg" ]] && [[ "$err_msg" != *"HTTP 404"* ]]; then
+    echo "  [$base_branch] $file_path: could not read: $err_msg"
+    return 1
+  fi
 
   if [[ -z "$file_data" ]]; then
     echo "  [$base_branch] $file_path: missing, will create"
