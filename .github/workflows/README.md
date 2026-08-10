@@ -598,9 +598,9 @@ A `run:` block keeps three things. The first is the call that names a script, wh
 above describes. The second is the check that proves a checkout is the pinned commit, which the
 warning above covers. The third is glue.
 
-Glue is a line or two that moves one value. Two shapes qualify: an environment value that the next
-step reads, and one API call that fills a step output. Glue holds no condition, no loop, and no
-pipeline, so a linter has nothing to report on it.
+Glue is a line or two that moves one value. Glue holds no condition, no loop, and no pipeline, so a
+linter has nothing to report on it. The destination does not matter: an environment file, a step
+output, and a line appended to a file are each glue.
 
 ```yaml
 # Right — the step moves one value into a step output, so it holds no logic.
