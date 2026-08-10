@@ -88,9 +88,9 @@ create_branch_if_needed() {
   # read arrives as the error JSON rather than as an empty string. The branch below would then
   # be created from it. `local` is declared apart from the assignment, so the assignment carries
   # gh's status rather than `local`'s.
-  # A 404 here is an answer: the base branch does not exist, which the `master` fallback can
-  # produce for a repository that carries neither a version branch nor `master`. Counting it
-  # as unread would fail the sweep on a fact the API stated.
+  # A 404 here is an answer: the base branch does not exist. The `master` fallback produces
+  # that for a repository carrying neither a version branch nor `master`. Counting it as unread
+  # would fail the sweep on a fact the API stated.
   local base_sha base_err err_msg
   base_err=$(mktemp)
   base_sha=$(gh api "repos/$ORG/$repo_name/git/refs/heads/$base_branch" \
@@ -356,8 +356,8 @@ while IFS= read -r REPO_NAME; do
     # land either. Any other non-zero is one file's failure, and the loop carries on.
     #
     # Warning: capture the status into a variable rather than testing `$?` inside a `||`
-    # group. The group's own status then decides whether the list failed, which puts the
-    # control flow at the mercy of how `set -e` reads a compound command.
+    # group. The group's own status then decides whether the list failed, and how `set -e`
+    # reads a compound command decides the control flow.
     for WORKFLOW in "${REQUIRED_WORKFLOWS[@]}"; do
       WORKFLOW_RC=0
       ensure_workflow "$WORKFLOW" "$TEMPLATE_DIR/$WORKFLOW" \
