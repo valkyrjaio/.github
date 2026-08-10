@@ -77,7 +77,9 @@ REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
   --jq '.[] | select(.isArchived == false and .name != ".github") | .name')
 
 # Asks whether something exists, and separates the three answers a read can give. Sets
-# READ_BODY to the response, and READ_STATE to one of `ok`, `absent` or `unread`.
+# READ_BODY to the response, READ_STATE to one of `ok`, `absent` or `unread`, and
+# READ_MESSAGE to what `gh` said. Read all three straight after the call, because the next
+# call overwrites them.
 #
 # Warning: the exit status decides, not the message. A `gh` call that fails while writing
 # nothing to stderr would otherwise look like a success with an empty body, which is how a
