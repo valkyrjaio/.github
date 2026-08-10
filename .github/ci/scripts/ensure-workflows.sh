@@ -436,9 +436,9 @@ while IFS= read -r REPO_NAME; do
       echo "  [$BASE_BRANCH] $FILES_ADDED file(s) added/updated — checking for existing PR..."
 
       # `read_exists` reads `gh api`, and this reads `gh pr list`, so it applies the same rule
-      # by hand: the exit status decides. A failed read then takes the create path with the
-      # count already incremented, because a branch carrying commits and no pull request is
-      # worse than a create that fails on one already there.
+      # by hand: the exit status decides. A failed read then takes the create path, with the
+      # count already incremented. A branch carrying commits and no pull request is worse than
+      # a create that fails on one already there.
       PR_ERR_FILE=$(mktemp)
       EXISTING_PR=$(gh pr list --repo "$ORG/$REPO_NAME" \
         --state open \
@@ -474,13 +474,18 @@ while IFS= read -r REPO_NAME; do
 
         echo "  [$BASE_BRANCH] Creating PR from $UPDATE_BRANCH → $BASE_BRANCH..."
 
-        if ! gh pr create \
+        # Keep the reason. This create is the one a failed pull request list hands off to, and
+        # its answers differ: one already exists, or the branch carries no commit to open one
+        # from. The second is a defect in this run, and only the message tells them apart.
+        PR_CREATE_ERR=$(gh pr create \
           --repo "$ORG/$REPO_NAME" \
           --title "[Workflow] ci: Ensure required workflow files" \
           --body "$BODY" \
           --base "$BASE_BRANCH" \
-          --head "$UPDATE_BRANCH" 2>/dev/null; then
-          echo "  [$BASE_BRANCH] PR creation failed, skipping"
+          --head "$UPDATE_BRANCH" 2>&1 >/dev/null) && PR_CREATE_OK=1 || PR_CREATE_OK=0
+
+        if [[ "$PR_CREATE_OK" -eq 0 ]]; then
+          echo "  [$BASE_BRANCH] PR creation failed: ${PR_CREATE_ERR:-no message}"
         else
           echo "  [$BASE_BRANCH] PR created."
         fi
