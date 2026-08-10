@@ -37,9 +37,19 @@
 # `run-script` invokes sets `pipefail` and this one does not.
 set -e
 
-# Counts a read that gave no usable answer, at every site that asks whether
-# something exists. The exit at the end of the file reports them together.
-UNREADABLE=0
+# Work the sweep could not finish, at every site that asks whether something
+# exists. The count decides the exit and the list decides where an operator
+# looks: one run covers forty repositories, and each of them takes a branch
+# list, two ref reads, nine contents reads and a pull request, so a bare number
+# names nothing. `update-workflow-refs.sh` keeps `SKIPPED_REPOS` for the same
+# reason.
+UNFINISHED=0
+UNFINISHED_WORK=""
+
+record_unfinished() {
+  UNFINISHED=$((UNFINISHED + 1))
+  UNFINISHED_WORK="$UNFINISHED_WORK"$'\n'"  - $1"
+}
 
 # The script names a sibling file below, and the caller runs it from the workspace root
 # rather than from this directory. `BASH_SOURCE` is what makes the sibling reachable from
@@ -171,7 +181,7 @@ create_branch_if_needed() {
 
   if [[ "$READ_STATE" == "unread" ]]; then
     echo "  [$base_branch] Could not read the base branch SHA: $READ_MESSAGE"
-    UNREADABLE=$((UNREADABLE + 1))
+    record_unfinished "$repo_name [$base_branch]: base branch SHA: $READ_MESSAGE"
     return 2
   fi
 
@@ -208,7 +218,7 @@ ensure_workflow() {
 
   if [[ "$READ_STATE" == "unread" ]]; then
     echo "  [$base_branch] $file_path: could not read: $READ_MESSAGE"
-    UNREADABLE=$((UNREADABLE + 1))
+    record_unfinished "$repo_name [$base_branch]: $file_path: $READ_MESSAGE"
     return 1
   fi
 
@@ -271,7 +281,7 @@ ensure_ci_jobs() {
 
   if [[ "$READ_STATE" == "unread" ]]; then
     echo "  [$base_branch] $file_path: could not read: $READ_MESSAGE"
-    UNREADABLE=$((UNREADABLE + 1))
+    record_unfinished "$repo_name [$base_branch]: $file_path: $READ_MESSAGE"
     return 1
   fi
 
@@ -351,7 +361,11 @@ while IFS= read -r REPO_NAME; do
 
   if [[ "$READ_STATE" != "ok" ]]; then
     echo "  Could not read the branch list, skipping: $READ_MESSAGE"
-    [[ "$READ_STATE" == "unread" ]] && UNREADABLE=$((UNREADABLE + 1))
+
+    if [[ "$READ_STATE" == "unread" ]]; then
+      record_unfinished "$REPO_NAME: branch list: $READ_MESSAGE"
+    fi
+
     continue
   fi
 
@@ -402,7 +416,7 @@ while IFS= read -r REPO_NAME; do
 
     if [[ "$READ_STATE" == "unread" ]]; then
       echo "  [$BASE_BRANCH] Could not check for $UPDATE_BRANCH: $READ_MESSAGE"
-      UNREADABLE=$((UNREADABLE + 1))
+      record_unfinished "$REPO_NAME [$BASE_BRANCH]: $UPDATE_BRANCH ref: $READ_MESSAGE"
       continue
     fi
 
@@ -468,7 +482,7 @@ while IFS= read -r REPO_NAME; do
 
       if [[ "$PR_READ_OK" -eq 0 ]]; then
         echo "  [$BASE_BRANCH] Could not list pull requests: ${PR_ERR:-no message}"
-        UNREADABLE=$((UNREADABLE + 1))
+        record_unfinished "$REPO_NAME [$BASE_BRANCH]: pull request list: ${PR_ERR:-no message}"
         EXISTING_PR=""
       fi
 
@@ -522,7 +536,8 @@ done <<< "$REPOS"
 # Every read above asks the same question: does this exist? An answer the sweep cannot use
 # leaves it without one. The count decides the exit, because a log line alone reports a clean
 # run.
-if [[ "$UNREADABLE" -gt 0 ]]; then
-  echo "$UNREADABLE read(s) gave no usable answer. The sweep cannot report a clean run."
+if [[ "$UNFINISHED" -gt 0 ]]; then
+  echo "$UNFINISHED step(s) gave no usable answer. The sweep cannot report a clean run."
+  printf '%s\n' "${UNFINISHED_WORK#$'\n'}"
   exit 1
 fi
