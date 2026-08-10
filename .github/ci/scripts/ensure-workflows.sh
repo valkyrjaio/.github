@@ -94,7 +94,7 @@ create_branch_if_needed() {
   # `--jq` writes a string raw and encodes anything else. An absent `.object.sha` on a 200
   # therefore arrives as the four characters `null`, not as an empty string.
   if [[ -z "$base_sha" ]] || [[ "$base_sha" == "null" ]]; then
-    echo "  [$base_branch] Base branch SHA came back empty, skipping"
+    echo "  [$base_branch] Base branch SHA is empty or null, skipping"
     return 2
   fi
   local branch_create_err
@@ -261,9 +261,14 @@ while IFS= read -r REPO_NAME; do
   echo "Checking $ORG/$REPO_NAME..."
 
   # Warning: read the exit status. A failed read arrives as the error JSON, which matches no
-  # branch pattern below, so the repository would look like one with no supported branch.
+  # branch pattern below. The repository would then look like one with no supported branch,
+  # and the fallback further down would aim the sweep at `master`.
+  #
+  # The message is kept rather than suppressed, because a repository name alone does not say
+  # whether a second run would answer differently. Only stdout is captured here, so `gh`
+  # writes its message straight to the job log.
   if ! ALL_BRANCHES=$(gh api "repos/$ORG/$REPO_NAME/branches" --paginate \
-    --jq '.[].name' 2>/dev/null); then
+    --jq '.[].name'); then
     echo "  Could not read the branch list, skipping."
     continue
   fi
