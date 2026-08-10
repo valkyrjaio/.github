@@ -273,7 +273,7 @@ sits behind `should-release`, and `check-version` reports false for a branch
 with no pending commits. The two dependency sweeps cover that case: each
 repository's own cron at 09:00, and `update-dependencies-all-repos.yml` at
 04:00. The hourly auto-merge sweep lands each bump as a `[Dependency] build:`
-commit before the first release slot at 10:00, so the same day's release ships
+commit, before the first release slot at 10:00. The same day's release ships
 it.
 
 The alternative is to refresh before the version is computed. Every quiet
