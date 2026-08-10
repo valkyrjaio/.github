@@ -35,6 +35,8 @@
 #
 # BASE_FILTER narrows the sweep to one base branch. A release on 26.x must not
 # wait on a pull request that targets 25.x, and it must not merge one either.
+# It also stands in for SUPPORTED_VERSIONS, because naming one branch is the
+# stricter constraint. One of the two is required.
 #
 # Reads GH_TOKEN, ORG, BOT_LOGIN, ENABLED_TYPES, EXCLUDE_REPOS,
 # SUPPORTED_VERSIONS, REVIEWER, DRY_RUN, SINGLE_REPO, BASE_FILTER,
@@ -67,8 +69,11 @@ if [[ -z "$ENABLED_TYPES" ]]; then
   exit 1
 fi
 
-if [[ -z "$SUPPORTED_VERSIONS" ]]; then
-  echo "SUPPORTED_VERSIONS is not set. Refusing to sweep without a version filter."
+# BASE_FILTER names one branch, which is a stricter constraint than the version filter, so a
+# caller that sets it needs no SUPPORTED_VERSIONS. That keeps the variable optional for a
+# release, the way the rest of the release chain already treats it.
+if [[ -z "$SUPPORTED_VERSIONS" ]] && [[ -z "$BASE_FILTER" ]]; then
+  echo "Neither SUPPORTED_VERSIONS nor a base branch is set. Refusing to sweep without either."
   exit 1
 fi
 
@@ -304,7 +309,7 @@ sweep_once() {
         continue
       fi
 
-      if [[ ! "${BASH_REMATCH[1]}" =~ $SUPPORTED_VERSIONS ]]; then
+      if [[ -n "$SUPPORTED_VERSIONS" ]] && [[ ! "${BASH_REMATCH[1]}" =~ $SUPPORTED_VERSIONS ]]; then
         echo "  #$PR_NUMBER targets unsupported $BASE_BRANCH, skipping."
         continue
       fi
