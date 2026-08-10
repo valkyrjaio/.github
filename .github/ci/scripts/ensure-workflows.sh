@@ -37,8 +37,8 @@
 # `run-script` invokes sets `pipefail` and this one does not.
 set -e
 
-# Counts a read that went unanswered, at any of the four sites that ask whether
-# something exists. The exit at the end of the file reports them together.
+# Counts a read that went unanswered, at every site that asks whether something
+# exists. The exit at the end of the file reports them together.
 UNREADABLE=0
 
 # The script names a sibling file below, and the caller runs it from the workspace root
@@ -85,15 +85,15 @@ REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
 read_exists() {
   local url="$1"
   local jq_filter="${2:-}"
+  local paginate="${3:-}"
   local err_file status message
+  local args=(api "$url")
+
+  [[ -n "$jq_filter" ]] && args+=(--jq "$jq_filter")
+  [[ -n "$paginate" ]] && args+=(--paginate)
 
   err_file=$(mktemp)
-
-  if [[ -n "$jq_filter" ]]; then
-    READ_BODY=$(gh api "$url" --jq "$jq_filter" 2>"$err_file") && status=0 || status=$?
-  else
-    READ_BODY=$(gh api "$url" 2>"$err_file") && status=0 || status=$?
-  fi
+  READ_BODY=$(gh "${args[@]}" 2>"$err_file") && status=0 || status=$?
 
   message=$(cat "$err_file")
   rm -f "$err_file"
@@ -305,11 +305,9 @@ while IFS= read -r REPO_NAME; do
   # branch pattern below. The repository would then look like one with no supported branch,
   # and the fallback further down would aim the sweep at `master`.
   #
-  # The message is kept rather than suppressed, because a repository name alone does not say
-  # whether a second run would answer differently. Only stdout is captured here, so `gh`
-  # writes its message straight to the job log.
+  # Paginated, because a repository can carry more version branches than one page holds.
   # `--paginate` fails the whole read, so no partial list reaches the loop below.
-  read_exists "repos/$ORG/$REPO_NAME/branches?per_page=100" '.[].name'
+  read_exists "repos/$ORG/$REPO_NAME/branches" '.[].name' paginate
   ALL_BRANCHES="$READ_BODY"
 
   if [[ "$READ_STATE" != "ok" ]]; then
