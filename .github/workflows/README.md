@@ -551,7 +551,8 @@ The path to the action follows the path to a script. A workflow that runs from t
 
 A composite action obeys the rule as well, because no linter reads its `action.yml` either. An
 action reaches its own script at `"$ACTION_PATH/../../ci/scripts/<name>.sh"`, since an action cannot
-assume a working directory.
+assume a working directory. `resolve-review-threads/action.yml` and `post-review-verdict/action.yml`
+show the shape.
 
 Warning: the check that proves the checkout is the pinned commit stays in the `run:` block. That
 check reads the tree that holds the scripts, so a script cannot carry it. A checkout at the wrong
@@ -659,20 +660,27 @@ after the script exits, so a script that reports progress shows nothing until it
 polls for several minutes then looks identical to a job that is stuck. `run-script` also reports
 `outcome` and `report-markdown` for a caller that posts a comment and decides the result itself.
 
-The buffering decides the choice, and the exit status does not. `run-script` ends with the status of
-the script, so a gate fails its own job through the action as surely as it does from a `run:` block.
-Name the script directly in two cases:
+The exit status decides nothing. `run-script` ends with the status of the script, so a gate fails its
+own job through the action as surely as it does from a `run:` block. One constraint and three
+preferences decide the form instead.
+
+The constraint takes the direct form, and it outranks every preference below:
+
+- **The step gives the job another value.** The script writes the value to `$GITHUB_OUTPUT`, and the
+  action forwards no output of its own. No workflow works around this one.
+
+Three preferences remain. The first takes the direct form, and the other two take the action:
 
 - **A person reads the output while the script runs.** The action buffers, so the log stays empty
   until the script exits.
-- **The step gives the job another value.** The script writes the value to `$GITHUB_OUTPUT`, which
-  the action cannot forward.
-
-Take the action in two cases:
-
 - **A check that comments.** The caller builds the comment from `outcome` and `report-markdown`.
 - **A step that must prove what it ran.** `expected-ref` fails the step unless the checkout is the
   commit the caller pinned.
+
+Warning: a step that matches the constraint and a preference at once takes the direct form. A
+workflow recovers each preference another way. It pins its own checkout at `job.workflow_sha`, and
+it builds a comment from a value the script wrote. `checkout-existing-pr-branch.sh` is that step,
+and its three callers pin the checkout themselves.
 
 ---
 
