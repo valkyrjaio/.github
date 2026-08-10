@@ -474,20 +474,25 @@ while IFS= read -r REPO_NAME; do
 
         echo "  [$BASE_BRANCH] Creating PR from $UPDATE_BRANCH → $BASE_BRANCH..."
 
-        # Keep the reason. This create is the one a failed pull request list hands off to, and
-        # its answers differ: one already exists, or the branch carries no commit to open one
-        # from. The second is a defect in this run, and only the message tells them apart.
-        PR_CREATE_ERR=$(gh pr create \
+        # Keep the reason. This create is the one a failed pull request list hands off to. Its
+        # answers differ: a pull request already exists, or the create was refused. The second
+        # is a defect in this run, and only the message tells them apart. Keep the URL too —
+        # `gh pr create` writes it to stdout, and it is how an operator finds the new work.
+        PR_CREATE_ERR_FILE=$(mktemp)
+        PR_URL=$(gh pr create \
           --repo "$ORG/$REPO_NAME" \
           --title "[Workflow] ci: Ensure required workflow files" \
           --body "$BODY" \
           --base "$BASE_BRANCH" \
-          --head "$UPDATE_BRANCH" 2>&1 >/dev/null) && PR_CREATE_OK=1 || PR_CREATE_OK=0
+          --head "$UPDATE_BRANCH" 2>"$PR_CREATE_ERR_FILE") && PR_CREATE_OK=1 || PR_CREATE_OK=0
+
+        PR_CREATE_ERR=$(cat "$PR_CREATE_ERR_FILE")
+        rm -f "$PR_CREATE_ERR_FILE"
 
         if [[ "$PR_CREATE_OK" -eq 0 ]]; then
           echo "  [$BASE_BRANCH] PR creation failed: ${PR_CREATE_ERR:-no message}"
         else
-          echo "  [$BASE_BRANCH] PR created."
+          echo "  [$BASE_BRANCH] PR created: $PR_URL"
         fi
       else
         echo "  [$BASE_BRANCH] PR already exists, skipping."
