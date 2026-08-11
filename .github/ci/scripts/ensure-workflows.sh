@@ -37,12 +37,11 @@
 # `run-script` invokes sets `pipefail` and this one does not.
 set -e
 
-# Work the sweep could not finish, at every site that asks whether something
-# exists. The count decides the exit and the list decides where an operator
-# looks: one run covers forty repositories, and each of them takes a branch
-# list, two ref reads, nine contents reads and a pull request, so a bare number
-# names nothing. `update-workflow-refs.sh` keeps `SKIPPED_REPOS` for the same
-# reason.
+# Work the sweep could not finish, at every step that can leave it unfinished.
+# The count decides the exit, and the list decides where an operator looks. One
+# run covers forty repositories, and each takes a branch list, two ref reads,
+# nine contents reads and a pull request. A bare number names nothing across
+# that. `update-workflow-refs.sh` keeps `SKIPPED_REPOS` for the same reason.
 UNFINISHED=0
 UNFINISHED_WORK=""
 
