@@ -36,6 +36,12 @@ jobs:
         working-directory: ${{ matrix.dependency.directory }}
         env:
           NAME: ${{ matrix.dependency.name }}
+          # GONOPROXY takes valkyrjaio modules off proxy.golang.org, whose cached
+          # version list can hide a first-party release from minutes earlier.
+          # Matches _go-update-dependencies.yml, which performs the same upgrade.
+          # The two must resolve versions the same way, or this check disagrees
+          # with the updater.
+          GONOPROXY: github.com/valkyrjaio/*
         run: |
           # Rather than interpreting `go list -u -m` output, this performs the very
           # same upgrade `_go-update-dependencies.yml` would perform and then asks

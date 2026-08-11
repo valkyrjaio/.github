@@ -86,6 +86,13 @@ jobs:
       - name: Update dependencies
         env:
           DEPENDENCIES: ${{ inputs.dependencies }}
+          # GONOPROXY takes valkyrjaio modules off proxy.golang.org, whose cached
+          # version list can hide a first-party release from minutes earlier.
+          # Deliberately not GOPRIVATE: that also takes these modules off the
+          # checksum database, and the hash this step writes into go.sum is
+          # committed and merged unread. Only the version list goes stale, so only
+          # the proxy is bypassed.
+          GONOPROXY: github.com/valkyrjaio/*
         run: |
           > /tmp/dependency_changes.txt
 
