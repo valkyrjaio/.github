@@ -480,13 +480,16 @@ Warning: a script cannot assume the working directory is its own. A `run:` step 
 workspace root, and a workflow may check this repository out under a path such as `dot-github`.
 Derive the directory from `BASH_SOURCE`, so the sibling is reachable from either one.
 
-A workflow reaches a script in one of two ways, and the caller decides which one:
+The caller decides which case a workflow is in, and each case carries two forms:
 
 - **This repository calls the workflow.** The job checks this repository out, so the script is
-  already on disk. Name it directly.
+  already on disk. The workflow reaches the [`run-script`](#composite-actions) action at
+  `./.github/actions/run-script`, or it names the script directly.
 - **A consumer repository calls the workflow.** The runner holds the consumer's tree, which does not
-  hold this repository's scripts. Use the [`run-script`](#composite-actions) action, which checks
-  this repository out at `job.workflow_sha` and runs the script from there.
+  hold this repository's scripts, so the job checks this repository out at `job.workflow_sha` under
+  `dot-github`. The workflow then reaches [`run-script`](#composite-actions) at
+  `./dot-github/.github/actions/run-script`, or it names
+  `dot-github/.github/ci/scripts/<name>.sh` directly.
 
 The org-management workflows are the first case. Each one runs only from this repository:
 
@@ -527,6 +530,95 @@ So read the shell before you copy a `set` line from a neighboring script. Then c
 one that ends in a command which always succeeds hides a failing stage today, and `pipefail` stops
 hiding it.
 
+### Shell logic belongs in a script
+
+Warning: `shellcheck` and SonarCloud read a `.sh` file. Neither one reads a workflow file, and
+neither one reads an `action.yml`. Every shell rule in the
+[canonical guide](https://github.com/valkyrjaio/architecture/blob/26.x/AGENTS.md#shell-scripts)
+goes unenforced while the logic sits in a `run:` block. A defect there ships, and no tool reports
+it.
+
+So the logic of a step lives in `.github/ci/scripts/<name>.sh`, and the step names that script.
+Two forms do that, and both are correct. The [`run-script`](#composite-actions) action proves the
+script came from the commit the caller pinned, and it reports what the script wrote. A `run:` step
+that names the script directly gives a person the output while the script runs.
+[Reaching the script](#reaching-the-script-and-what-run-script-costs) states which form a workflow
+takes.
+
+The path to the action follows the path to a script. A workflow that runs from this repository names
+`./.github/actions/run-script`, and a workflow that a consumer repository calls names
+`./dot-github/.github/actions/run-script` after the second checkout.
+
+A composite action obeys the rule as well, because no linter reads its `action.yml` either. An
+action reaches its own script at `"$ACTION_PATH/../../ci/scripts/<name>.sh"`, since an action cannot
+assume a working directory. `resolve-review-threads/action.yml` and `post-review-verdict/action.yml`
+show the shape.
+
+Warning: the check that proves the checkout is the pinned commit stays in the `run:` block. That
+check reads the tree that holds the scripts, so a script cannot carry it. A checkout at the wrong
+commit supplies the verifier as well, and a verifier that always passes proves nothing.
+`run-script` keeps its own check inline for that reason.
+
+```yaml
+# Wrong — the logic sits in a `run:` block. The `[ ]` test and the `grep` inside it each break a
+# rule, and no linter reports either one, because no linter reads this file.
+- name: Enable immutable releases
+  env:
+      GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+      ORG: ${{ github.repository_owner }}
+      REPO_NAME: ${{ inputs.name }}
+  run: |
+      if ! ERR=$(gh api --method PUT "repos/$ORG/$REPO_NAME/immutable-releases" 2>&1 >/dev/null); then
+          if [ -n "$(echo "$ERR" | grep 'HTTP 409')" ]; then
+              echo 'Immutable releases already enforced org-wide; skipping.'
+              exit 0
+          fi
+
+          echo "$ERR" >&2
+          exit 1
+      fi
+```
+
+```yaml
+# Right — the script holds the logic, and the action runs it from the pinned commit.
+- name: Enable immutable releases
+  env:
+      GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+      ORG: ${{ github.repository_owner }}
+      REPO_NAME: ${{ inputs.name }}
+  uses: ./.github/actions/run-script
+  with:
+      script: enable-immutable-releases.sh
+      expected-ref: ${{ job.workflow_sha }}
+```
+
+#### What a `run:` block keeps
+
+A `run:` block keeps three things. The first is the call that names a script, which the section
+above describes. The second is the check that proves a checkout is the pinned commit, which the
+warning above covers. The third is glue.
+
+Glue is a line or two that moves one value. Glue holds no condition, no loop, and no pipeline, so a
+linter has nothing to report on it. A later step reads the value.
+
+```yaml
+# Right — the step moves one value into a step output, so it holds no logic.
+- name: Get bot user ID
+  id: get-bot-user-id
+  env:
+      GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+      APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
+  run: |
+      BOT_USER_ID=$(gh api "/users/$APP_SLUG[bot]" --jq '.id')
+      echo "user-id=$BOT_USER_ID" >> "$GITHUB_OUTPUT"
+```
+
+Warning: `run-script` forwards no step output of its own. It reports `outcome`, `report`, and
+`report-markdown`, and a caller reads nothing else from the script. Glue that fills one step output
+stays in the `run:` block, which is what the example above does. Logic that must also report a value
+takes the direct form, where the script writes to `$GITHUB_OUTPUT` itself.
+`checkout-existing-pr-branch.sh` writes `branch` and `is-new` that way.
+
 ### Moving a `run:` block into a script
 
 **Take the body from the parsed `run:` value, never from the raw lines of the workflow file.** A
@@ -553,21 +645,51 @@ body taken from the raw lines carries a trailing blank line the step never had.
 
 ### Reaching the script, and what `run-script` costs
 
-Three shapes, and the caller decides which:
+Three cases. A caller decides between the first two, and the code decides the third, because an
+action reaches a script its own way. The first two cases carry two forms each, and the list below
+the table decides which form a step takes:
 
-| The workflow runs          | The script is reached by                                                                 | Because                                     |
-| -------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Only from this repository  | `.github/ci/scripts/<name>.sh`                                                           | The default checkout is this repository     |
-| From a consumer repository | `dot-github/.github/ci/scripts/<name>.sh`, after a second checkout at `job.workflow_sha` | The default checkout is the consumer's tree |
-| Inside a composite action  | `"$ACTION_PATH/../../ci/scripts/<name>.sh"`                                              | An action cannot assume a working directory |
+| The workflow runs          | The script is reached by                                                                                                                               | Because                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| Only from this repository  | `.github/ci/scripts/<name>.sh`, or `run-script` at `./.github/actions/run-script`                                                                      | The default checkout is this repository     |
+| From a consumer repository | `dot-github/.github/ci/scripts/<name>.sh`, or `run-script` at `./dot-github/.github/actions/run-script`, after a second checkout at `job.workflow_sha` | The default checkout is the consumer's tree |
+| Inside a composite action  | `"$ACTION_PATH/../../ci/scripts/<name>.sh"`                                                                                                            | An action cannot assume a working directory |
 
 Warning: `run-script` **buffers**. It runs `OUTPUT=$("$SCRIPT_PATH" 2>&1)` and prints the result
 after the script exits, so a script that reports progress shows nothing until it finishes. A job that
 polls for several minutes then looks identical to a job that is stuck. `run-script` also reports
 `outcome` and `report-markdown` for a caller that posts a comment and decides the result itself.
 
-Use it for a check that comments. For anything else — a gate that must fail its own job, or a script
-whose output a person watches — name the script directly through the second checkout.
+The exit status decides nothing. `run-script` ends with the status of the script. A gate fails its
+own job through the action as surely as it does from a `run:` block. One constraint and three
+preferences decide the form instead.
+
+The constraint takes the direct form:
+
+- **The step gives the job another value.** The script writes the value to `$GITHUB_OUTPUT`, and the
+  action forwards no output of its own. No workflow works around this one.
+
+Three preferences remain. The first takes the direct form, and the other two take the action:
+
+- **A person reads the output while the script runs.** The action buffers, so the log stays empty
+  until the script exits.
+- **A check that comments.** The caller builds the comment from `outcome` and `report-markdown`.
+- **A step that must prove what it ran.** `expected-ref` fails the step unless the checkout is the
+  commit the caller pinned.
+
+The direct form gives up two preferences, and a workflow recovers one. It builds a comment from a
+value the script wrote.
+
+Warning: the direct form recovers the commit, and it does not recover the proof. The job checks this
+repository out at `job.workflow_sha`, and no step reads the result back. An expression that names a
+property no context holds evaluates to an empty string. `actions/checkout` reads an empty `ref` as
+the default branch. The job then runs the script from an unpinned commit, and it reports success.
+`expected-ref` fails the step on that.
+
+A step that matches the constraint and a preference at once takes the direct form. No workflow works
+around the constraint. That step accepts the weaker guarantee, and the job's own pinned checkout is
+what it has. The steps that run `checkout-existing-pr-branch.sh` and `read-review-verdict.sh` are
+that shape.
 
 ---
 
