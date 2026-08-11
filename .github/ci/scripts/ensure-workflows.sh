@@ -51,6 +51,41 @@ record_unfinished() {
   UNFINISHED_WORK="$UNFINISHED_WORK"$'\n'"  - $1"
 }
 
+# Runs a `gh` command up to three times, for the reason `read_exists` retries. Both pull request
+# calls below run at the end of a repository's turn, after twelve reads have spent the rate-limit
+# budget, so a 403 secondary rate limit reaches them first. The first argument holds a message
+# fragment that ends the loop at once, because a refusal GitHub means is not a blip.
+#
+# Sets RETRY_OUT, RETRY_ERR and RETRY_OK. Read all three straight after the call, because the
+# next call overwrites them.
+retry_gh() {
+  local definite="$1"
+  shift
+
+  local attempt err_file
+  err_file=$(mktemp)
+
+  for attempt in 1 2 3; do
+    RETRY_OUT=$("$@" 2>"$err_file") && RETRY_OK=1 || RETRY_OK=0
+    RETRY_ERR=$(cat "$err_file")
+
+    if [[ "$RETRY_OK" -eq 1 ]]; then
+      break
+    fi
+
+    if [[ -n "$definite" ]] && [[ "$RETRY_ERR" == *"$definite"* ]]; then
+      break
+    fi
+
+    if [[ "$attempt" -lt 3 ]]; then
+      echo "  Retrying after: ${RETRY_ERR:-the command exited with no message}"
+      sleep "$attempt"
+    fi
+  done
+
+  rm -f "$err_file"
+}
+
 # The script names a sibling file below, and the caller runs it from the workspace root
 # rather than from this directory. `BASH_SOURCE` is what makes the sibling reachable from
 # either one.
@@ -469,25 +504,22 @@ while IFS= read -r REPO_NAME; do
       echo "  [$BASE_BRANCH] $FILES_ADDED file(s) added/updated — checking for existing PR..."
 
       # `read_exists` reads `gh api`, and this reads `gh pr list`, so it applies the same rule
-      # by hand: the exit status decides. A failed read then takes the create path, with the
-      # count already incremented. A branch carrying commits and no pull request is worse than
-      # a create that fails on one already there.
-      # `--head` asks the server the question. `gh pr list` pages at 30, so a repository that
-      # holds more open pull requests than that can carry this branch's outside the page, and a
-      # filter over the page would then answer a definite no.
-      PR_ERR_FILE=$(mktemp)
-      EXISTING_PR=$(gh pr list --repo "$ORG/$REPO_NAME" \
+      # by hand: the exit status decides. A failed list takes the create path below, and that
+      # create's own outcome then says whether the sweep left anything undone. A branch carrying
+      # commits and no pull request is worse than a create that fails on one already there.
+      #
+      # `--head` asks the server the question. `gh pr list` pages at 30, so a repository with
+      # more open pull requests than that can hold this branch's pull request outside the page,
+      # and a filter over the page would then answer a definite no.
+      retry_gh '' gh pr list --repo "$ORG/$REPO_NAME" \
         --state open \
         --head "$UPDATE_BRANCH" \
         --json headRefName \
-        --jq 'first | .headRefName // ""' \
-        2>"$PR_ERR_FILE") && PR_READ_OK=1 || PR_READ_OK=0
-      PR_ERR=$(cat "$PR_ERR_FILE")
-      rm -f "$PR_ERR_FILE"
+        --jq 'first | .headRefName // ""'
+      EXISTING_PR="$RETRY_OUT"
 
-      if [[ "$PR_READ_OK" -eq 0 ]]; then
-        echo "  [$BASE_BRANCH] Could not list pull requests: ${PR_ERR:-no message}"
-        record_unfinished "$REPO_NAME [$BASE_BRANCH]: pull request list: ${PR_ERR:-no message}"
+      if [[ "$RETRY_OK" -eq 0 ]]; then
+        echo "  [$BASE_BRANCH] Could not list pull requests: ${RETRY_ERR:-no message}"
         EXISTING_PR=""
       fi
 
@@ -518,25 +550,21 @@ while IFS= read -r REPO_NAME; do
         #
         # Keep the URL too. `gh pr create` writes the new pull request's address to stdout, and
         # an operator reads that line to find what the sweep opened.
-        PR_CREATE_ERR_FILE=$(mktemp)
-        PR_URL=$(gh pr create \
+        retry_gh 'already exists' gh pr create \
           --repo "$ORG/$REPO_NAME" \
           --title "[Workflow] ci: Ensure required workflow files" \
           --body "$BODY" \
           --base "$BASE_BRANCH" \
-          --head "$UPDATE_BRANCH" 2>"$PR_CREATE_ERR_FILE") && PR_CREATE_OK=1 || PR_CREATE_OK=0
+          --head "$UPDATE_BRANCH"
 
-        PR_CREATE_ERR=$(cat "$PR_CREATE_ERR_FILE")
-        rm -f "$PR_CREATE_ERR_FILE"
+        if [[ "$RETRY_OK" -eq 0 ]]; then
+          echo "  [$BASE_BRANCH] PR creation failed: ${RETRY_ERR:-no message}"
 
-        if [[ "$PR_CREATE_OK" -eq 0 ]]; then
-          echo "  [$BASE_BRANCH] PR creation failed: ${PR_CREATE_ERR:-no message}"
-
-          if [[ "$PR_CREATE_ERR" != *"already exists"* ]]; then
-            record_unfinished "$REPO_NAME [$BASE_BRANCH]: PR creation failed: ${PR_CREATE_ERR:-no message}"
+          if [[ "$RETRY_ERR" != *"already exists"* ]]; then
+            record_unfinished "$REPO_NAME [$BASE_BRANCH]: PR creation failed: ${RETRY_ERR:-no message}"
           fi
         else
-          echo "  [$BASE_BRANCH] PR created: $PR_URL"
+          echo "  [$BASE_BRANCH] PR created: $RETRY_OUT"
         fi
       else
         echo "  [$BASE_BRANCH] PR already exists, skipping."
