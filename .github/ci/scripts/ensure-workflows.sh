@@ -387,7 +387,7 @@ while IFS= read -r REPO_NAME; do
   # branch pattern below. The repository would then look like one with no supported branch,
   # and the fallback further down would aim the sweep at `master`.
   #
-  # Paginated, because a page holds 100 branches and a repository carries more than that.
+  # The read is paginated, because a page holds 100 branches and a repository can carry more.
   # Two `??.x` branches among 150 others is the case the flag covers. `gh` sets `per_page=100`
   # itself under `--paginate`, so the path names no page size. A failed page fails the read,
   # and `read_exists` blanks the body, so no partial list reaches the loop below.
