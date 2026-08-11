@@ -573,11 +573,10 @@ while IFS= read -r REPO_NAME; do
   done <<< "$BASE_BRANCHES"
 done <<< "$REPOS"
 
-# Every read above asks the same question: does this exist? An answer the sweep cannot use
-# leaves it without one. The count decides the exit, because a log line alone reports a clean
-# run.
+# Every step above either finishes its work or leaves the sweep without a result it can use.
+# The count decides the exit, because a log line alone reports a clean run.
 if [[ "$UNFINISHED" -gt 0 ]]; then
-  echo "$UNFINISHED step(s) gave no usable answer. The sweep cannot report a clean run."
+  echo "$UNFINISHED step(s) did not finish. The sweep cannot report a clean run."
   printf '%s\n' "${UNFINISHED_WORK#$'\n'}"
   exit 1
 fi
