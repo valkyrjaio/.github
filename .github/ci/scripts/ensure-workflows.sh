@@ -430,11 +430,27 @@ ensure_ci_jobs() {
   # carries and the write carries that blob's `sha`.
   read_exists "repos/$ORG/$repo_name/contents/$file_path?ref=$(read_ref "$base_branch" "$update_branch")"
   local file_data="$READ_BODY"
+  local sha_on_update=1
 
   if [[ "$READ_STATE" == "unread" ]]; then
     echo "  [$base_branch] $file_path: could not read: $READ_MESSAGE"
     record_unfinished "$repo_name [$base_branch]: $file_path: $READ_MESSAGE"
     return 1
+  fi
+
+  # The two branches diverge, so a file absent from the update branch can still be on the base
+  # branch. Ask before taking the create path, because that path writes the template whole and
+  # the header promises this script merges into a repository's own `ci.yml` instead.
+  if [[ "$READ_STATE" == "absent" ]] && [[ -n "$BRANCH_EXISTS" ]]; then
+    read_exists "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch"
+    file_data="$READ_BODY"
+    sha_on_update=0
+
+    if [[ "$READ_STATE" == "unread" ]]; then
+      echo "  [$base_branch] $file_path: could not read on $base_branch: $READ_MESSAGE"
+      record_unfinished "$repo_name [$base_branch]: $file_path on $base_branch: $READ_MESSAGE"
+      return 1
+    fi
   fi
 
   if [[ "$READ_STATE" == "absent" ]]; then
@@ -496,6 +512,9 @@ ensure_ci_jobs() {
 
   local new_content_b64
   new_content_b64=$(printf '%s\n' "$updated_content" | base64 | tr -d '\n')
+  # The blob a `sha` names lives on the branch the write lands on. When the content came from
+  # the base branch instead, the update branch holds no such blob, so the write creates the file
+  # and carries no `sha`.
   local put_file
   put_file=$(mktemp)
   jq -cn \
@@ -503,7 +522,11 @@ ensure_ci_jobs() {
     --arg content "$new_content_b64" \
     --arg sha "$file_sha" \
     --arg branch "$update_branch" \
-    '{message: $message, content: $content, sha: $sha, branch: $branch}' > "$put_file"
+    --argjson sha_on_update "$sha_on_update" \
+    'if $sha_on_update == 1
+     then {message: $message, content: $content, sha: $sha, branch: $branch}
+     else {message: $message, content: $content, branch: $branch}
+     end' > "$put_file"
 
   retry_gh "$file_path" '' gh api --method PUT "repos/$ORG/$repo_name/contents/$file_path" --input "$put_file"
   rm -f "$put_file"
