@@ -38,11 +38,13 @@
 set -e
 
 # Work the sweep could not finish, at every step that can leave it unfinished.
-# The count decides the exit, and the list decides where an operator looks. One
-# run covers every non-archived repository in the organization. Each base branch
-# in one takes a ref read, a contents read for each required workflow, and two
-# pull request calls. A bare number names nothing across that.
+# The count decides the exit, and the list decides where an operator looks.
 # `update-workflow-refs.sh` keeps `SKIPPED_REPOS` for the same reason.
+#
+# One run covers every non-archived repository in the organization. A repository
+# takes a branch list, and each of its base branches takes up to two ref reads.
+# A base branch also takes a contents read for each required workflow, and two
+# pull request calls when a file lands. A bare number names nothing across that.
 UNFINISHED=0
 UNFINISHED_WORK=""
 
