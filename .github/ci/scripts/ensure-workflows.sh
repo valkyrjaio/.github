@@ -204,8 +204,9 @@ create_branch_if_needed() {
   [[ -n "$BRANCH_EXISTS" ]] && return 0
 
   # The branch failed once for this base branch, and the files after it cannot land without
-  # it. Every caller below the first loop enters here again, so without this the sweep
-  # re-POSTs a ref GitHub just refused and records the one failure up to five times.
+  # it. Each later file that is absent enters here again, so without this the sweep asks the
+  # API for the same branch up to five times. A failure it records lands in the list five
+  # times too.
   [[ -n "$BRANCH_FAILED" ]] && return 2
 
   echo "  [$base_branch] Creating branch $update_branch..."
