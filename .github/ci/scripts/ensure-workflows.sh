@@ -230,6 +230,7 @@ create_branch_if_needed() {
     --field "sha=$base_sha" 2>&1 >/dev/null || true)
   if [[ -n "$branch_create_err" ]]; then
     echo "  [$base_branch] Branch creation failed: $branch_create_err"
+    record_unfinished "$repo_name [$base_branch]: branch creation: $branch_create_err"
     return 2
   fi
   echo "  [$base_branch] Branch $update_branch created."
@@ -285,6 +286,7 @@ ensure_workflow() {
     --input - 2>&1 >/dev/null || true)
   if [[ -n "$commit_err" ]]; then
     echo "  [$base_branch] $file_path commit failed: $commit_err"
+    record_unfinished "$repo_name [$base_branch]: $file_path commit: $commit_err"
     return 1
   fi
 
@@ -336,6 +338,7 @@ ensure_ci_jobs() {
       --input - 2>&1 >/dev/null || true)
     if [[ -n "$commit_err" ]]; then
       echo "  [$base_branch] $file_path commit failed: $commit_err"
+      record_unfinished "$repo_name [$base_branch]: $file_path commit: $commit_err"
       return 1
     fi
     echo "  [$base_branch] $file_path committed."
@@ -373,6 +376,7 @@ ensure_ci_jobs() {
     --input - 2>&1 >/dev/null || true)
   if [[ -n "$commit_err" ]]; then
     echo "  [$base_branch] $file_path commit failed: $commit_err"
+    record_unfinished "$repo_name [$base_branch]: $file_path commit: $commit_err"
     return 1
   fi
   echo "  [$base_branch] $file_path updated with missing jobs."
