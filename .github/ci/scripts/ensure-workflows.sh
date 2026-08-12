@@ -409,9 +409,15 @@ ensure_ci_jobs() {
   local tmpl_with_sha tmpl_status=0
   tmpl_with_sha=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$tmpl_file") || tmpl_status=$?
 
-  if [[ "$tmpl_status" -ne 0 ]] || [[ -z "$tmpl_with_sha" ]]; then
+  if [[ "$tmpl_status" -ne 0 ]]; then
     echo "  [$base_branch] Could not read template $tmpl_file, skipping ci.yml"
     record_unfinished "$repo_name [$base_branch]: template $tmpl_file: sed exited $tmpl_status"
+    return 1
+  fi
+
+  if [[ -z "$tmpl_with_sha" ]]; then
+    echo "  [$base_branch] Template $tmpl_file is empty, skipping ci.yml"
+    record_unfinished "$repo_name [$base_branch]: template $tmpl_file: read as empty"
     return 1
   fi
 
