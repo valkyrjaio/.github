@@ -59,6 +59,9 @@ record_unfinished() {
 # current `sha`. A caller that adds a write a repeat could apply twice must pass a fragment
 # that ends the loop on the first answer.
 #
+# The writes here pass no fragment. Each of them reads the branch it writes to first, so the
+# refusal it can still meet is rare, and that refusal costs two more calls on a run already red.
+#
 # Runs a `gh` command up to three times, as `fetch_json` does in `update-workflow-refs.sh` and
 # in `auto-merge-bot-prs.sh`. A 403 secondary rate limit or a 5xx is transient, and this sweep
 # asks enough of the API in one run to meet one. The first argument holds a message fragment
@@ -243,6 +246,21 @@ create_branch_if_needed() {
   BRANCH_EXISTS="$base_sha"
 }
 
+# Names the branch a file read has to ask about. The update branch is a copy of the base branch
+# plus whatever an earlier run added, so it answers for both, and it is the branch the write
+# lands on. Before that branch exists the base branch is the only answer.
+read_ref() {
+  local base_branch="$1"
+  local update_branch="$2"
+
+  if [[ -n "$BRANCH_EXISTS" ]]; then
+    printf '%s' "$update_branch"
+    return 0
+  fi
+
+  printf '%s' "$base_branch"
+}
+
 ensure_workflow() {
   local workflow="$1"
   local tmpl_file="$2"
@@ -255,7 +273,12 @@ ensure_workflow() {
   # Warning: this read decides whether the file gets created, so a transient answer must not
   # look like an absent file. `|| existing=""` blanked every error alike, including a 403.
   # Only a definite 404 means the file is absent.
-  read_exists "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch" '.name'
+  #
+  # Read the branch this function writes to. An update branch outlives its pull request until
+  # somebody merges it, and it then carries files the base branch still lacks. A read of the
+  # base branch would ask GitHub to add a file the update branch already holds, and GitHub
+  # refuses that for want of a `sha`.
+  read_exists "repos/$ORG/$repo_name/contents/$file_path?ref=$(read_ref "$base_branch" "$update_branch")" '.name'
 
   if [[ "$READ_STATE" == "unread" ]]; then
     echo "  [$base_branch] $file_path: could not read: $READ_MESSAGE"
@@ -319,7 +342,11 @@ ensure_ci_jobs() {
   # Warning: an absent file and an unanswered call are not the same thing. `|| true` made every
   # answer non-empty, including a 404. The test below then read every file as present, and the
   # create path never ran. Only a definite 404 means the file is absent.
-  read_exists "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch"
+  #
+  # The branch this function writes to, for the reason `ensure_workflow` gives. The `sha` and
+  # the content below come from the same read, so the merge decides against what the branch
+  # carries and the write carries that blob's `sha`.
+  read_exists "repos/$ORG/$repo_name/contents/$file_path?ref=$(read_ref "$base_branch" "$update_branch")"
   local file_data="$READ_BODY"
 
   if [[ "$READ_STATE" == "unread" ]]; then
