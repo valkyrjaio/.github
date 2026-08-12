@@ -339,10 +339,15 @@ ensure_ci_jobs() {
   local tmpl_file="$4"
 
   local file_path=".github/workflows/ci.yml"
-  local tmpl_with_sha
-  tmpl_with_sha=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$tmpl_file" 2>/dev/null || true)
-  if [[ -z "$tmpl_with_sha" ]]; then
+  # The template ships in this repository, so a read that fails is a defect here rather than an
+  # answer about one repository. It silences `ci.yml` for every repository in the sweep, which
+  # is why it counts.
+  local tmpl_with_sha tmpl_status=0
+  tmpl_with_sha=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$tmpl_file") || tmpl_status=$?
+
+  if [[ "$tmpl_status" -ne 0 ]] || [[ -z "$tmpl_with_sha" ]]; then
     echo "  [$base_branch] Could not read template $tmpl_file, skipping ci.yml"
+    record_unfinished "$repo_name [$base_branch]: template $tmpl_file: sed exited $tmpl_status"
     return 1
   fi
 
@@ -396,10 +401,24 @@ ensure_ci_jobs() {
   echo "$content_b64" | base64 -d > /tmp/ci_existing.yml
   printf '%s\n' "$tmpl_with_sha" > /tmp/ci_template.yml
 
-  local updated_content
-  if ! updated_content=$(python3 "$SCRIPT_DIR/merge_ci_jobs.py" /tmp/ci_existing.yml /tmp/ci_template.yml 2>/dev/null); then
+  # 3 is the merge saying every job is already there. Any other non-zero is the merge failing,
+  # and the two used to share exit 1, so a crashed merge reported a complete `ci.yml`.
+  local updated_content merge_status=0 merge_err merge_err_file
+  merge_err_file=$(mktemp)
+  updated_content=$(python3 "$SCRIPT_DIR/merge_ci_jobs.py" \
+    /tmp/ci_existing.yml /tmp/ci_template.yml 2>"$merge_err_file") || merge_status=$?
+  merge_err=$(cat "$merge_err_file")
+  rm -f "$merge_err_file"
+
+  if [[ "$merge_status" -eq 3 ]]; then
     echo "  [$base_branch] $file_path: all required jobs present"
     return 0
+  fi
+
+  if [[ "$merge_status" -ne 0 ]]; then
+    echo "  [$base_branch] $file_path: merge failed: ${merge_err:-it exited $merge_status with no message}"
+    record_unfinished "$repo_name [$base_branch]: $file_path merge: ${merge_err:-exit $merge_status}"
+    return 1
   fi
 
   echo "  [$base_branch] $file_path: missing required jobs, will update"

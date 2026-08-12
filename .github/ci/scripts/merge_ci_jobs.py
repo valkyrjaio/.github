@@ -16,8 +16,12 @@
 # so the merged file keeps the template's order wherever the two agree.
 #
 # Reads the existing file and the template as arguments, and writes the merged
-# file to standard output. Exits 1 when the repository already has every job,
+# file to standard output. Exits 3 when the repository already has every job,
 # which tells the caller that nothing needs a commit.
+#
+# Warning: 3 rather than 1, because an uncaught exception also exits 1. The
+# caller cannot tell a crash from an answer when the two share a code, and it
+# read every crash as "every job is present".
 #
 # Usage:
 #
@@ -43,7 +47,7 @@ template_job_order = get_job_ids_ordered(template)
 missing = [j for j in template_job_order if j not in existing_jobs]
 
 if not missing:
-    sys.exit(1)
+    sys.exit(3)
 
 if not existing_jobs:
     sys.stdout.write(template if template.endswith('\n') else template + '\n')
