@@ -59,16 +59,18 @@ record_unfinished() {
 # current `sha`. A caller that adds a write a repeat could apply twice must pass a fragment
 # that ends the loop on the first answer.
 #
-# The writes here pass no fragment. Each of them reads the branch it writes to first, so the
-# refusal it can still meet is rare, and that refusal costs two more calls on a run already red.
+# The two contents writes and the reference write pass no fragment. Each of them reads the
+# branch it writes to first, so the refusal it can still meet is rare, and that refusal costs
+# two more calls on a run already red. `gh pr create` does pass one, because a pull request the
+# sweep opened last week is the answer it meets most.
 #
 # Runs a `gh` command up to three times, as `fetch_json` does in `update-workflow-refs.sh` and
 # in `auto-merge-bot-prs.sh`. A 403 secondary rate limit or a 5xx is transient, and this sweep
-# asks enough of the API in one run to meet one. The first argument holds a message fragment
-# that ends the loop at once, because a refusal GitHub means is not a blip.
+# asks enough of the API in one run to meet one.
 #
-# Takes a label for the log, then the fragment, then the command. The label is passed rather
-# than taken from the command, because a command line carries a pull request body.
+# Takes a label for the log, then the fragment that ends the loop at once, then the command. A
+# refusal GitHub means is not a blip, which is what the fragment names. The label is passed
+# rather than taken from the command, because a command line carries a pull request body.
 #
 # Sets RETRY_OUT, RETRY_ERR, RETRY_STATUS and RETRY_OK. Read them straight after the call,
 # because the next call overwrites them.
