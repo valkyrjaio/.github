@@ -248,9 +248,14 @@ create_branch_if_needed() {
   BRANCH_EXISTS="$base_sha"
 }
 
-# Names the branch a file read has to ask about. The update branch is a copy of the base branch
-# plus whatever an earlier run added, so it answers for both, and it is the branch the write
-# lands on. Before that branch exists the base branch is the only answer.
+# Names the branch a file read has to ask about. It is the branch the write lands on, and a file
+# already there is a file this run does not add. Before that branch exists the base branch is
+# the only answer.
+#
+# Warning: the two branches diverge. The update branch is the base branch as it stood when the
+# branch was cut, and nothing merges the base branch into it afterwards. A file the base branch
+# gained since then reads as absent here, so the sweep proposes it again and GitHub reports the
+# conflict on the pull request.
 read_ref() {
   local base_branch="$1"
   local update_branch="$2"
