@@ -334,6 +334,68 @@ ensure_workflow() {
   FILES_ADDED=$((FILES_ADDED + 1))
 }
 
+# Answers whether the update branch carries work that no pull request shows. A create that
+# failed leaves that state, and so does a pull request somebody closed without merging.
+#
+# Warning: `ahead_by` alone does not answer it. This organization squash-merges and deletes no
+# branch, and a squash merge writes one new commit onto the base rather than taking the head
+# branch's commits into its history. A merged branch therefore stays ahead of its base for good,
+# and `ahead_by` would open one pull request a week for work that merged already.
+#
+# The pull request that merged dates the work it took. A branch tip no newer than that date is
+# work the merge took, and a tip newer than it is work no pull request shows.
+branch_carries_unmerged_work() {
+  local base_branch="$1"
+  local update_branch="$2"
+  local repo_name="$3"
+  local ahead tip_date merged_at
+
+  read_exists "repos/$ORG/$repo_name/compare/$base_branch...$update_branch" '.ahead_by'
+  ahead="$READ_BODY"
+
+  if [[ "$READ_STATE" != "ok" ]]; then
+    echo "  [$base_branch] Could not compare $base_branch with $update_branch: ${READ_MESSAGE:-no answer}"
+    record_unfinished "$repo_name [$base_branch]: branch compare: ${READ_MESSAGE:-no answer}"
+    return 1
+  fi
+
+  if [[ "$ahead" == "0" ]]; then
+    return 1
+  fi
+
+  read_exists "repos/$ORG/$repo_name/commits/$BRANCH_EXISTS" '.commit.committer.date'
+  tip_date="$READ_BODY"
+
+  if [[ "$READ_STATE" != "ok" ]]; then
+    echo "  [$base_branch] Could not date $update_branch: ${READ_MESSAGE:-no answer}"
+    record_unfinished "$repo_name [$base_branch]: branch tip date: ${READ_MESSAGE:-no answer}"
+    return 1
+  fi
+
+  retry_gh "merged pull requests for $update_branch" '' gh pr list --repo "$ORG/$repo_name" \
+    --state merged \
+    --head "$update_branch" \
+    --json mergedAt \
+    --jq 'first | .mergedAt // ""'
+
+  if [[ "$RETRY_OK" -eq 0 ]]; then
+    echo "  [$base_branch] Could not list merged pull requests: ${RETRY_ERR:-no message}"
+    record_unfinished "$repo_name [$base_branch]: merged pull request list: ${RETRY_ERR:-no message}"
+    return 1
+  fi
+
+  merged_at="$RETRY_OUT"
+
+  # Both dates are UTC in the same format, so one string comparison orders them.
+  if [[ -n "$merged_at" ]] && ! [[ "$merged_at" < "$tip_date" ]]; then
+    return 1
+  fi
+
+  echo "  [$base_branch] $update_branch is ahead by $ahead commit(s) that no pull request shows."
+
+  return 0
+}
+
 ensure_ci_jobs() {
   local base_branch="$1"
   local update_branch="$2"
@@ -570,23 +632,13 @@ while IFS= read -r REPO_NAME; do
         "$TEMPLATE_DIR/ci.yml" || true
     fi
 
-    # A file read asks the update branch, so a branch already carrying every file adds nothing
-    # and would never reach the pull request path again. That is the state this script calls
-    # worse than a failed create: commits on a branch that no pull request shows, left by a
-    # create that failed or by a pull request somebody closed without merging.
-    #
-    # `compare` separates it from a merged branch nobody deleted. The merged one is level with
-    # its base and must stay out, because a create on it answers `No commits between`.
+    # A file read asks the update branch, so a branch already carrying every file adds nothing.
+    # Without the check below such a branch never reaches the pull request path again, and its
+    # commits sit where no pull request shows them.
     BRANCH_AHEAD=0
 
     if [[ "$FILES_ADDED" -eq 0 ]] && [[ -n "$BRANCH_EXISTS" ]]; then
-      read_exists "repos/$ORG/$REPO_NAME/compare/$BASE_BRANCH...$UPDATE_BRANCH" '.ahead_by'
-
-      if [[ "$READ_STATE" == "unread" ]]; then
-        echo "  [$BASE_BRANCH] Could not compare $BASE_BRANCH with $UPDATE_BRANCH: $READ_MESSAGE"
-        record_unfinished "$REPO_NAME [$BASE_BRANCH]: branch compare: $READ_MESSAGE"
-      elif [[ "$READ_STATE" == "ok" ]] && [[ "$READ_BODY" != "0" ]]; then
-        echo "  [$BASE_BRANCH] $UPDATE_BRANCH is ahead by $READ_BODY commit(s) with nothing added this run."
+      if branch_carries_unmerged_work "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME"; then
         BRANCH_AHEAD=1
       fi
     fi
