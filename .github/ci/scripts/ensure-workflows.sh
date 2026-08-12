@@ -198,6 +198,11 @@ create_branch_if_needed() {
 
   [[ -n "$BRANCH_EXISTS" ]] && return 0
 
+  # The branch failed once for this base branch, and the files after it cannot land without
+  # it. Every caller below the first loop enters here again, so without this the sweep
+  # re-POSTs a ref GitHub just refused and records the one failure up to five times.
+  [[ -n "$BRANCH_FAILED" ]] && return 2
+
   echo "  [$base_branch] Creating branch $update_branch..."
   # A 404 here is an answer: the base branch does not exist. The `master` fallback produces
   # that for a repository carrying neither a version branch nor `master`. Counting it as unread
@@ -208,11 +213,13 @@ create_branch_if_needed() {
   if [[ "$READ_STATE" == "unread" ]]; then
     echo "  [$base_branch] Could not read the base branch SHA: $READ_MESSAGE"
     record_unfinished "$repo_name [$base_branch]: base branch SHA: $READ_MESSAGE"
+    BRANCH_FAILED=1
     return 2
   fi
 
   if [[ "$READ_STATE" == "absent" ]]; then
     echo "  [$base_branch] Base branch does not exist, skipping"
+    BRANCH_FAILED=1
     return 2
   fi
 
@@ -223,6 +230,7 @@ create_branch_if_needed() {
   if [[ -n "$branch_create_err" ]]; then
     echo "  [$base_branch] Branch creation failed: $branch_create_err"
     record_unfinished "$repo_name [$base_branch]: branch creation: $branch_create_err"
+    BRANCH_FAILED=1
     return 2
   fi
   echo "  [$base_branch] Branch $update_branch created."
@@ -444,6 +452,7 @@ while IFS= read -r REPO_NAME; do
 
     read_exists "repos/$ORG/$REPO_NAME/git/refs/heads/$UPDATE_BRANCH" '.object.sha'
     BRANCH_EXISTS="$READ_BODY"
+    BRANCH_FAILED=""
 
     if [[ "$READ_STATE" == "unread" ]]; then
       echo "  [$BASE_BRANCH] Could not check for $UPDATE_BRANCH: $READ_MESSAGE"
