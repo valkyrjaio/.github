@@ -50,34 +50,44 @@ record_unfinished() {
   UNFINISHED_WORK="$UNFINISHED_WORK"$'\n'"  - $1"
 }
 
-# Runs a `gh` command up to three times, for the reason `read_exists` retries. Both pull request
-# calls below run at the end of a repository's turn, after twelve reads have spent the rate-limit
-# budget, so a 403 secondary rate limit reaches them first. The first argument holds a message
-# fragment that ends the loop at once, because a refusal GitHub means is not a blip.
+# Warning: this helper retries a write. `gh pr create` is safe under it, because GitHub refuses
+# a second pull request for the same head branch and `already exists` ends the loop on that
+# refusal. A caller that passes an empty fragment with a `POST` or a `PUT` gets three attempts
+# and nothing to stop them.
 #
-# Sets RETRY_OUT, RETRY_ERR and RETRY_OK. Read all three straight after the call, because the
-# next call overwrites them.
+# Runs a `gh` command up to three times, as `fetch_json` does in `update-workflow-refs.sh` and
+# in `auto-merge-bot-prs.sh`. A 403 secondary rate limit or a 5xx is transient, and this sweep
+# asks enough of the API in one run to meet one. The first argument holds a message fragment
+# that ends the loop at once, because a refusal GitHub means is not a blip.
+#
+# Sets RETRY_OUT, RETRY_ERR, RETRY_STATUS and RETRY_OK. Read them straight after the call,
+# because the next call overwrites them.
 retry_gh() {
   local definite="$1"
   shift
 
+  # The first three words, because a full command line carries a pull request body.
+  local label="${*:1:3}"
   local attempt err_file
   err_file=$(mktemp)
 
   for attempt in 1 2 3; do
-    RETRY_OUT=$("$@" 2>"$err_file") && RETRY_OK=1 || RETRY_OK=0
+    RETRY_OUT=$("$@" 2>"$err_file") && RETRY_STATUS=0 || RETRY_STATUS=$?
     RETRY_ERR=$(cat "$err_file")
 
-    if [[ "$RETRY_OK" -eq 1 ]]; then
+    if [[ "$RETRY_STATUS" -eq 0 ]]; then
+      RETRY_OK=1
       break
     fi
+
+    RETRY_OK=0
 
     if [[ -n "$definite" ]] && [[ "$RETRY_ERR" == *"$definite"* ]]; then
       break
     fi
 
     if [[ "$attempt" -lt 3 ]]; then
-      echo "  Retrying after: ${RETRY_ERR:-the command exited with no message}"
+      echo "  Retrying $label after: ${RETRY_ERR:-it exited $RETRY_STATUS with no message}"
       sleep "$attempt"
     fi
   done
@@ -139,40 +149,21 @@ REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
 # returned in full. That is a defect in this script rather than a transient answer. It
 # reaches the same exit, because neither gives the sweep a result it can use.
 #
-# The read runs up to three times, as `fetch_json` does in `update-workflow-refs.sh` and in
-# `auto-merge-bot-prs.sh`. This sweep asks more of the API than either of them: a branch list
-# per repository, then two ref reads and nine contents reads per base branch. A 403 secondary
-# rate limit or a 5xx is the ordinary answer at that rate, and one of them would otherwise
-# fail the whole run. A 2xx and a 404 are answers, so both end the loop at once.
+# `retry_gh` runs the read, so a 2xx and a definite 404 each end the loop at once and every
+# other answer is asked again. This function keeps the classification.
 read_exists() {
   local url="$1"
   local jq_filter="${2:-}"
   local paginate="${3:-}"
-  local err_file status message attempt
   local args=(api "$url")
 
   [[ -n "$jq_filter" ]] && args+=(--jq "$jq_filter")
   [[ -n "$paginate" ]] && args+=(--paginate)
 
-  err_file=$(mktemp)
+  retry_gh 'HTTP 404' gh "${args[@]}"
+  READ_BODY="$RETRY_OUT"
 
-  for attempt in 1 2 3; do
-    READ_BODY=$(gh "${args[@]}" 2>"$err_file") && status=0 || status=$?
-    message=$(cat "$err_file")
-
-    if [[ "$status" -eq 0 ]] || [[ "$message" == *"HTTP 404"* ]]; then
-      break
-    fi
-
-    if [[ "$attempt" -lt 3 ]]; then
-      echo "  Retrying $url after: ${message:-gh exited $status with no message}"
-      sleep "$attempt"
-    fi
-  done
-
-  rm -f "$err_file"
-
-  if [[ "$status" -eq 0 ]]; then
+  if [[ "$RETRY_OK" -eq 1 ]]; then
     READ_MESSAGE=""
 
     # `--jq` writes a string raw and encodes anything else, so a filter that finds nothing on
@@ -188,9 +179,9 @@ read_exists() {
   fi
 
   READ_BODY=""
-  READ_MESSAGE="${message:-gh exited $status with no message}"
+  READ_MESSAGE="${RETRY_ERR:-gh exited $RETRY_STATUS with no message}"
 
-  if [[ "$message" == *"HTTP 404"* ]]; then
+  if [[ "$RETRY_ERR" == *"HTTP 404"* ]]; then
     READ_STATE="absent"
   else
     READ_STATE="unread"
