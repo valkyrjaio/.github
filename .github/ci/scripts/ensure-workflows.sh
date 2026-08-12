@@ -53,24 +53,27 @@ record_unfinished() {
   UNFINISHED_WORK="$UNFINISHED_WORK"$'\n'"  - $1"
 }
 
-# Warning: this helper retries a write. `gh pr create` is safe under it, because GitHub refuses
-# a second pull request for the same head branch and `already exists` ends the loop on that
-# refusal. A caller that passes an empty fragment with a `POST` or a `PUT` gets three attempts
-# and nothing to stop them.
+# Warning: this helper retries a write. Every write it runs is one a second attempt cannot
+# repeat. GitHub refuses a second reference with the same name, and a second pull request for
+# the same head branch. GitHub also refuses a contents write that does not carry the file's
+# current `sha`. A caller that adds a write a repeat could apply twice must pass a fragment
+# that ends the loop on the first answer.
 #
 # Runs a `gh` command up to three times, as `fetch_json` does in `update-workflow-refs.sh` and
 # in `auto-merge-bot-prs.sh`. A 403 secondary rate limit or a 5xx is transient, and this sweep
 # asks enough of the API in one run to meet one. The first argument holds a message fragment
 # that ends the loop at once, because a refusal GitHub means is not a blip.
 #
+# Takes a label for the log, then the fragment, then the command. The label is passed rather
+# than taken from the command, because a command line carries a pull request body.
+#
 # Sets RETRY_OUT, RETRY_ERR, RETRY_STATUS and RETRY_OK. Read them straight after the call,
 # because the next call overwrites them.
 retry_gh() {
-  local definite="$1"
-  shift
+  local label="$1"
+  local definite="$2"
+  shift 2
 
-  # The first three words, because a full command line carries a pull request body.
-  local label="${*:1:3}"
   local attempt err_file
   err_file=$(mktemp)
 
@@ -163,7 +166,7 @@ read_exists() {
   [[ -n "$jq_filter" ]] && args+=(--jq "$jq_filter")
   [[ -n "$paginate" ]] && args+=(--paginate)
 
-  retry_gh 'HTTP 404' gh "${args[@]}"
+  retry_gh "$url" 'HTTP 404' gh "${args[@]}"
   READ_BODY="$RETRY_OUT"
 
   if [[ "$RETRY_OK" -eq 1 ]]; then
@@ -225,13 +228,13 @@ create_branch_if_needed() {
     return 2
   fi
 
-  local branch_create_err
-  branch_create_err=$(gh api --method POST "repos/$ORG/$repo_name/git/refs" \
+  retry_gh "branch $update_branch" '' gh api --method POST "repos/$ORG/$repo_name/git/refs" \
     --field "ref=refs/heads/$update_branch" \
-    --field "sha=$base_sha" 2>&1 >/dev/null || true)
-  if [[ -n "$branch_create_err" ]]; then
-    echo "  [$base_branch] Branch creation failed: $branch_create_err"
-    record_unfinished "$repo_name [$base_branch]: branch creation: $branch_create_err"
+    --field "sha=$base_sha"
+
+  if [[ "$RETRY_OK" -eq 0 ]]; then
+    echo "  [$base_branch] Branch creation failed: ${RETRY_ERR:-no message}"
+    record_unfinished "$repo_name [$base_branch]: branch creation: ${RETRY_ERR:-no message}"
     BRANCH_FAILED=1
     return 2
   fi
@@ -276,19 +279,20 @@ ensure_workflow() {
   local content_b64
   content_b64=$(printf '%s\n' "$content" | base64 | tr -d '\n')
 
-  local put_body
-  put_body=$(jq -cn \
+  local put_file
+  put_file=$(mktemp)
+  jq -cn \
     --arg message "[Workflow] ci: Add the missing $workflow workflow." \
     --arg content "$content_b64" \
     --arg branch "$update_branch" \
-    '{message: $message, content: $content, branch: $branch}')
+    '{message: $message, content: $content, branch: $branch}' > "$put_file"
 
-  local commit_err
-  commit_err=$(echo "$put_body" | gh api --method PUT "repos/$ORG/$repo_name/contents/$file_path" \
-    --input - 2>&1 >/dev/null || true)
-  if [[ -n "$commit_err" ]]; then
-    echo "  [$base_branch] $file_path commit failed: $commit_err"
-    record_unfinished "$repo_name [$base_branch]: $file_path commit: $commit_err"
+  retry_gh "$file_path" '' gh api --method PUT "repos/$ORG/$repo_name/contents/$file_path" --input "$put_file"
+  rm -f "$put_file"
+
+  if [[ "$RETRY_OK" -eq 0 ]]; then
+    echo "  [$base_branch] $file_path commit failed: ${RETRY_ERR:-no message}"
+    record_unfinished "$repo_name [$base_branch]: $file_path commit: ${RETRY_ERR:-no message}"
     return 1
   fi
 
@@ -329,18 +333,20 @@ ensure_ci_jobs() {
 
     local content_b64
     content_b64=$(printf '%s\n' "$tmpl_with_sha" | base64 | tr -d '\n')
-    local put_body
-    put_body=$(jq -cn \
+    local put_file
+    put_file=$(mktemp)
+    jq -cn \
       --arg message "[Workflow] ci: Add the missing ci.yml workflow." \
       --arg content "$content_b64" \
       --arg branch "$update_branch" \
-      '{message: $message, content: $content, branch: $branch}')
-    local commit_err
-    commit_err=$(echo "$put_body" | gh api --method PUT "repos/$ORG/$repo_name/contents/$file_path" \
-      --input - 2>&1 >/dev/null || true)
-    if [[ -n "$commit_err" ]]; then
-      echo "  [$base_branch] $file_path commit failed: $commit_err"
-      record_unfinished "$repo_name [$base_branch]: $file_path commit: $commit_err"
+      '{message: $message, content: $content, branch: $branch}' > "$put_file"
+
+    retry_gh "$file_path" '' gh api --method PUT "repos/$ORG/$repo_name/contents/$file_path" --input "$put_file"
+    rm -f "$put_file"
+
+    if [[ "$RETRY_OK" -eq 0 ]]; then
+      echo "  [$base_branch] $file_path commit failed: ${RETRY_ERR:-no message}"
+      record_unfinished "$repo_name [$base_branch]: $file_path commit: ${RETRY_ERR:-no message}"
       return 1
     fi
     echo "  [$base_branch] $file_path committed."
@@ -366,19 +372,21 @@ ensure_ci_jobs() {
 
   local new_content_b64
   new_content_b64=$(printf '%s\n' "$updated_content" | base64 | tr -d '\n')
-  local put_body
-  put_body=$(jq -cn \
+  local put_file
+  put_file=$(mktemp)
+  jq -cn \
     --arg message "[Workflow] ci: Add the missing required jobs to ci.yml." \
     --arg content "$new_content_b64" \
     --arg sha "$file_sha" \
     --arg branch "$update_branch" \
-    '{message: $message, content: $content, sha: $sha, branch: $branch}')
-  local commit_err
-  commit_err=$(echo "$put_body" | gh api --method PUT "repos/$ORG/$repo_name/contents/$file_path" \
-    --input - 2>&1 >/dev/null || true)
-  if [[ -n "$commit_err" ]]; then
-    echo "  [$base_branch] $file_path commit failed: $commit_err"
-    record_unfinished "$repo_name [$base_branch]: $file_path commit: $commit_err"
+    '{message: $message, content: $content, sha: $sha, branch: $branch}' > "$put_file"
+
+  retry_gh "$file_path" '' gh api --method PUT "repos/$ORG/$repo_name/contents/$file_path" --input "$put_file"
+  rm -f "$put_file"
+
+  if [[ "$RETRY_OK" -eq 0 ]]; then
+    echo "  [$base_branch] $file_path commit failed: ${RETRY_ERR:-no message}"
+    record_unfinished "$repo_name [$base_branch]: $file_path commit: ${RETRY_ERR:-no message}"
     return 1
   fi
   echo "  [$base_branch] $file_path updated with missing jobs."
@@ -517,7 +525,7 @@ while IFS= read -r REPO_NAME; do
       # `--head` asks the server the question. `gh pr list` pages at 30, so a repository with
       # more open pull requests than that can hold this branch's pull request outside the page,
       # and a filter over the page would then answer a definite no.
-      retry_gh '' gh pr list --repo "$ORG/$REPO_NAME" \
+      retry_gh "pull requests for $UPDATE_BRANCH" '' gh pr list --repo "$ORG/$REPO_NAME" \
         --state open \
         --head "$UPDATE_BRANCH" \
         --json headRefName \
@@ -556,7 +564,7 @@ while IFS= read -r REPO_NAME; do
         #
         # Keep the URL too. `gh pr create` writes the new pull request's address to stdout, and
         # an operator reads that line to find what the sweep opened.
-        retry_gh 'already exists' gh pr create \
+        retry_gh "pull request for $UPDATE_BRANCH" 'already exists' gh pr create \
           --repo "$ORG/$REPO_NAME" \
           --title "[Workflow] ci: Ensure required workflow files" \
           --body "$BODY" \
