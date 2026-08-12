@@ -1,6 +1,11 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.24.3...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.24.4...26.x)
+
+## [v26.24.4](https://github.com/valkyrjaio/.github/compare/v26.24.3...v26.24.4) - 2026-08-12
+
+* [Workflow] docs: Require shell logic to live in a script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/321
+* [Go][Workflow] fix: Resolve first-party modules off the module proxy by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/324
 
 ## [v26.24.3](https://github.com/valkyrjaio/.github/compare/v26.24.2...v26.24.3) - 2026-08-09
 
