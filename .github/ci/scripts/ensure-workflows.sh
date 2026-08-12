@@ -542,8 +542,33 @@ while IFS= read -r REPO_NAME; do
         "$TEMPLATE_DIR/ci.yml" || true
     fi
 
-    if [[ "$FILES_ADDED" -gt 0 ]]; then
-      echo "  [$BASE_BRANCH] $FILES_ADDED file(s) added/updated — checking for existing PR..."
+    # A file read asks the update branch, so a branch already carrying every file adds nothing
+    # and would never reach the pull request path again. That is the state this script calls
+    # worse than a failed create: commits on a branch that no pull request shows, left by a
+    # create that failed or by a pull request somebody closed without merging.
+    #
+    # `compare` separates it from a merged branch nobody deleted. The merged one is level with
+    # its base and must stay out, because a create on it answers `No commits between`.
+    BRANCH_AHEAD=0
+
+    if [[ "$FILES_ADDED" -eq 0 ]] && [[ -n "$BRANCH_EXISTS" ]]; then
+      read_exists "repos/$ORG/$REPO_NAME/compare/$BASE_BRANCH...$UPDATE_BRANCH" '.ahead_by'
+
+      if [[ "$READ_STATE" == "unread" ]]; then
+        echo "  [$BASE_BRANCH] Could not compare $BASE_BRANCH with $UPDATE_BRANCH: $READ_MESSAGE"
+        record_unfinished "$REPO_NAME [$BASE_BRANCH]: branch compare: $READ_MESSAGE"
+      elif [[ "$READ_STATE" == "ok" ]] && [[ "$READ_BODY" != "0" ]]; then
+        echo "  [$BASE_BRANCH] $UPDATE_BRANCH is ahead by $READ_BODY commit(s) with nothing added this run."
+        BRANCH_AHEAD=1
+      fi
+    fi
+
+    if [[ "$FILES_ADDED" -gt 0 ]] || [[ "$BRANCH_AHEAD" -eq 1 ]]; then
+      echo "  [$BASE_BRANCH] $FILES_ADDED file(s) added/updated this run — checking for existing PR..."
+
+      if [[ -z "$FILES_LIST" ]]; then
+        FILES_LIST="| — | The branch already carried every file this run would add. |"$'\n'
+      fi
 
       # `read_exists` reads `gh api`, and this reads `gh pr list`, so it applies the same rule
       # by hand: the exit status decides. A failed list takes the create path below, and that
