@@ -43,8 +43,10 @@ set -e
 #
 # One run covers every non-archived repository in the organization. A repository
 # takes a branch list, and each of its base branches takes up to two ref reads.
-# A base branch also takes a contents read for each required workflow, and two
-# pull request calls when a file lands. A bare number names nothing across that.
+# A base branch also takes a contents read for each required workflow, and a
+# write for each file it is missing. Two pull request calls follow when a file
+# lands, and every call above asks up to three times. A bare number names
+# nothing across that.
 UNFINISHED=0
 UNFINISHED_WORK=""
 
