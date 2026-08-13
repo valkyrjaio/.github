@@ -55,42 +55,27 @@ jobs:
         with:
           token: ${{ steps.generate-token.outputs.token }}
 
+      # The scripts the next steps run live in this repository, and the checkout above holds the
+      # calling repository.
+      - name: Checkout the CI scripts
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          repository: valkyrjaio/.github
+          ref: ${{ job.workflow_sha }}
+          path: dot-github
+
+      # Warning: `git add -A` stages a nested checkout as a gitlink. Without this the dependency
+      # commit would carry a stray `dot-github` submodule entry.
+      - name: Keep the CI scripts out of the dependency commit
+        run: printf '%s\n' 'dot-github/' >> .git/info/exclude
+
       - name: Checkout existing PR branch if present
         id: prep-branch
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           BASE: ${{ github.ref_name }}
-        run: |
-          # Captured while still on the base branch, before any checkout switches away from it.
-          BASE_SHA=$(git rev-parse HEAD)
-
-          EXISTING=$(gh pr list \
-            --base "$BASE" \
-            --state open \
-            --json headRefName \
-            --jq '[.[] | select(.headRefName | startswith("deps/update-dependencies-"))] | first | .headRefName // ""')
-
-          if [ -n "$EXISTING" ]; then
-            echo "Found existing PR branch: $EXISTING"
-            git fetch origin "$EXISTING"
-            git checkout "$EXISTING"
-            # Reuse the branch name, but never its content: useLatestVersions only ever upgrades,
-            # so a version this branch already declares is one it can never walk back. Building on
-            # the previous run's tree makes a bad bump permanent — re-running reports the declared
-            # version as merely "exceeding" the latest and changes nothing. Resetting to the base
-            # means every run recomputes the full set of updates from scratch, so the branch always
-            # holds exactly base + today's updates and a bad bump disappears on the next run.
-            # The tradeoff: any commit pushed onto this branch by hand is discarded.
-            git reset --hard "$BASE_SHA"
-            echo "branch=$EXISTING" >> "$GITHUB_OUTPUT"
-            echo "is-new=false" >> "$GITHUB_OUTPUT"
-          else
-            BRANCH="deps/update-dependencies-$(date +%Y-%m-%d)"
-            echo "No existing PR branch. Will create: $BRANCH"
-            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-            echo "is-new=true" >> "$GITHUB_OUTPUT"
-          fi
-
+          RESET_TO_BASE: 'true'
+        run: dot-github/.github/ci/scripts/checkout-existing-pr-branch.sh
       - name: Setup Java
         uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
         with:
@@ -103,22 +88,7 @@ jobs:
       - name: Update dependencies
         env:
           DEPENDENCIES: ${{ inputs.dependencies }}
-        run: |
-          > /tmp/dependency_changes.txt
-
-          LENGTH=$(echo "$DEPENDENCIES" | jq 'length')
-          for i in $(seq 0 $((LENGTH - 1))); do
-            NAME=$(echo "$DEPENDENCIES" | jq -r ".[$i].name")
-            DIR=$(echo "$DEPENDENCIES" | jq -r ".[$i].directory")
-
-            echo "Updating $NAME..."
-            # --refresh-dependencies is required: Gradle caches resolved dynamic versions for 24
-            # hours by default, and the versions plugin does not override that. Because
-            # setup-gradle restores ~/.gradle between runs, a release published since the last
-            # re-resolution would otherwise stay invisible for up to a day.
-            (cd "$DIR" && gradle useLatestVersions --refresh-dependencies) || echo "useLatestVersions not available for $NAME, skipping."
-          done
-
+        run: dot-github/.github/ci/scripts/update-java-dependencies.sh
       - name: Check for changes
         id: check-changes
         run: |

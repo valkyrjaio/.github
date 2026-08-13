@@ -17,7 +17,10 @@
 # The script is language agnostic. Every language's dependency update reuses
 # the same branch naming, so each one calls this rather than carrying a copy.
 #
-# Reads GH_TOKEN, BASE, and GITHUB_OUTPUT from the environment.
+# Reads GH_TOKEN, BASE, and GITHUB_OUTPUT from the environment. RESET_TO_BASE
+# is optional: set it to `true` for an updater that can only move a version
+# forward, so a reused branch recomputes from the base instead of building on
+# the previous run.
 #
 # Usage:
 #
@@ -30,6 +33,11 @@
 # `pipefail`.
 set -e
 
+# Warning: capture the base commit before anything checks another branch out.
+if [[ "${RESET_TO_BASE:-}" == 'true' ]]; then
+  BASE_SHA=$(git rev-parse HEAD)
+fi
+
 EXISTING=$(gh pr list \
   --base "$BASE" \
   --state open \
@@ -40,6 +48,13 @@ if [[ -n "$EXISTING" ]]; then
   echo "Found existing PR branch: $EXISTING"
   git fetch origin "$EXISTING"
   git checkout "$EXISTING"
+
+  # Warning: an updater that only moves a version forward can never walk one back, so
+  # building on the previous run's tree makes a bad bump permanent. Resetting means every
+  # run recomputes from the base. Any commit pushed onto the branch by hand is discarded.
+  if [[ "${RESET_TO_BASE:-}" == 'true' ]]; then
+    git reset --hard "$BASE_SHA"
+  fi
   echo "branch=$EXISTING" >> "$GITHUB_OUTPUT"
   echo "is-new=false" >> "$GITHUB_OUTPUT"
 else
