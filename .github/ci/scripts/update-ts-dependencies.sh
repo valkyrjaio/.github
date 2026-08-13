@@ -9,9 +9,9 @@
 # ---------------------------------------------------------------------------
 # TypeScript dependency update.
 #
-# Runs `npm update` in each directory the calling repository declares in
-# `.github/update-dependencies.yml`, and syncs each caret range in
-# `package.json` to the version npm installed.
+# Runs `npm update` in each directory the calling workflow passes in the
+# `dependencies` input, and syncs each caret range in `package.json` to the
+# version npm installed.
 #
 # Reads DEPENDENCIES from the environment, and writes one `name|from|to` line
 # per bumped package to /tmp/dependency_changes.txt.
