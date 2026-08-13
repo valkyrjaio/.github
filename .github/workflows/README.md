@@ -551,8 +551,7 @@ The path to the action follows the path to a script. A workflow that runs from t
 
 A composite action obeys the rule as well, because no linter reads its `action.yml` either. An
 action reaches its own script at `"$ACTION_PATH/../../ci/scripts/<name>.sh"`, since an action cannot
-assume a working directory. `resolve-review-threads/action.yml` and `post-review-verdict/action.yml`
-show the shape.
+assume a working directory.
 
 Warning: the check that proves the checkout is the pinned commit stays in the `run:` block. That
 check reads the tree that holds the scripts, so a script cannot carry it. A checkout at the wrong
