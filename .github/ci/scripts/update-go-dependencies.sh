@@ -25,7 +25,7 @@
 # rule and the shell table are in `.github/workflows/README.md`, under Scripts.
 set -e
 
-> /tmp/dependency_changes.txt
+: > /tmp/dependency_changes.txt
 
 # Extract "<module>\t<version>" for every pinned requirement in a go.mod,
 # so the before/after snapshots can be diffed into a change table.
@@ -49,7 +49,7 @@ for i in $(seq 0 $((LENGTH - 1))); do
   NAME=$(echo "$DEPENDENCIES" | jq -r ".[$i].name")
   DIR=$(echo "$DEPENDENCIES" | jq -r ".[$i].directory")
 
-  if [ ! -f "$DIR/go.mod" ]; then
+  if [[ ! -f "$DIR/go.mod" ]]; then
     echo "No go.mod in $DIR, skipping $NAME."
     continue
   fi
