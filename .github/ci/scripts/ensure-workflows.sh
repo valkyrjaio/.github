@@ -363,7 +363,8 @@ read_ref() {
 }
 
 # Substitutes the release SHA into a template, and sets TEMPLATE_TEXT to the result. Reports a
-# template that gives nothing back, and returns non-zero on it.
+# template that gives nothing back, and returns non-zero on it. Read TEMPLATE_TEXT straight
+# after the call, because the next call overwrites it.
 #
 # `check_templates` proved every template readable and not empty before the first call, so what
 # is left is a read that fails during the run. `set -e` does not catch it: every caller reaches
@@ -532,6 +533,32 @@ branch_carries_unmerged_work() {
   echo "  [$base_branch] $update_branch is ahead by $ahead commit(s) that no pull request shows."
 
   return 0
+}
+
+# Adds each workflow in turn, and stops at the first one whose branch does not land.
+#
+# Warning: capture the status into a variable rather than testing `$?` inside a `||` group. The
+# group's own status then decides whether the call failed, and how `set -e` reads a compound
+# command decides the control flow.
+add_workflows() {
+  local tmpl_dir="$1"
+  local base_branch="$2"
+  local update_branch="$3"
+  local repo_name="$4"
+  shift 4
+  local workflow rc
+
+  for workflow in "$@"; do
+    rc=0
+    ensure_workflow "$workflow" "$tmpl_dir/$workflow" \
+      "$base_branch" "$update_branch" "$repo_name" || rc=$?
+
+    # 2 means the branch could not be created, so the rest of this branch's files cannot land
+    # either. Any other non-zero is one file's failure, and the loop carries on.
+    if [[ "$rc" -eq 2 ]]; then
+      break
+    fi
+  done
 }
 
 ensure_ci_jobs() {
@@ -749,49 +776,35 @@ while IFS= read -r REPO_NAME; do
     # 2 means the branch could not be created, so the rest of this branch's files cannot
     # land either. Any other non-zero is one file's failure, and the loop carries on.
     #
-    # Warning: capture the status into a variable rather than testing `$?` inside a `||`
-    # group. The group's own status then decides whether the list failed, and how `set -e`
-    # reads a compound command decides the control flow.
-    for WORKFLOW in "${REQUIRED_WORKFLOWS[@]}"; do
-      WORKFLOW_RC=0
-      ensure_workflow "$WORKFLOW" "$TEMPLATE_DIR/$WORKFLOW" \
-        "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || WORKFLOW_RC=$?
+    add_workflows "$TEMPLATE_DIR" "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
+      "${REQUIRED_WORKFLOWS[@]}"
 
-      if [[ "$WORKFLOW_RC" -eq 2 ]]; then
-        break
-      fi
-    done
+    LANG_TEMPLATE_DIR="$TEMPLATE_DIR"
 
-    # `BRANCH_FAILED` means the branch could not be created, so nothing below it can land. The
-    # reads would each be retried against the answer that failed the branch, and each one would
-    # log `missing, will create` for a file the guard then refuses to create.
+    if [[ -n "$LANG_DIR" ]]; then
+      LANG_TEMPLATE_DIR="$TEMPLATE_DIR/$LANG_DIR"
+    fi
+
+    # `BRANCH_FAILED` means the branch could not be created, so nothing after it can land. Each
+    # later read would ask the API again for the answer that failed the branch. Each one would
+    # also log `missing, will create` for a file that nothing then creates.
     if [[ -n "$BRANCH_FAILED" ]]; then
       echo "  [$BASE_BRANCH] Skipping the rest of this branch's files, the branch did not land"
-    elif [[ -n "$LANG_DIR" ]]; then
-      for WORKFLOW in "${LANG_WORKFLOWS[@]}"; do
-        WORKFLOW_RC=0
-        ensure_workflow "$WORKFLOW" "$TEMPLATE_DIR/$LANG_DIR/$WORKFLOW" \
-          "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || WORKFLOW_RC=$?
-
-        if [[ "$WORKFLOW_RC" -eq 2 ]]; then
-          break
-        fi
-      done
-      for WORKFLOW in "${SHARED_WORKFLOWS[@]}"; do
-        ensure_workflow "$WORKFLOW" "$TEMPLATE_DIR/$LANG_DIR/$WORKFLOW" \
-          "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
-      done
-
-      ensure_ci_jobs "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
-        "$TEMPLATE_DIR/$LANG_DIR/$CI_WORKFLOW" || true
     else
-      for WORKFLOW in "${SHARED_WORKFLOWS[@]}"; do
-        ensure_workflow "$WORKFLOW" "$TEMPLATE_DIR/$WORKFLOW" \
-          "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
-      done
+      if [[ -n "$LANG_DIR" ]]; then
+        add_workflows "$LANG_TEMPLATE_DIR" "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
+          "${LANG_WORKFLOWS[@]}"
+      fi
 
-      ensure_ci_jobs "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
-        "$TEMPLATE_DIR/$CI_WORKFLOW" || true
+      if [[ -z "$BRANCH_FAILED" ]]; then
+        add_workflows "$LANG_TEMPLATE_DIR" "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
+          "${SHARED_WORKFLOWS[@]}"
+      fi
+
+      if [[ -z "$BRANCH_FAILED" ]]; then
+        ensure_ci_jobs "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
+          "$LANG_TEMPLATE_DIR/$CI_WORKFLOW" || true
+      fi
     fi
 
     # A file read asks the update branch, so a branch already carrying every file adds nothing.
