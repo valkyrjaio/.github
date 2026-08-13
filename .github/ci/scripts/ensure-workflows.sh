@@ -11,9 +11,10 @@
 #
 # `required-workflows/` holds the workflow files that every repository in the
 # organization receives. This script adds each missing file to each repository,
-# on a `deps/` branch, and it opens one pull request for each base branch it
-# changed. It merges the missing jobs into an existing `ci.yml` rather than
-# replacing the file.
+# on a `deps/` branch, and it opens one pull request for each base branch whose
+# branch carries work. That covers a base branch this run changed, and one whose
+# branch a previous run left with no pull request. It merges the missing jobs
+# into an existing `ci.yml` rather than replacing the file.
 #
 # The templates come from the working tree, so the job checks this repository
 # out at `dot-github` and the script reads `dot-github/required-workflows`.
@@ -44,9 +45,10 @@ set -e
 # One run covers every non-archived repository in the organization. A repository
 # takes a branch list, and each of its base branches takes up to two ref reads.
 # A base branch also takes a contents read for each required workflow, and a
-# write for each file it is missing. Two pull request calls follow when a file
-# lands, and every call above asks up to three times. A bare number names
-# nothing across that.
+# write for each file it is missing. A base branch that lands a file then takes
+# two pull request calls, and one that lands none takes a compare, a commit read
+# and a merged pull request list. Every call above asks up to three times, and a
+# bare number names nothing across that.
 UNFINISHED=0
 UNFINISHED_WORK=""
 
@@ -378,8 +380,8 @@ ensure_workflow() {
 #
 # Warning: `ahead_by` alone does not answer it. This organization squash-merges and deletes no
 # branch, and a squash merge writes one new commit onto the base rather than taking the head
-# branch's commits into its history. A merged branch therefore stays ahead of its base for good,
-# and `ahead_by` would open one pull request a week for work that merged already.
+# branch's commits into its history. A merged branch therefore stays ahead of its base for
+# good. `ahead_by` alone would open one pull request a week for work that merged already.
 #
 # The pull request that merged dates the work it took. A branch tip no newer than that date is
 # work the merge took, and a tip newer than it is work no pull request shows.
@@ -490,8 +492,8 @@ ensure_ci_jobs() {
   fi
 
   # The two branches diverge, so a file absent from the update branch can still be on the base
-  # branch. Ask before taking the create path, because that path writes the template whole and
-  # the header promises this script merges into a repository's own `ci.yml` instead.
+  # branch. Ask before taking the create path. That path writes the template whole, and the
+  # header promises this script merges into a repository's own `ci.yml` instead.
   if [[ "$READ_STATE" == "absent" ]] && [[ -n "$BRANCH_EXISTS" ]]; then
     read_exists "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch"
     file_data="$READ_BODY"
@@ -563,9 +565,9 @@ ensure_ci_jobs() {
 
   local new_content_b64
   new_content_b64=$(printf '%s\n' "$updated_content" | base64 | tr -d '\n')
-  # The blob a `sha` names lives on the branch the write lands on. When the content came from
-  # the base branch instead, the update branch holds no such blob, so the write creates the file
-  # and carries no `sha`.
+  # The blob a `sha` names lives on the branch the write lands on. The update branch holds no
+  # such blob when the content comes from the base branch. The write then creates the file, and
+  # it carries no `sha`.
   local put_file
   put_file=$(mktemp)
   jq -cn \
