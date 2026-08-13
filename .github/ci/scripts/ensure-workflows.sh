@@ -155,6 +155,53 @@ LANG_WORKFLOWS=(
   "update-dependencies.yml"
 )
 
+# Workflows the root and every language flavor both carry.
+SHARED_WORKFLOWS=(
+  "create-version-branch.yml"
+  "release-new-version.yml"
+  "ci.yml"
+)
+
+# The language flavors `LANG_DIR` selects from, below.
+LANG_DIRS=(
+  "php"
+  "go"
+  "python"
+  "java"
+  "ts"
+)
+
+# Fails the run on a template this repository does not hold. The templates ship here, so a
+# renamed or emptied one is a defect in this repository rather than an answer about any
+# repository the sweep visits.
+#
+# This runs before the first call. A guard inside the loop would report the one defect once for
+# each repository-branch that reached it, and only after the sweep spent its whole API budget.
+check_templates() {
+  local dir workflow tmpl
+  local bad=""
+
+  for workflow in "${REQUIRED_WORKFLOWS[@]}" "${SHARED_WORKFLOWS[@]}"; do
+    tmpl="$TEMPLATE_DIR/$workflow"
+    [[ -r "$tmpl" ]] && [[ -s "$tmpl" ]] || bad="$bad"$'\n'"  - $tmpl"
+  done
+
+  for dir in "${LANG_DIRS[@]}"; do
+    for workflow in "${LANG_WORKFLOWS[@]}" "${SHARED_WORKFLOWS[@]}"; do
+      tmpl="$TEMPLATE_DIR/$dir/$workflow"
+      [[ -r "$tmpl" ]] && [[ -s "$tmpl" ]] || bad="$bad"$'\n'"  - $tmpl"
+    done
+  done
+
+  if [[ -n "$bad" ]]; then
+    echo "This repository is missing a template the sweep names:"
+    printf '%s\n' "${bad#$'\n'}"
+    exit 1
+  fi
+}
+
+check_templates
+
 PHP_EXCLUDED_REPOS="valkyrja-benchmarking-php valkyrja-docker-php"
 
 # The .github repo excludes itself on purpose. Its own callers use local
@@ -324,25 +371,15 @@ ensure_workflow() {
 
   echo "  [$base_branch] $file_path: missing, will create"
 
-  # The template ships in this repository, so a read that fails is a defect here rather than an
-  # answer about one repository. An unread template silences one workflow for every repository
-  # in the sweep, and an empty one proposes an empty workflow file to each of them.
-  #
-  # Warning: `set -e` does not catch this. Every caller reaches this function through an `||`
-  # list, and errexit is ignored inside a function a list calls. A `sed` over an empty template
-  # exits 0 as well, so neither half of the guard is reachable through the exit status alone.
+  # `check_templates` proved this file readable and not empty before the first call, so what is
+  # left is a read that fails during the run. `set -e` does not catch it: every caller reaches
+  # this function through an `||` list, and errexit is ignored inside a function a list calls.
   local content sed_status=0
   content=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$tmpl_file") || sed_status=$?
 
-  if [[ "$sed_status" -ne 0 ]]; then
+  if [[ "$sed_status" -ne 0 ]] || [[ -z "$content" ]]; then
     echo "  [$base_branch] Could not read template $tmpl_file, skipping $workflow"
     record_unfinished "$repo_name [$base_branch]: template $tmpl_file: sed exited $sed_status"
-    return 1
-  fi
-
-  if [[ -z "$content" ]]; then
-    echo "  [$base_branch] Template $tmpl_file is empty, skipping $workflow"
-    record_unfinished "$repo_name [$base_branch]: template $tmpl_file: read as empty"
     return 1
   fi
 
@@ -456,21 +493,13 @@ ensure_ci_jobs() {
   local tmpl_file="$4"
 
   local file_path=".github/workflows/ci.yml"
-  # The template ships in this repository, so a read that fails is a defect here rather than an
-  # answer about one repository. It silences `ci.yml` for every repository in the sweep, which
-  # is why it counts.
+  # The same read `ensure_workflow` makes, and the same guard, for the same reason.
   local tmpl_with_sha tmpl_status=0
   tmpl_with_sha=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$tmpl_file") || tmpl_status=$?
 
-  if [[ "$tmpl_status" -ne 0 ]]; then
+  if [[ "$tmpl_status" -ne 0 ]] || [[ -z "$tmpl_with_sha" ]]; then
     echo "  [$base_branch] Could not read template $tmpl_file, skipping ci.yml"
     record_unfinished "$repo_name [$base_branch]: template $tmpl_file: sed exited $tmpl_status"
-    return 1
-  fi
-
-  if [[ -z "$tmpl_with_sha" ]]; then
-    echo "  [$base_branch] Template $tmpl_file is empty, skipping ci.yml"
-    record_unfinished "$repo_name [$base_branch]: template $tmpl_file: read as empty"
     return 1
   fi
 
