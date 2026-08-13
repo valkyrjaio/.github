@@ -556,7 +556,11 @@ add_workflows() {
     return 0
   fi
 
+  local index=0
+  local remaining
+
   for workflow in "$@"; do
+    index=$((index + 1))
     rc=0
     ensure_workflow "$workflow" "$tmpl_dir/$workflow" \
       "$base_branch" "$update_branch" "$repo_name" || rc=$?
@@ -564,6 +568,12 @@ add_workflows() {
     # 2 means the branch could not be created, so the rest of this branch's files cannot land
     # either. Any other non-zero is one file's failure, and the loop carries on.
     if [[ "$rc" -eq 2 ]]; then
+      remaining="${*:$((index + 1))}"
+
+      if [[ -n "$remaining" ]]; then
+        echo "  [$base_branch] Skipping $remaining: the branch did not land"
+      fi
+
       break
     fi
   done
