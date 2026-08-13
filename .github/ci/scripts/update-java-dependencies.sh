@@ -27,10 +27,15 @@ for i in $(seq 0 $((LENGTH - 1))); do
   NAME=$(echo "$DEPENDENCIES" | jq -r ".[$i].name")
   DIR=$(echo "$DEPENDENCIES" | jq -r ".[$i].directory")
 
+  if [[ ! -f "$DIR/build.gradle" && ! -f "$DIR/build.gradle.kts" ]]; then
+    echo "No build file in $DIR, skipping $NAME."
+    continue
+  fi
+
   echo "Updating $NAME..."
   # --refresh-dependencies is required: Gradle caches resolved dynamic versions for 24
   # hours by default, and the versions plugin does not override that. Because
   # setup-gradle restores ~/.gradle between runs, a release published since the last
   # re-resolution would otherwise stay invisible for up to a day.
-  (cd "$DIR" && gradle useLatestVersions --refresh-dependencies) || echo "useLatestVersions not available for $NAME, skipping."
+  (cd "$DIR" && gradle useLatestVersions --refresh-dependencies)
 done
