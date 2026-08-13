@@ -1260,8 +1260,8 @@ input is a string that holds a JSON array. For PHP, each entry holds a `name`, a
 `command`, and an optional `directory`. The `command` is a full `composer`
 subcommand, with any flags.
 
-The reusable workflow runs each `composer` command, then commits every update
-onto one `deps/update-dependencies-*` branch. A repository carries one open
+For PHP, the reusable workflow runs each `composer` command, then commits every
+update onto one `deps/update-dependencies-*` branch. A repository carries one open
 dependency pull request at a time. The workflow opens the pull request on the
 first run, and a later run force-pushes onto the same branch. Each language also
 has a `_<lang>-check-outdated-dependencies.yml` gate, which runs before a release
