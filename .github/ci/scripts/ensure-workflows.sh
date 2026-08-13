@@ -619,12 +619,16 @@ ensure_ci_jobs() {
     return 0
   fi
 
-  # An empty merge is a failure, not a `ci.yml` with nothing in it. `check_templates` proved the
-  # merge script readable and not empty, so what is left is a run in which it wrote nothing, and
-  # `python3` over an empty script exits 0.
+  # An empty merge is a failure, not a `ci.yml` with nothing in it.
   if [[ "$merge_status" -ne 0 ]] || [[ -z "$updated_content" ]]; then
-    echo "  [$base_branch] $file_path: merge failed: ${merge_err:-it wrote nothing and exited $merge_status}"
-    record_unfinished "$repo_name [$base_branch]: $file_path merge: ${merge_err:-wrote nothing, exit $merge_status}"
+    local reason="it exited $merge_status"
+
+    if [[ "$merge_status" -eq 0 ]]; then
+      reason="it wrote nothing"
+    fi
+
+    echo "  [$base_branch] $file_path: merge failed: ${merge_err:-$reason}"
+    record_unfinished "$repo_name [$base_branch]: $file_path merge: ${merge_err:-$reason}"
     return 1
   fi
 
