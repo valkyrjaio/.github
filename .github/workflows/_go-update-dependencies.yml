@@ -53,30 +53,26 @@ jobs:
         with:
           token: ${{ steps.generate-token.outputs.token }}
 
+      # The scripts the next steps run live in this repository, and the checkout above holds the
+      # calling repository.
+      - name: Checkout the CI scripts
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          repository: valkyrjaio/.github
+          ref: ${{ job.workflow_sha }}
+          path: dot-github
+
+      # Warning: `git add -A` stages a nested checkout as a gitlink. Without this the dependency
+      # commit would carry a stray `dot-github` submodule entry.
+      - name: Keep the CI scripts out of the dependency commit
+        run: printf '%s\n' 'dot-github/' >> .git/info/exclude
+
       - name: Checkout existing PR branch if present
         id: prep-branch
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           BASE: ${{ github.ref_name }}
-        run: |
-          EXISTING=$(gh pr list \
-            --base "$BASE" \
-            --state open \
-            --json headRefName \
-            --jq '[.[] | select(.headRefName | startswith("deps/update-dependencies-"))] | first | .headRefName // ""')
-
-          if [ -n "$EXISTING" ]; then
-            echo "Found existing PR branch: $EXISTING"
-            git fetch origin "$EXISTING"
-            git checkout "$EXISTING"
-            echo "branch=$EXISTING" >> "$GITHUB_OUTPUT"
-            echo "is-new=false" >> "$GITHUB_OUTPUT"
-          else
-            BRANCH="deps/update-dependencies-$(date +%Y-%m-%d)"
-            echo "No existing PR branch. Will create: $BRANCH"
-            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-            echo "is-new=true" >> "$GITHUB_OUTPUT"
-          fi
+        run: dot-github/.github/ci/scripts/checkout-existing-pr-branch.sh
 
       - name: Setup Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
@@ -93,68 +89,7 @@ jobs:
           # committed and merged unread. Only the version list goes stale, so only
           # the proxy is bypassed.
           GONOPROXY: github.com/valkyrjaio/*
-        run: |
-          > /tmp/dependency_changes.txt
-
-          # Extract "<module>\t<version>" for every pinned requirement in a go.mod,
-          # so the before/after snapshots can be diffed into a change table.
-          # Comments are stripped first so "// indirect" markers do not become fields,
-          # and a leading single-line "require " prefix is removed so both the block
-          # and single-line require forms parse identically. The `$1 ~ /\./` guard
-          # keeps module paths (which always contain a dot) and drops the `go` and
-          # `toolchain` directives.
-          cat > /tmp/snapshot_gomod.sh <<'SH'
-          #!/bin/sh
-          # LC_ALL=C so the sort order matches the collation `join` expects below.
-          sed -e 's|//.*||' "$1/go.mod" \
-            | sed -e 's|^[[:space:]]*require[[:space:]]*||' \
-            | awk '$1 ~ /\./ && $2 ~ /^v/ { print $1 "\t" $2 }' \
-            | LC_ALL=C sort -u
-          SH
-          chmod +x /tmp/snapshot_gomod.sh
-
-          LENGTH=$(echo "$DEPENDENCIES" | jq 'length')
-          for i in $(seq 0 $((LENGTH - 1))); do
-            NAME=$(echo "$DEPENDENCIES" | jq -r ".[$i].name")
-            DIR=$(echo "$DEPENDENCIES" | jq -r ".[$i].directory")
-
-            if [ ! -f "$DIR/go.mod" ]; then
-              echo "No go.mod in $DIR, skipping $NAME."
-              continue
-            fi
-
-            echo "Updating $NAME ($DIR)..."
-            /tmp/snapshot_gomod.sh "$DIR" > /tmp/before.txt
-
-            if grep -qE '^tool[ (]' "$DIR/go.mod"; then
-              # Tool module (e.g. a pinned golangci-lint): it declares no packages of
-              # its own, so ./... would match nothing. The `tool` meta-pattern updates
-              # every tool listed in the go.mod instead.
-              #
-              # Deliberately no `-u`: the tool itself still moves to its latest
-              # release, but its dependencies are then resolved by MVS from that
-              # release's own go.mod. `-u` would instead drag the whole transitive
-              # graph to latest, including modules whose newest release is
-              # API-incompatible with the tool — a build that the tool's authors
-              # never sanctioned. That is not hypothetical: go-header v1.0.0 rewrote
-              # its API under the same module path (no /v2), and `-u` pulled it into
-              # a golangci-lint v2.12.2 that requires v0.5.0, so the pinned linter no
-              # longer compiled and every consumer's lint job failed.
-              ( cd "$DIR" && go get tool )
-            elif find "$DIR" -name '*.go' -not -path '*/vendor/*' | head -1 | grep -q .; then
-              ( cd "$DIR" && go get -u ./... )
-            else
-              echo "$NAME has no Go packages and no tool directive; tidying only."
-            fi
-
-            ( cd "$DIR" && go mod tidy )
-
-            /tmp/snapshot_gomod.sh "$DIR" > /tmp/after.txt
-            LC_ALL=C join -t "$(printf '\t')" -j 1 -o 0,1.2,2.2 /tmp/before.txt /tmp/after.txt \
-              | awk -F'\t' '$2 != $3 { print $1 "|" $2 "|" $3 }' >> /tmp/dependency_changes.txt
-          done
-
-          LC_ALL=C sort -u -o /tmp/dependency_changes.txt /tmp/dependency_changes.txt
+        run: dot-github/.github/ci/scripts/update-go-dependencies.sh
 
       - name: Check for changes
         id: check-changes
