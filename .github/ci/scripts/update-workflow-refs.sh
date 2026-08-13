@@ -32,11 +32,12 @@
 #     .github/ci/scripts/update-workflow-refs.sh
 # ---------------------------------------------------------------------------
 
-# Warning: `-u` and `pipefail` are deliberately absent. A GitHub Actions `run:`
-# block runs under `bash -e` alone, and this script holds the block that ran
-# there. `pipefail` would change what the script does: a pipeline such as the
-# one that decodes the file content ends in `base64`, and `set -e` reads that
-# last status, so an earlier stage that fails is not a failure today.
+# A bare `run:` step invokes this script, so it sets `set -e`.
+# `.github/workflows/README.md` holds the rule for each family, under Scripts.
+#
+# `pipefail` would change what this script does. The pipeline that decodes the
+# file content ends in `base64`, and `set -e` reads that last status, so an
+# earlier stage that fails is not a failure today.
 set -e
 
 # Fetch an API endpoint and echo the response only when it parses as

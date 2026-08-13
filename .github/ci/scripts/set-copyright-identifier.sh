@@ -23,7 +23,7 @@
 #     .github/ci/scripts/set-copyright-identifier.sh
 # ---------------------------------------------------------------------------
 
-# A composite action step invokes this script, so it sets `set -euo pipefail`.
+# The `run-script` action invokes this script, so it sets `set -euo pipefail`.
 # `.github/workflows/README.md` holds the rule for each family, under Scripts.
 set -euo pipefail
 
