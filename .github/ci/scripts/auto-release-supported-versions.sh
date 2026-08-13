@@ -511,6 +511,7 @@ fi
   echo "| Dispatched | $DISPATCHED |"
   echo "| Succeeded | $SUCCEEDED |"
   echo "| Failed | $FAILED |"
+  echo "| Failed (branch list unreadable) | $UNREADABLE_BRANCHES |"
   echo "| Never watched (budget spent) | $UNWATCHED |"
   echo "| Timed out waiting | $TIMED_OUT |"
   echo "| Skipped (other cohort) | $SKIPPED_OTHER_COHORT |"
@@ -567,8 +568,8 @@ fi
 # an unfinished run, or never finds the run to watch. Either way the script
 # gives up on the answer rather than on the run.
 #
-# Warning: the two conditions below are independent, and one run can hit both. Each reports
-# before anything exits, so the last lines of the log name every reason the slot is red.
+# Warning: the three conditions below are independent, and one run can hit more than one. Each
+# reports before anything exits, so the last lines of the log name every reason the slot is red.
 SLOT_FAILED=0
 
 if [[ "$FAILED" -gt 0 ]]; then
@@ -581,10 +582,6 @@ fi
 if [[ "$UNREADABLE_BRANCHES" -gt 0 ]]; then
   echo "$UNREADABLE_BRANCHES repository branch list(s) could not be read."
   SLOT_FAILED=1
-fi
-
-if [[ "$SLOT_FAILED" -gt 0 ]]; then
-  exit 1
 fi
 
 # A run the wait phase never reached is not a timeout either. Nothing here knows whether it
