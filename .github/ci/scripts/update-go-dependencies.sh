@@ -9,12 +9,11 @@
 # ---------------------------------------------------------------------------
 # Go dependency update.
 #
-# Updates each module directory the calling repository declares in
-# `.github/update-dependencies.yml`, and records every pinned requirement whose
-# version moved.
+# Updates each module directory the caller passes, and records every pinned
+# requirement whose version moved.
 #
-# Reads DEPENDENCIES and GONOPROXY from the environment, and writes one
-# `module|from|to` line per change to /tmp/dependency_changes.txt.
+# Reads DEPENDENCIES from the environment, and writes one `module|from|to` line
+# per change to /tmp/dependency_changes.txt.
 #
 # Usage:
 #
@@ -27,22 +26,10 @@ set -e
 
 : > /tmp/dependency_changes.txt
 
-# Extract "<module>\t<version>" for every pinned requirement in a go.mod,
-# so the before/after snapshots can be diffed into a change table.
-# Comments are stripped first so "// indirect" markers do not become fields,
-# and a leading single-line "require " prefix is removed so both the block
-# and single-line require forms parse identically. The `$1 ~ /\./` guard
-# keeps module paths (which always contain a dot) and drops the `go` and
-# `toolchain` directives.
-cat > /tmp/snapshot_gomod.sh <<'SH'
-#!/bin/sh
-# LC_ALL=C so the sort order matches the collation `join` expects below.
-sed -e 's|//.*||' "$1/go.mod" \
-  | sed -e 's|^[[:space:]]*require[[:space:]]*||' \
-  | awk '$1 ~ /\./ && $2 ~ /^v/ { print $1 "\t" $2 }' \
-  | LC_ALL=C sort -u
-SH
-chmod +x /tmp/snapshot_gomod.sh
+# The caller runs this from the workspace root, so the sibling is found through
+# `BASH_SOURCE` rather than the working directory.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+SNAPSHOT="$SCRIPT_DIR/snapshot-gomod.sh"
 
 LENGTH=$(echo "$DEPENDENCIES" | jq 'length')
 for i in $(seq 0 $((LENGTH - 1))); do
@@ -55,7 +42,7 @@ for i in $(seq 0 $((LENGTH - 1))); do
   fi
 
   echo "Updating $NAME ($DIR)..."
-  /tmp/snapshot_gomod.sh "$DIR" > /tmp/before.txt
+  "$SNAPSHOT" "$DIR" > /tmp/before.txt
 
   if grep -qE '^tool[ (]' "$DIR/go.mod"; then
     # Tool module (e.g. a pinned golangci-lint): it declares no packages of
@@ -80,7 +67,7 @@ for i in $(seq 0 $((LENGTH - 1))); do
 
   ( cd "$DIR" && go mod tidy )
 
-  /tmp/snapshot_gomod.sh "$DIR" > /tmp/after.txt
+  "$SNAPSHOT" "$DIR" > /tmp/after.txt
   LC_ALL=C join -t "$(printf '\t')" -j 1 -o 0,1.2,2.2 /tmp/before.txt /tmp/after.txt \
     | awk -F'\t' '$2 != $3 { print $1 "|" $2 "|" $3 }' >> /tmp/dependency_changes.txt
 done
