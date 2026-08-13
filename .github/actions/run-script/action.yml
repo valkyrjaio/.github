@@ -12,8 +12,9 @@ description: Runs one script from this repository's .github/ci/scripts against t
 inputs:
   script:
     description: >
-      File name of the script to run, within `.github/ci/scripts/`. A name only — a path separator
-      is rejected, so a caller cannot reach outside that directory.
+      File name of the script to run, within `.github/ci/scripts/`. A name only. A path separator
+      is rejected, so a caller cannot reach outside that directory. The runner's own name is
+      rejected as well, because running it again would capture its own output.
     required: true
   expected-ref:
     description: >
