@@ -332,7 +332,7 @@ package is not resolvable yet, so nothing may release against it.
 
 The flow above (`_create-release` → `_get-version-for-release` →
 `_update-version-files` → `_release`) drives the `.github` repo itself. Consumer
-language repos instead call `_{php,java,python,ts}-create-release.yml`, which
+language repos instead call `_{go,php,java,python,ts}-create-release.yml`, which
 wraps the same core steps with a pre-release outdated-dependency gate
 (`_<lang>-check-outdated-dependencies`) and a version/build-date bump in the
 language's info file (`_<lang>-update-info-files`). These orchestrators end at
@@ -1254,22 +1254,25 @@ its supported `??.x` branches (per `SUPPORTED_VERSIONS`).
 
 Each language repo ships a `.github/workflows/update-dependencies.yml` workflow,
 which its template supplies. That workflow calls the reusable
-`_<lang>-update-dependencies.yml` (`go`/`php`/`java`/`python`/`ts`), and it
+`_<lang>-update-dependencies.yml` (`go`/`php`/`java`/`python`/`ts`). The caller
 declares the list of dependencies to update in the `dependencies:` input. The
-input is a JSON array. For PHP, each entry holds a `name`, a `command`, and an
-optional `directory`. The `command` is a full `composer` subcommand, with any
-flags. The reusable workflow runs each `composer` command, then opens one pull
-request for each update group. Each language also has a
-`_<lang>-check-outdated-dependencies.yml` gate, which runs before a release
-proceeds.
+input is a string that holds a JSON array. For PHP, each entry holds a `name`, a
+`command`, and an optional `directory`. The `command` is a full `composer`
+subcommand, with any flags. The reusable workflow runs each `composer` command,
+then commits every update onto one `deps/update-dependencies-*` branch. A
+repository carries one open dependency pull request at a time. The workflow opens
+the pull request on the first run, and a later run force-pushes onto the same
+branch. Each language also has a `_<lang>-check-outdated-dependencies.yml` gate,
+which runs before a release proceeds.
 
 To pass extra flags (e.g., ignore a platform requirement), embed them directly
 in the `command` string:
 
 ```yaml
--   name: Root
-    command: "update --ignore-platform-req=ext-openswoole"
-    directory: "."
+dependencies: |
+  [
+    {"name": "Root", "command": "update --ignore-platform-req=ext-openswoole", "directory": "."}
+  ]
 ```
 
 ---
@@ -1436,24 +1439,24 @@ reusable workflows (leading `_`) are `workflow_call` only.
 
 ### Release & version (reusable)
 
-| File                                              | Description                                                                                                   |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `_create-release.yml`                             | Orchestrate stable/RC release (version → update files → release)                                              |
-| `_release.yml`                                    | Core release logic (notes, changelog, tag)                                                                    |
-| `_get-version-for-release.yml`                    | Compute and validate the next release version                                                                 |
-| `_get-version.yml`                                | Compute next major version number and branch name                                                             |
-| `_update-version-files.yml`                       | Commit updated `VERSION.md`                                                                                   |
-| `_create-version-branch.yml`                      | Orchestrate a new version branch (`_get-version` → `_version-branch`)                                         |
-| `_version-branch.yml`                             | Create branch, rewrite `README`/`CHANGELOG`/`VERSION`, set default, bump `LATEST_MAJOR_VERSION`               |
-| `_{php,java,python,ts}-create-release.yml`        | Per-language release orchestrators (outdated check → version → info files → release). Publishing is separate. |
-| `_java-release-maven-publish.yml`                 | Publish Java artifacts to Maven Central (`MAVEN_*` secrets)                                                   |
-| `_java-release-plugin-portal-publish.yml`         | Publish a Java Gradle plugin to the Gradle Plugin Portal (`GRADLE_PUBLISH_*` secrets)                         |
-| `_python-release-pypi-publish.yml`                | Publish Python package to PyPI (`PYPI_API_TOKEN`)                                                             |
-| `_ts-release-npm-publish.yml`                     | Publish TypeScript package to npm (trusted publishing, no token)                                              |
-| `_wait-for-package-availability.yml`              | Hold the release open until the registry serves the published version                                         |
-| `_{php,java,python,ts}-update-info-files.yml`     | Update `VERSION`/`BUILD_DATE` constants in a language's info file                                             |
-| `_{php,java,python,ts}-create-version-branch.yml` | Per-language new-version-branch orchestrators (run check-outdated first)                                      |
-| `_{python,ts}-version-branch.yml`                 | Python/TS branch-creation logic (PHP/Java reuse `_version-branch.yml`)                                        |
+| File                                                 | Description                                                                                                   |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `_create-release.yml`                                | Orchestrate stable/RC release (version → update files → release)                                              |
+| `_release.yml`                                       | Core release logic (notes, changelog, tag)                                                                    |
+| `_get-version-for-release.yml`                       | Compute and validate the next release version                                                                 |
+| `_get-version.yml`                                   | Compute next major version number and branch name                                                             |
+| `_update-version-files.yml`                          | Commit updated `VERSION.md`                                                                                   |
+| `_create-version-branch.yml`                         | Orchestrate a new version branch (`_get-version` → `_version-branch`)                                         |
+| `_version-branch.yml`                                | Create branch, rewrite `README`/`CHANGELOG`/`VERSION`, set default, bump `LATEST_MAJOR_VERSION`               |
+| `_{go,php,java,python,ts}-create-release.yml`        | Per-language release orchestrators (outdated check → version → info files → release). Publishing is separate. |
+| `_java-release-maven-publish.yml`                    | Publish Java artifacts to Maven Central (`MAVEN_*` secrets)                                                   |
+| `_java-release-plugin-portal-publish.yml`            | Publish a Java Gradle plugin to the Gradle Plugin Portal (`GRADLE_PUBLISH_*` secrets)                         |
+| `_python-release-pypi-publish.yml`                   | Publish Python package to PyPI (`PYPI_API_TOKEN`)                                                             |
+| `_ts-release-npm-publish.yml`                        | Publish TypeScript package to npm (trusted publishing, no token)                                              |
+| `_wait-for-package-availability.yml`                 | Hold the release open until the registry serves the published version                                         |
+| `_{go,php,java,python,ts}-update-info-files.yml`     | Update `VERSION`/`BUILD_DATE` constants in a language's info file                                             |
+| `_{go,php,java,python,ts}-create-version-branch.yml` | Per-language new-version-branch orchestrators (run check-outdated first)                                      |
+| `_{python,ts}-version-branch.yml`                    | Python/TS branch-creation logic (PHP/Java reuse `_version-branch.yml`)                                        |
 
 ### Language CI checks (reusable)
 
@@ -1487,11 +1490,11 @@ reusable workflows (leading `_`) are `workflow_call` only.
 
 ### Dependency management (reusable)
 
-| File                                                    | Description                                                  |
-| ------------------------------------------------------- | ------------------------------------------------------------ |
-| `_{php,java,python,ts}-check-outdated-dependencies.yml` | Verify all direct dependencies are up to date before release |
-| `_{php,java,python,ts}-update-dependencies.yml`         | Run the dependency updater and open/refresh a PR             |
-| `_php-update-dependencies-across-repos.yml`             | Trigger `update-dependencies` across all PHP repos           |
+| File                                                       | Description                                                  |
+| ---------------------------------------------------------- | ------------------------------------------------------------ |
+| `_{go,php,java,python,ts}-check-outdated-dependencies.yml` | Verify all direct dependencies are up to date before release |
+| `_{go,php,java,python,ts}-update-dependencies.yml`         | Run the dependency updater and open/refresh a PR             |
+| `_php-update-dependencies-across-repos.yml`                | Trigger `update-dependencies` across all PHP repos           |
 
 ### Repository & workflow management (reusable)
 
