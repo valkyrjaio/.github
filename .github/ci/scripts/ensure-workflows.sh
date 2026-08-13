@@ -45,10 +45,11 @@ set -e
 # One run covers every non-archived repository in the organization. A repository
 # takes a branch list, and each of its base branches takes up to two ref reads.
 # A base branch also takes a contents read for each required workflow, and a
-# write for each file it is missing. A base branch that lands a file then takes
-# two pull request calls. One that lands none takes a compare, a commit read and
-# a merged pull request list. Every call above asks up to three times, and a bare
-# number names nothing across that.
+# write for each file it is missing. A base branch whose update branch exists and
+# landed nothing takes a compare. A compare that finds the branch ahead adds a
+# commit read and a merged pull request list. Two pull request calls follow
+# wherever the branch carries work. Every call above asks up to three times, and
+# a bare number names nothing across that.
 UNFINISHED=0
 UNFINISHED_WORK=""
 
@@ -72,9 +73,12 @@ record_unfinished() {
 # in `auto-merge-bot-prs.sh`. A 403 secondary rate limit or a 5xx is transient, and this sweep
 # asks enough of the API in one run to meet one.
 #
-# Takes a label for the log, then the fragment that ends the loop at once, then the command. A
-# refusal GitHub means is not a blip, which is what the fragment names. The label is passed
-# rather than taken from the command, because a command line carries a pull request body.
+# Takes a label for the log, then the fragment that ends the loop at once, then the command. The
+# fragment is what the API says when a second attempt cannot change the answer, so it is that
+# call's own wording rather than a status: `already exists` from a create, `HTTP 404` from a
+# REST read, and nothing at all from a GraphQL call, whose refusals carry no status. The label
+# is passed rather than taken from the command, because a command line carries a pull request
+# body.
 #
 # Sets RETRY_OUT, RETRY_ERR, RETRY_STATUS and RETRY_OK. Read them straight after the call,
 # because the next call overwrites them.
@@ -225,6 +229,8 @@ PHP_EXCLUDED_REPOS="valkyrja-benchmarking-php valkyrja-docker-php"
 # `./` refs, so a synced template pinned to a release SHA would be wrong
 # here: it would run the released workflow instead of the branch under
 # test. This repo therefore adds its own copies by hand.
+# No fragment: `gh repo list` is GraphQL, so an organization it cannot resolve says so in words
+# and never `HTTP 404`.
 require_gh "the repository list" '' gh repo list "$ORG" --limit 200 --json name,isArchived \
   --jq '.[] | select(.isArchived == false and .name != ".github") | .name'
 REPOS="$RETRY_OUT"
