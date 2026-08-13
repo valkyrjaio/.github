@@ -64,7 +64,7 @@ record_unfinished() {
 # current `sha`. A caller that adds a write a repeat could apply twice must pass a fragment
 # that ends the loop on the first answer.
 #
-# The two contents writes and the reference write pass no fragment. Each of them reads the
+# The contents writes and the reference write pass no fragment. Each of them reads the
 # branch it writes to first, so the refusal it can still meet is rare. That refusal costs two
 # more calls on a run already red. `gh pr create` does pass one, because a pull request the
 # sweep opened last week is the answer it meets most.
@@ -408,7 +408,7 @@ ensure_workflow() {
       reason="the read gave nothing"
     fi
 
-    echo "  [$base_branch] Could not read template $tmpl_file, skipping $workflow"
+    echo "  [$base_branch] Template $tmpl_file: $reason, skipping $workflow"
     record_unfinished "$repo_name [$base_branch]: template $tmpl_file: $reason"
     return 1
   fi
@@ -534,7 +534,7 @@ ensure_ci_jobs() {
       reason="the read gave nothing"
     fi
 
-    echo "  [$base_branch] Could not read template $tmpl_file, skipping ci.yml"
+    echo "  [$base_branch] Template $tmpl_file: $reason, skipping ci.yml"
     record_unfinished "$repo_name [$base_branch]: template $tmpl_file: $reason"
     return 1
   fi
