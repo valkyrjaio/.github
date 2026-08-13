@@ -1252,18 +1252,20 @@ its supported `??.x` branches (per `SUPPORTED_VERSIONS`).
 
 ### Per-repo dependency updates
 
-Each language repo ships a `.github/workflows/update-dependencies.yml` workflow,
-which its template supplies. That workflow calls the reusable
+Each language repository ships a `.github/workflows/update-dependencies.yml`
+workflow, which its template supplies. That workflow calls the reusable
 `_<lang>-update-dependencies.yml` (`go`/`php`/`java`/`python`/`ts`). The caller
 declares the list of dependencies to update in the `dependencies:` input. The
 input is a string that holds a JSON array. For PHP, each entry holds a `name`, a
 `command`, and an optional `directory`. The `command` is a full `composer`
-subcommand, with any flags. The reusable workflow runs each `composer` command,
-then commits every update onto one `deps/update-dependencies-*` branch. A
-repository carries one open dependency pull request at a time. The workflow opens
-the pull request on the first run, and a later run force-pushes onto the same
-branch. Each language also has a `_<lang>-check-outdated-dependencies.yml` gate,
-which runs before a release proceeds.
+subcommand, with any flags.
+
+The reusable workflow runs each `composer` command, then commits every update
+onto one `deps/update-dependencies-*` branch. A repository carries one open
+dependency pull request at a time. The workflow opens the pull request on the
+first run, and a later run force-pushes onto the same branch. Each language also
+has a `_<lang>-check-outdated-dependencies.yml` gate, which runs before a release
+proceeds.
 
 To pass extra flags (e.g., ignore a platform requirement), embed them directly
 in the `command` string:
@@ -1456,7 +1458,7 @@ reusable workflows (leading `_`) are `workflow_call` only.
 | `_wait-for-package-availability.yml`                 | Hold the release open until the registry serves the published version                                         |
 | `_{go,php,java,python,ts}-update-info-files.yml`     | Update `VERSION`/`BUILD_DATE` constants in a language's info file                                             |
 | `_{go,php,java,python,ts}-create-version-branch.yml` | Per-language new-version-branch orchestrators (run check-outdated first)                                      |
-| `_{python,ts}-version-branch.yml`                    | Python/TS branch-creation logic (PHP/Java reuse `_version-branch.yml`)                                        |
+| `_{go,python,ts}-version-branch.yml`                 | Go/Python/TS branch-creation logic (PHP/Java reuse `_version-branch.yml`)                                     |
 
 ### Language CI checks (reusable)
 
