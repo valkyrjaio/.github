@@ -551,8 +551,9 @@ The path to the action follows the path to a script. A workflow that runs from t
 `./dot-github/.github/actions/run-script` after the second checkout.
 
 A composite action obeys the rule as well, because no linter reads its `action.yml` either. An
-action reaches its own script at `"$ACTION_PATH/../../ci/scripts/<name>.sh"`, since an action cannot
-assume a working directory.
+action reaches its own script at `'"$ACTION_PATH/../../ci/scripts/<name>.sh"'`, since an action
+cannot assume a working directory. The outer quotes are the YAML scalar, and the inner quotes are
+what reaches the shell.
 
 Warning: the check that proves the checkout is the pinned commit stays in the `run:` block. That
 check reads the tree that holds the scripts, so a script cannot carry it. A checkout at the wrong
@@ -653,7 +654,7 @@ the table decides which form a step takes:
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
 | Only from this repository  | `.github/ci/scripts/<name>.sh`, or `run-script` at `./.github/actions/run-script`                                                                      | The default checkout is this repository     |
 | From a consumer repository | `dot-github/.github/ci/scripts/<name>.sh`, or `run-script` at `./dot-github/.github/actions/run-script`, after a second checkout at `job.workflow_sha` | The default checkout is the consumer's tree |
-| Inside a composite action  | `"$ACTION_PATH/../../ci/scripts/<name>.sh"`                                                                                                            | An action cannot assume a working directory |
+| Inside a composite action  | `'"$ACTION_PATH/../../ci/scripts/<name>.sh"'`                                                                                                          | An action cannot assume a working directory |
 
 Warning: `run-script` **buffers**. It runs `OUTPUT=$("$SCRIPT_PATH" 2>&1)` and prints the result
 after the script exits, so a script that reports progress shows nothing until it finishes. A job that

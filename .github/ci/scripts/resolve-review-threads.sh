@@ -27,9 +27,7 @@
 # A script that a bare `run:` step invokes is the other case, and it sets
 # `set -e` alone. A `run:` step that names no shell gives `bash -e` and no
 # `pipefail`. Read the shell before you copy a `set` line between the two.
-#
-# `-u` is absent, because the block ran without it.
-set -eo pipefail
+set -euo pipefail
 
 if [[ -z "$PR_NUMBER" ]]; then
   echo 'No pull request number, so there are no threads to resolve.'

@@ -30,9 +30,7 @@
 # A script that a bare `run:` step invokes is the other case, and it sets
 # `set -e` alone. A `run:` step that names no shell gives `bash -e` and no
 # `pipefail`. Read the shell before you copy a `set` line between the two.
-#
-# `-u` is absent, because the block ran without it.
-set -eo pipefail
+set -euo pipefail
 
 # The review event GitHub accepts from anybody, including the author of the pull
 # request. Every branch below falls back to it, so it is named rather than
