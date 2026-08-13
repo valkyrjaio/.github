@@ -44,7 +44,9 @@
 # Defaults: --root the working tree that holds the current directory.
 # ---------------------------------------------------------------------------
 
-set -euo pipefail
+# A bare `run:` step invokes this script, so it sets `set -e`.
+# `.github/workflows/README.md` holds the rule for each family, under Scripts.
+set -e
 
 # The environment sets each of these, and an argument overrides the environment. A workflow passes
 # the environment, because it runs the script with no arguments. A person passes an argument.
