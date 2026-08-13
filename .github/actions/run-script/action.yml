@@ -14,7 +14,8 @@ inputs:
     description: >
       File name of the script to run, within `.github/ci/scripts/`. A name only. A path separator
       is rejected, so a caller cannot reach outside that directory. The runner's own name is
-      rejected as well, because running it again would capture its own output.
+      rejected as well, because it would run itself again with the same input, and each level
+      captures its child, so the job holds silently until the six-hour timeout.
     required: true
   expected-ref:
     description: >
