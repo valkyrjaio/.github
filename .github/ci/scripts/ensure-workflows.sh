@@ -302,8 +302,27 @@ ensure_workflow() {
 
   echo "  [$base_branch] $file_path: missing, will create"
 
-  local content
-  content=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$tmpl_file")
+  # The template ships in this repository, so a read that fails is a defect here rather than an
+  # answer about one repository. An unread template silences one workflow for every repository
+  # in the sweep, and an empty one proposes an empty workflow file to each of them.
+  #
+  # Warning: `set -e` does not catch this. Every caller reaches this function through an `||`
+  # list, and errexit is ignored inside a function a list calls. A `sed` over an empty template
+  # exits 0 as well, so neither half of the guard is reachable through the exit status alone.
+  local content sed_status=0
+  content=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$tmpl_file") || sed_status=$?
+
+  if [[ "$sed_status" -ne 0 ]]; then
+    echo "  [$base_branch] Could not read template $tmpl_file, skipping $workflow"
+    record_unfinished "$repo_name [$base_branch]: template $tmpl_file: sed exited $sed_status"
+    return 1
+  fi
+
+  if [[ -z "$content" ]]; then
+    echo "  [$base_branch] Template $tmpl_file is empty, skipping $workflow"
+    record_unfinished "$repo_name [$base_branch]: template $tmpl_file: read as empty"
+    return 1
+  fi
 
   create_branch_if_needed "$base_branch" "$update_branch" "$repo_name" || return $?
 
