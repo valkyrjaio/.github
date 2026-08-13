@@ -22,10 +22,8 @@
 #     .github/ci/scripts/run-pinned-script.sh
 # ---------------------------------------------------------------------------
 
-# An action step names `shell: bash`, so the script sets `set -euo pipefail`. A
-# script that a bare `run:` step invokes sets `set -e` alone, because that step
-# runs under `bash -e`. Read the shell before you copy a `set` line between the
-# two.
+# A composite action step invokes this script, so it sets `set -euo pipefail`.
+# `.github/workflows/README.md` holds the rule for each family, under Scripts.
 set -euo pipefail
 
 # The caller runs this script from the workspace root, not from this directory. The script it runs
