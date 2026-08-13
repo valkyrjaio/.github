@@ -46,9 +46,9 @@ set -e
 # takes a branch list, and each of its base branches takes up to two ref reads.
 # A base branch also takes a contents read for each required workflow, and a
 # write for each file it is missing. A base branch that lands a file then takes
-# two pull request calls, and one that lands none takes a compare, a commit read
-# and a merged pull request list. Every call above asks up to three times, and a
-# bare number names nothing across that.
+# two pull request calls. One that lands none takes a compare, a commit read and
+# a merged pull request list. Every call above asks up to three times, and a bare
+# number names nothing across that.
 UNFINISHED=0
 UNFINISHED_WORK=""
 
@@ -115,14 +115,17 @@ retry_gh() {
 # either one.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
-# The three calls that gate the whole run. Each one runs at top level, where `set -e` ends the
-# sweep on a 403 secondary rate limit and leaves nothing behind that says why, so each one takes
-# the same three attempts every call below it takes.
+# Reads something the whole run needs, and ends the run when the read fails. Each caller below
+# runs at top level, where `set -e` would end the sweep on a 403 secondary rate limit and leave
+# nothing behind that says why.
+#
+# Takes the label, then the fragment that ends the retry, then the command, as `retry_gh` does.
 require_gh() {
   local label="$1"
-  shift
+  local definite="$2"
+  shift 2
 
-  retry_gh "$label" '' "$@"
+  retry_gh "$label" "$definite" "$@"
 
   if [[ "$RETRY_OK" -eq 0 ]]; then
     echo "Could not read $label: ${RETRY_ERR:-no message}"
@@ -130,10 +133,10 @@ require_gh() {
   fi
 }
 
-require_gh "the latest .github release" gh api "repos/$ORG/.github/releases/latest" --jq '.tag_name'
+require_gh "the latest .github release" 'HTTP 404' gh api "repos/$ORG/.github/releases/latest" --jq '.tag_name'
 LATEST_TAG="$RETRY_OUT"
 
-require_gh "the commit for $LATEST_TAG" gh api "repos/$ORG/.github/commits/$LATEST_TAG" --jq '.sha'
+require_gh "the commit for $LATEST_TAG" 'HTTP 404' gh api "repos/$ORG/.github/commits/$LATEST_TAG" --jq '.sha'
 LATEST_SHA="$RETRY_OUT"
 
 echo "Latest .github release: $LATEST_TAG ($LATEST_SHA)"
@@ -208,7 +211,7 @@ PHP_EXCLUDED_REPOS="valkyrja-benchmarking-php valkyrja-docker-php"
 # `./` refs, so a synced template pinned to a release SHA would be wrong
 # here: it would run the released workflow instead of the branch under
 # test. This repo therefore adds its own copies by hand.
-require_gh "the repository list" gh repo list "$ORG" --limit 200 --json name,isArchived \
+require_gh "the repository list" '' gh repo list "$ORG" --limit 200 --json name,isArchived \
   --jq '.[] | select(.isArchived == false and .name != ".github") | .name'
 REPOS="$RETRY_OUT"
 
