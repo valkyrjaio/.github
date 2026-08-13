@@ -11,7 +11,7 @@
 #
 # `required-workflows/` holds the workflow files that every repository in the
 # organization receives. This script adds each missing file to each repository,
-# on a `deps/` branch, and it opens one pull request for each base branch whose
+# on a `deps/` branch. It opens one pull request for each base branch whose
 # branch carries work. That covers a base branch this run changed, and one whose
 # branch a previous run left with no pull request. It merges the missing jobs
 # into an existing `ci.yml` rather than replacing the file.
@@ -65,8 +65,8 @@ record_unfinished() {
 # that ends the loop on the first answer.
 #
 # The two contents writes and the reference write pass no fragment. Each of them reads the
-# branch it writes to first, so the refusal it can still meet is rare, and that refusal costs
-# two more calls on a run already red. `gh pr create` does pass one, because a pull request the
+# branch it writes to first, so the refusal it can still meet is rare. That refusal costs two
+# more calls on a run already red. `gh pr create` does pass one, because a pull request the
 # sweep opened last week is the answer it meets most.
 #
 # Runs a `gh` command up to three times, as `fetch_json` does in `update-workflow-refs.sh` and
@@ -74,10 +74,10 @@ record_unfinished() {
 # asks enough of the API in one run to meet one.
 #
 # Takes a label for the log, then the fragment that ends the loop at once, then the command. The
-# fragment is what the API says when a second attempt cannot change the answer, so it is that
-# call's own wording rather than a status: `already exists` from a create, `HTTP 404` from a
-# REST read, and nothing at all from a GraphQL call, whose refusals carry no status. The label
-# is passed rather than taken from the command, because a command line carries a pull request
+# fragment is what the API says when a second attempt cannot change the answer. It is that
+# call's own wording rather than a status: `already exists` from a create, and `HTTP 404` from
+# a REST read. A GraphQL call takes none, because its refusals carry no status. The label is
+# passed rather than taken from the command, because a command line carries a pull request
 # body.
 #
 # Sets RETRY_OUT, RETRY_ERR, RETRY_STATUS and RETRY_OK. Read them straight after the call,
@@ -156,11 +156,11 @@ LANG_DIRS=(
 )
 
 # Fails the run on a file this repository does not hold. The templates and `merge_ci_jobs.py`
-# ship here, so a renamed or emptied one is a defect in this repository rather than an answer
+# ship here, so a renamed or emptied one is a defect in this repository. It is not an answer
 # about any repository the sweep visits.
 #
 # The call sits above every API call. A guard inside the loop would report the one defect once
-# for each repository-branch that reached it, and only after the sweep spent its whole budget.
+# for each repository-branch, and only after the sweep spent its whole budget.
 check_templates() {
   local dir workflow tmpl
   local bad=""
@@ -197,7 +197,7 @@ check_templates() {
 check_templates
 
 # Reads something the whole run needs, and ends the run when the read fails. Each caller below
-# runs at top level, where `set -e` would end the sweep on a 403 secondary rate limit and leave
+# runs at top level. There `set -e` would end the sweep on a 403 secondary rate limit and leave
 # nothing behind that says why.
 #
 # Takes the label, then the fragment that ends the retry, then the command, as `retry_gh` does.
@@ -348,7 +348,7 @@ create_branch_if_needed() {
 #
 # Warning: the two branches diverge. The update branch is the base branch as it stood when the
 # branch was cut, and nothing merges the base branch into it afterwards. A file the base branch
-# gained since then reads as absent here, so the sweep proposes it again and GitHub reports the
+# gained since then reads as absent here. The sweep proposes it again, and GitHub reports the
 # conflict on the pull request.
 read_ref() {
   local base_branch="$1"
@@ -377,8 +377,8 @@ ensure_workflow() {
   #
   # Read the branch this function writes to. An update branch outlives its pull request until
   # somebody merges it, and it then carries files the base branch still lacks. A read of the
-  # base branch would ask GitHub to add a file the update branch already holds, and GitHub
-  # refuses that for want of a `sha`.
+  # base branch would ask GitHub to add a file the update branch already holds. GitHub refuses
+  # that for want of a `sha`.
   read_exists "repos/$ORG/$repo_name/contents/$file_path?ref=$(read_ref "$base_branch" "$update_branch")" '.name'
 
   if [[ "$READ_STATE" == "unread" ]]; then
@@ -445,9 +445,9 @@ ensure_workflow() {
 # failed leaves that state, and so does a pull request somebody closed without merging.
 #
 # Warning: `ahead_by` alone does not answer it. This organization squash-merges and deletes no
-# branch, and a squash merge writes one new commit onto the base rather than taking the head
+# branch. A squash merge writes one new commit onto the base rather than taking the head
 # branch's commits into its history. A merged branch therefore stays ahead of its base for
-# good. `ahead_by` alone would open one pull request a week for work that merged already.
+# good, and `ahead_by` would open one pull request a week for work that merged already.
 #
 # The pull request that merged dates the work it took. A branch tip no newer than that date is
 # work the merge took, and a tip newer than it is work no pull request shows.
@@ -543,8 +543,8 @@ ensure_ci_jobs() {
   # create path never ran. Only a definite 404 means the file is absent.
   #
   # The branch this function writes to, for the reason `ensure_workflow` gives. The `sha` and
-  # the content below come from the same read, so the merge decides against what the branch
-  # carries and the write carries that blob's `sha`.
+  # the content below come from the same read. The merge therefore decides against what the
+  # branch carries, and the write carries that blob's `sha`.
   read_exists "repos/$ORG/$repo_name/contents/$file_path?ref=$(read_ref "$base_branch" "$update_branch")"
   local file_data="$READ_BODY"
   local sha_on_update=1
@@ -800,8 +800,8 @@ while IFS= read -r REPO_NAME; do
       # commits and no pull request is worse than a create that fails on one already there.
       #
       # `--head` asks the server the question. `gh pr list` pages at 30, so a repository with
-      # more open pull requests than that can hold this branch's pull request outside the page,
-      # and a filter over the page would then answer a definite no.
+      # more open pull requests than that can hold this branch's outside the page. A filter over
+      # the page would then answer a definite no.
       retry_gh "pull requests for $UPDATE_BRANCH" '' gh pr list --repo "$ORG/$REPO_NAME" \
         --state open \
         --head "$UPDATE_BRANCH" \
