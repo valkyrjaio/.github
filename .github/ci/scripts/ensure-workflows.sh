@@ -363,6 +363,40 @@ read_ref() {
   printf '%s' "$base_branch"
 }
 
+# Substitutes the release SHA into a template, and sets TEMPLATE_TEXT to the result. Reports a
+# template that gives nothing back, and returns non-zero on it.
+#
+# `check_templates` proved every template readable and not empty before the first call, so what
+# is left is a read that fails during the run. `set -e` does not catch it: every caller reaches
+# this through an `||` list, and errexit is ignored inside a function a list calls.
+render_template() {
+  local tmpl_file="$1"
+  local base_branch="$2"
+  local repo_name="$3"
+  local skipping="$4"
+  local status=0 reason
+  local pin_from='valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}'
+  local pin_to="valkyrjaio/.github/.github/workflows/\\1@$LATEST_SHA"
+
+  TEMPLATE_TEXT=$(sed "s|$pin_from|$pin_to|g" "$tmpl_file") || status=$?
+
+  if [[ "$status" -eq 0 ]] && [[ -n "$TEMPLATE_TEXT" ]]; then
+    return 0
+  fi
+
+  reason="sed exited $status"
+
+  if [[ "$status" -eq 0 ]]; then
+    reason="the read gave nothing"
+  fi
+
+  TEMPLATE_TEXT=""
+  echo "  [$base_branch] Template $tmpl_file: $reason, skipping $skipping"
+  record_unfinished "$repo_name [$base_branch]: template $tmpl_file: $reason"
+
+  return 1
+}
+
 ensure_workflow() {
   local workflow="$1"
   local tmpl_file="$2"
@@ -395,23 +429,8 @@ ensure_workflow() {
 
   echo "  [$base_branch] $file_path: missing, will create"
 
-  # `check_templates` proved this file readable and not empty before the first call, so what is
-  # left is a read that fails during the run. `set -e` does not catch it: every caller reaches
-  # this function through an `||` list, and errexit is ignored inside a function a list calls.
-  local content sed_status=0
-  content=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$tmpl_file") || sed_status=$?
-
-  if [[ "$sed_status" -ne 0 ]] || [[ -z "$content" ]]; then
-    local reason="sed exited $sed_status"
-
-    if [[ "$sed_status" -eq 0 ]]; then
-      reason="the read gave nothing"
-    fi
-
-    echo "  [$base_branch] Template $tmpl_file: $reason, skipping $workflow"
-    record_unfinished "$repo_name [$base_branch]: template $tmpl_file: $reason"
-    return 1
-  fi
+  render_template "$tmpl_file" "$base_branch" "$repo_name" "$workflow" || return 1
+  local content="$TEMPLATE_TEXT"
 
   create_branch_if_needed "$base_branch" "$update_branch" "$repo_name" || return $?
 
@@ -523,21 +542,8 @@ ensure_ci_jobs() {
   local tmpl_file="$4"
 
   local file_path=".github/workflows/ci.yml"
-  # The same read `ensure_workflow` makes, and the same guard, for the same reason.
-  local tmpl_with_sha tmpl_status=0
-  tmpl_with_sha=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$tmpl_file") || tmpl_status=$?
-
-  if [[ "$tmpl_status" -ne 0 ]] || [[ -z "$tmpl_with_sha" ]]; then
-    local reason="sed exited $tmpl_status"
-
-    if [[ "$tmpl_status" -eq 0 ]]; then
-      reason="the read gave nothing"
-    fi
-
-    echo "  [$base_branch] Template $tmpl_file: $reason, skipping ci.yml"
-    record_unfinished "$repo_name [$base_branch]: template $tmpl_file: $reason"
-    return 1
-  fi
+  render_template "$tmpl_file" "$base_branch" "$repo_name" "ci.yml" || return 1
+  local tmpl_with_sha="$TEMPLATE_TEXT"
 
   # Warning: an absent file and an unanswered call are not the same thing. `|| true` made every
   # answer non-empty, including a 404. The test below then read every file as present, and the
