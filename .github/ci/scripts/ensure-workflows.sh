@@ -678,17 +678,20 @@ ensure_ci_jobs() {
   local file_sha content_b64
   file_sha=$(echo "$file_data" | jq -r '.sha')
   content_b64=$(echo "$file_data" | jq -r '.content // empty' | tr -d '\n')
-  echo "$content_b64" | base64 -d > /tmp/ci_existing.yml
-  printf '%s\n' "$tmpl_with_sha" > /tmp/ci_template.yml
+  local existing_file template_file
+  existing_file=$(mktemp)
+  template_file=$(mktemp)
+  echo "$content_b64" | base64 -d > "$existing_file"
+  printf '%s\n' "$tmpl_with_sha" > "$template_file"
 
   # 3 is the merge saying every job is already there. Any other non-zero is the merge failing,
   # and the two used to share exit 1, so a crashed merge reported a complete `ci.yml`.
   local updated_content merge_status=0 merge_err merge_err_file
   merge_err_file=$(mktemp)
   updated_content=$(python3 "$SCRIPT_DIR/merge_ci_jobs.py" \
-    /tmp/ci_existing.yml /tmp/ci_template.yml 2>"$merge_err_file") || merge_status=$?
+    "$existing_file" "$template_file" 2>"$merge_err_file") || merge_status=$?
   merge_err=$(cat "$merge_err_file")
-  rm -f "$merge_err_file"
+  rm -f "$merge_err_file" "$existing_file" "$template_file"
 
   if [[ "$merge_status" -eq 3 ]]; then
     echo "  [$base_branch] $file_path: all required jobs present"
