@@ -23,9 +23,8 @@
 #     .github/ci/scripts/set-copyright-identifier.sh
 # ---------------------------------------------------------------------------
 
-# The `run-script` action invokes this script under `shell: bash`
-# (`bash --noprofile --norc -eo pipefail {0}`), so the script sets the same
-# options itself.
+# A composite action step invokes this script, so it sets `set -euo pipefail`.
+# `.github/workflows/README.md` holds the rule for each family, under Scripts.
 set -euo pipefail
 
 if [[ -z "${IDENTIFIER:-}" ]]; then

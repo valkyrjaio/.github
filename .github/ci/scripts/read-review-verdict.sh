@@ -24,13 +24,8 @@
 #     .github/ci/scripts/read-review-verdict.sh
 # ---------------------------------------------------------------------------
 
-# Warning: `-u` and `pipefail` are deliberately absent. This script carries a
-# block from a `run:` step that names no shell, and GitHub runs that as
-# `bash -e {0}`.
-#
-# An action step is the other case. It names `shell: bash`, which is
-# `bash --noprofile --norc -eo pipefail`, so a script it invokes sets
-# `pipefail`. Read the shell before you copy a `set` line between the two.
+# A bare `run:` step invokes this script, so it sets `set -e`.
+# `.github/workflows/README.md` holds the rule for each family, under Scripts.
 set -e
 
 # A review that did not finish has no verdict to report, whatever it left in its output.

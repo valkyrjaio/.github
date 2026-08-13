@@ -38,11 +38,8 @@
 #     .github/ci/scripts/auto-release-supported-versions.sh
 # ---------------------------------------------------------------------------
 
-# Warning: `-u` and `pipefail` are deliberately absent. A GitHub Actions `run:`
-# block that names no shell runs under `bash -e {0}`, and this script holds the
-# block that ran there. The `bash --noprofile --norc -eo pipefail {0}` form is
-# what an explicit `shell: bash` selects, which is why a script that
-# `run-script` invokes sets `pipefail` and this one does not.
+# A bare `run:` step invokes this script, so it sets `set -e`.
+# `.github/workflows/README.md` holds the rule for each family, under Scripts.
 set -e
 
 if [[ -z "$SUPPORTED_VERSIONS" ]]; then
