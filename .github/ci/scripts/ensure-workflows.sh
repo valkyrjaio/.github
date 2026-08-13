@@ -395,8 +395,14 @@ ensure_workflow() {
   content=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$tmpl_file") || sed_status=$?
 
   if [[ "$sed_status" -ne 0 ]] || [[ -z "$content" ]]; then
+    local reason="sed exited $sed_status"
+
+    if [[ "$sed_status" -eq 0 ]]; then
+      reason="the read gave nothing"
+    fi
+
     echo "  [$base_branch] Could not read template $tmpl_file, skipping $workflow"
-    record_unfinished "$repo_name [$base_branch]: template $tmpl_file: sed exited $sed_status"
+    record_unfinished "$repo_name [$base_branch]: template $tmpl_file: $reason"
     return 1
   fi
 
@@ -515,8 +521,14 @@ ensure_ci_jobs() {
   tmpl_with_sha=$(sed "s|valkyrjaio/\.github/\.github/workflows/\([^@]*\)@[0-9a-f]\{40\}|valkyrjaio/.github/.github/workflows/\1@$LATEST_SHA|g" "$tmpl_file") || tmpl_status=$?
 
   if [[ "$tmpl_status" -ne 0 ]] || [[ -z "$tmpl_with_sha" ]]; then
+    local reason="sed exited $tmpl_status"
+
+    if [[ "$tmpl_status" -eq 0 ]]; then
+      reason="the read gave nothing"
+    fi
+
     echo "  [$base_branch] Could not read template $tmpl_file, skipping ci.yml"
-    record_unfinished "$repo_name [$base_branch]: template $tmpl_file: sed exited $tmpl_status"
+    record_unfinished "$repo_name [$base_branch]: template $tmpl_file: $reason"
     return 1
   fi
 
