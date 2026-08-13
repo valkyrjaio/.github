@@ -1262,9 +1262,10 @@ subcommand, with any flags.
 
 For PHP, the reusable workflow runs each `composer` command. Each
 `_<lang>-update-dependencies.yml` workflow commits its updates onto one
-`deps/update-dependencies-*` branch. Every supported base branch carries its own
-open dependency pull request. The workflow opens that pull request on the first
-run, and a later run force-pushes onto the same branch. Each language also has a
+`deps/update-dependencies-*` branch. The workflow searches for the open pull
+request on the base branch the run started on, so each base branch carries at
+most one. The workflow opens that pull request on the first run, and a later run
+force-pushes onto the same branch. Each language also has a
 `_<lang>-check-outdated-dependencies.yml` gate, which runs before a release
 proceeds.
 
