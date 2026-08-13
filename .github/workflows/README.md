@@ -523,9 +523,9 @@ explicitly."
 That table is why the two families of script differ, and neither is the odd one out:
 
 - A script a **bare `run:`** invokes sets `set -e`, because that is the shell that ran the block.
-- A script a **composite action step** invokes sets `set -euo pipefail`, because the step sets
-  `shell: bash` and `pipefail` is already on. The step reaches the script through `run-script`, or it
-  names the script itself.
+- A script a **composite action step** invokes sets `set -euo pipefail`. A step that names the
+  script itself runs it under `shell: bash`, where `pipefail` is already on. A step that reaches the
+  script through `run-script` starts a fresh `bash` from the shebang, where no option is on at all.
 
 So read the shell before you copy a `set` line from a neighboring script. Then check every pipeline:
 one that ends in a command which always succeeds hides a failing stage today, and `pipefail` stops
