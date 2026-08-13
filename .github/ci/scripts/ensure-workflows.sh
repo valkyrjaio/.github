@@ -425,6 +425,25 @@ ensure_workflow() {
     return 0
   fi
 
+  # The two branches diverge, so a file absent from the update branch can still be on the base
+  # branch. Ask before adding it, or the sweep proposes a second copy from an ancestor that has
+  # neither, and the pull request conflicts on a file the base branch already carries.
+  # `ensure_ci_jobs` asks the same question for its own file.
+  if [[ -n "$BRANCH_EXISTS" ]]; then
+    read_exists "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch" '.name'
+
+    if [[ "$READ_STATE" == "unread" ]]; then
+      echo "  [$base_branch] $file_path: could not read on $base_branch: $READ_MESSAGE"
+      record_unfinished "$repo_name [$base_branch]: $file_path on $base_branch: $READ_MESSAGE"
+      return 1
+    fi
+
+    if [[ "$READ_STATE" == "ok" ]]; then
+      echo "  [$base_branch] $file_path: already on $base_branch, skipping"
+      return 0
+    fi
+  fi
+
   echo "  [$base_branch] $file_path: missing, will create"
 
   render_template "$tmpl_file" "$base_branch" "$repo_name" "$workflow" || return 1
