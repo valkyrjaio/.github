@@ -76,6 +76,7 @@ jobs:
           BASE: ${{ github.ref_name }}
           RESET_TO_BASE: 'true'
         run: dot-github/.github/ci/scripts/checkout-existing-pr-branch.sh
+
       - name: Setup Java
         uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
         with:
@@ -89,6 +90,7 @@ jobs:
         env:
           DEPENDENCIES: ${{ inputs.dependencies }}
         run: dot-github/.github/ci/scripts/update-java-dependencies.sh
+
       - name: Check for changes
         id: check-changes
         run: |
