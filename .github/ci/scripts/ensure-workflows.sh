@@ -113,8 +113,27 @@ retry_gh() {
 # either one.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
-LATEST_TAG=$(gh api "repos/$ORG/.github/releases/latest" --jq '.tag_name')
-LATEST_SHA=$(gh api "repos/$ORG/.github/commits/$LATEST_TAG" --jq '.sha')
+# The three calls that gate the whole run. Each one runs at top level, where `set -e` ends the
+# sweep on a 403 secondary rate limit and leaves nothing behind that says why, so each one takes
+# the same three attempts every call below it takes.
+require_gh() {
+  local label="$1"
+  shift
+
+  retry_gh "$label" '' "$@"
+
+  if [[ "$RETRY_OK" -eq 0 ]]; then
+    echo "Could not read $label: ${RETRY_ERR:-no message}"
+    exit 1
+  fi
+}
+
+require_gh "the latest .github release" gh api "repos/$ORG/.github/releases/latest" --jq '.tag_name'
+LATEST_TAG="$RETRY_OUT"
+
+require_gh "the commit for $LATEST_TAG" gh api "repos/$ORG/.github/commits/$LATEST_TAG" --jq '.sha'
+LATEST_SHA="$RETRY_OUT"
+
 echo "Latest .github release: $LATEST_TAG ($LATEST_SHA)"
 
 TEMPLATE_DIR="dot-github/required-workflows"
@@ -140,8 +159,9 @@ PHP_EXCLUDED_REPOS="valkyrja-benchmarking-php valkyrja-docker-php"
 # `./` refs, so a synced template pinned to a release SHA would be wrong
 # here: it would run the released workflow instead of the branch under
 # test. This repo therefore adds its own copies by hand.
-REPOS=$(gh repo list "$ORG" --limit 200 --json name,isArchived \
-  --jq '.[] | select(.isArchived == false and .name != ".github") | .name')
+require_gh "the repository list" gh repo list "$ORG" --limit 200 --json name,isArchived \
+  --jq '.[] | select(.isArchived == false and .name != ".github") | .name'
+REPOS="$RETRY_OUT"
 
 # Asks whether something exists, and separates the answers a read can give.
 #
