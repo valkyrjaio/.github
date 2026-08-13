@@ -306,7 +306,11 @@ create_branch_if_needed() {
   # A 404 here is an answer: the base branch does not exist. The `master` fallback produces
   # that for a repository carrying neither a version branch nor `master`. Counting it as unread
   # would fail the sweep on a fact the API stated.
-  read_exists "repos/$ORG/$repo_name/git/refs/heads/$base_branch" '.object.sha'
+  # `git/ref/` rather than `git/refs/`: the plural path prefix-matches, so a name with no exact
+  # ref answers with an array of the refs that extend it, and `.object.sha` then fails on a
+  # branch the API could have called absent. `restore-branch-from-backup.yml` puts a
+  # `<branch>-backup` beside every branch it restores.
+  read_exists "repos/$ORG/$repo_name/git/ref/heads/$base_branch" '.object.sha'
   local base_sha="$READ_BODY"
 
   if [[ "$READ_STATE" == "unread" ]]; then
@@ -779,7 +783,7 @@ while IFS= read -r REPO_NAME; do
       UPDATE_BRANCH="deps/ensure-workflows-$BASE_BRANCH"
     fi
 
-    read_exists "repos/$ORG/$REPO_NAME/git/refs/heads/$UPDATE_BRANCH" '.object.sha'
+    read_exists "repos/$ORG/$REPO_NAME/git/ref/heads/$UPDATE_BRANCH" '.object.sha'
     BRANCH_EXISTS="$READ_BODY"
     BRANCH_FAILED=""
 
