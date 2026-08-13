@@ -76,9 +76,8 @@ record_unfinished() {
 # Takes a label for the log, then the fragment that ends the loop at once, then the command. The
 # fragment is what the API says when a second attempt cannot change the answer. It is that
 # call's own wording rather than a status, so a REST read takes `HTTP 404` and the GraphQL
-# create takes `already exists`. Each caller that passes none gives its own reason. The label
-# is passed rather than taken from the command, because a command line carries a pull request
-# body.
+# create takes `already exists`. The label is passed rather than taken from the command,
+# because a command line carries a pull request body.
 #
 # Sets RETRY_OUT, RETRY_ERR, RETRY_STATUS and RETRY_OK. Read them straight after the call,
 # because the next call overwrites them.
