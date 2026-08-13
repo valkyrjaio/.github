@@ -75,10 +75,10 @@ record_unfinished() {
 #
 # Takes a label for the log, then the fragment that ends the loop at once, then the command. The
 # fragment is what the API says when a second attempt cannot change the answer. It is that
-# call's own wording rather than a status: `already exists` from a create, and `HTTP 404` from
-# a REST read. A GraphQL call takes none, because its refusals carry no status. The label is
-# passed rather than taken from the command, because a command line carries a pull request
-# body.
+# call's own wording rather than a status, so a REST read takes `HTTP 404` and the GraphQL
+# create takes `already exists`. A call whose refusals the sweep cannot meet takes none. The
+# label is passed rather than taken from the command, because a command line carries a pull
+# request body.
 #
 # Sets RETRY_OUT, RETRY_ERR, RETRY_STATUS and RETRY_OK. Read them straight after the call,
 # because the next call overwrites them.
@@ -229,8 +229,9 @@ PHP_EXCLUDED_REPOS="valkyrja-benchmarking-php valkyrja-docker-php"
 # `./` refs, so a synced template pinned to a release SHA would be wrong
 # here: it would run the released workflow instead of the branch under
 # test. This repo therefore adds its own copies by hand.
-# No fragment: `gh repo list` is GraphQL, so an organization it cannot resolve says so in words
-# and never `HTTP 404`.
+#
+# No fragment. The one refusal this call can give names an organization it cannot resolve, and
+# the workflow fixes `$ORG`, so every refusal the sweep meets here is a transient one.
 require_gh "the repository list" '' gh repo list "$ORG" --limit 200 --json name,isArchived \
   --jq '.[] | select(.isArchived == false and .name != ".github") | .name'
 REPOS="$RETRY_OUT"
