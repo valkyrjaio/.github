@@ -306,9 +306,9 @@ create_branch_if_needed() {
   # A 404 here is an answer: the base branch does not exist. The `master` fallback produces
   # that for a repository carrying neither a version branch nor `master`. Counting it as unread
   # would fail the sweep on a fact the API stated.
-  # `git/ref/` rather than `git/refs/`: the plural path prefix-matches, so a name with no exact
-  # ref answers with an array of the refs that extend it, and `.object.sha` then fails on a
-  # branch the API could have called absent. `restore-branch-from-backup.yml` puts a
+  # `git/ref/` rather than `git/refs/`. The plural path prefix-matches, so a name with no exact
+  # ref answers with an array of the refs that extend it. `.object.sha` then fails on a branch
+  # the API could have called absent, and `restore-branch-from-backup.yml` puts a
   # `<branch>-backup` beside every branch it restores.
   read_exists "repos/$ORG/$repo_name/git/ref/heads/$base_branch" '.object.sha'
   local base_sha="$READ_BODY"
@@ -426,9 +426,9 @@ ensure_workflow() {
   fi
 
   # The two branches diverge, so a file absent from the update branch can still be on the base
-  # branch. Ask before adding it, or the sweep proposes a second copy from an ancestor that has
-  # neither, and the pull request conflicts on a file the base branch already carries.
-  # `ensure_ci_jobs` asks the same question for its own file.
+  # branch. Ask before adding it. Without the read the sweep proposes a second copy from an
+  # ancestor that has neither. The pull request then conflicts on a file the base branch
+  # already carries. `ensure_ci_jobs` asks the same question for its own file.
   if [[ -n "$BRANCH_EXISTS" ]]; then
     read_exists "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch" '.name'
 
