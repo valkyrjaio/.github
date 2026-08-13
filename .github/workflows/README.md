@@ -334,8 +334,8 @@ The flow above (`_create-release` → `_get-version-for-release` →
 `_update-version-files` → `_release`) drives the `.github` repo itself. Consumer
 language repos instead call `_{php,java,python,ts}-create-release.yml`, which
 wraps the same core steps with a pre-release outdated-dependency gate
-(`_check-outdated-<lang>-dependencies`) and a version/build-date bump in the
-language's info file (`_update-<lang>-info-files`). These orchestrators end at
+(`_<lang>-check-outdated-dependencies`) and a version/build-date bump in the
+language's info file (`_<lang>-update-info-files`). These orchestrators end at
 `_release.yml` (which creates the GitHub release and tag).
 
 **Publishing** is a separate concern. The publish workflows below are standalone
@@ -1252,14 +1252,16 @@ its supported `??.x` branches (per `SUPPORTED_VERSIONS`).
 
 ### Per-repo dependency updates
 
-Each language repo ships an `update-dependencies` workflow (from its template)
-that calls the reusable `_update-<lang>-dependencies.yml`
-(`php`/`java`/`python`/`ts`). For PHP, that reusable workflow runs the
-`composer` commands defined in the repo's `.github/update-dependencies.yml` —
-each entry specifying a `name`, `command` (full composer subcommand string
-including any flags), and optional `directory` — then opens one PR per update
-group. Each language paired with a `_check-outdated-<lang>-dependencies.yml`
-gate that runs before a release proceeds.
+Each language repo ships a `.github/workflows/update-dependencies.yml` workflow,
+which its template supplies. That workflow calls the reusable
+`_<lang>-update-dependencies.yml` (`go`/`php`/`java`/`python`/`ts`), and it
+declares the list of dependencies to update in the `dependencies:` input. The
+input is a JSON array. For PHP, each entry holds a `name`, a `command`, and an
+optional `directory`. The `command` is a full `composer` subcommand, with any
+flags. The reusable workflow runs each `composer` command, then opens one pull
+request for each update group. Each language also has a
+`_<lang>-check-outdated-dependencies.yml` gate, which runs before a release
+proceeds.
 
 To pass extra flags (e.g., ignore a platform requirement), embed them directly
 in the `command` string:

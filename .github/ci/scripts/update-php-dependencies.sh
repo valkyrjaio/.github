@@ -9,10 +9,10 @@
 # ---------------------------------------------------------------------------
 # PHP dependency update.
 #
-# This script runs the composer commands that the calling repository declares
-# in `.github/update-dependencies.yml`, and it syncs the constraints in
-# `composer.json` to what the update resolved. It records the version change
-# of every package, so the pull request body can list them.
+# This script runs the composer commands that the calling workflow passes in
+# the `dependencies` input, and it syncs the constraints in `composer.json` to
+# what the update resolved. It records the version change of every package, so
+# the pull request body can list them.
 #
 # Reads DEPENDENCIES from the environment. It writes the version change of
 # each package to /tmp/dependency_changes.txt, which the pull request body reads.
