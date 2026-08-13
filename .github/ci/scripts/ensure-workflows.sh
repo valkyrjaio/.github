@@ -542,9 +542,8 @@ add_workflows() {
   shift 4
   local workflow rc
 
-  # The branch failed earlier for this base branch, so nothing here can land. Each read would
-  # ask the API again for the answer that failed the branch, and log `missing, will create`
-  # for a file that nothing then creates.
+  # The branch failed earlier for this base branch, so nothing here can land. Each file would
+  # still cost a contents read, and log `missing, will create` for a file that nothing creates.
   if [[ -n "$BRANCH_FAILED" ]]; then
     echo "  [$base_branch] Skipping $*: the branch did not land"
 
