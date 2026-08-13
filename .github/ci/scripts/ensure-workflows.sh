@@ -392,9 +392,16 @@ branch_carries_unmerged_work() {
   read_exists "repos/$ORG/$repo_name/compare/$base_branch...$update_branch" '.ahead_by'
   ahead="$READ_BODY"
 
+  # A 404 is an answer: one of the two branches is gone since the ref read. Counting it as
+  # unread would fail the sweep on a fact the API stated.
+  if [[ "$READ_STATE" == "absent" ]]; then
+    echo "  [$base_branch] $base_branch or $update_branch is gone, skipping the compare"
+    return 1
+  fi
+
   if [[ "$READ_STATE" != "ok" ]]; then
-    echo "  [$base_branch] Could not compare $base_branch with $update_branch: ${READ_MESSAGE:-no answer}"
-    record_unfinished "$repo_name [$base_branch]: branch compare: ${READ_MESSAGE:-no answer}"
+    echo "  [$base_branch] Could not compare $base_branch with $update_branch: $READ_MESSAGE"
+    record_unfinished "$repo_name [$base_branch]: branch compare: $READ_MESSAGE"
     return 1
   fi
 
@@ -405,9 +412,14 @@ branch_carries_unmerged_work() {
   read_exists "repos/$ORG/$repo_name/commits/$BRANCH_EXISTS" '.commit.committer.date'
   tip_date="$READ_BODY"
 
+  if [[ "$READ_STATE" == "absent" ]]; then
+    echo "  [$base_branch] The tip of $update_branch is gone, skipping the compare"
+    return 1
+  fi
+
   if [[ "$READ_STATE" != "ok" ]]; then
-    echo "  [$base_branch] Could not date $update_branch: ${READ_MESSAGE:-no answer}"
-    record_unfinished "$repo_name [$base_branch]: branch tip date: ${READ_MESSAGE:-no answer}"
+    echo "  [$base_branch] Could not date $update_branch: $READ_MESSAGE"
+    record_unfinished "$repo_name [$base_branch]: branch tip date: $READ_MESSAGE"
     return 1
   fi
 
