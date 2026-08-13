@@ -1,6 +1,11 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.24.4...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.24.5...26.x)
+
+## [v26.24.5](https://github.com/valkyrjaio/.github/compare/v26.24.4...v26.24.5) - 2026-08-13
+
+* [Workflow] refactor: Move the Go dependency update into a script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/328
+* [Workflow] ci: Run the checks on a pull request that targets any branch by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/329
 
 ## [v26.24.4](https://github.com/valkyrjaio/.github/compare/v26.24.3...v26.24.4) - 2026-08-12
 
