@@ -88,4 +88,4 @@ runs:
         ADVISORY: ${{ inputs.advisory-findings }}
         REQUEST_CHANGES: ${{ inputs.request-changes }}
         ACTION_PATH: ${{ github.action_path }}
-      run: "$ACTION_PATH/../../ci/scripts/post-review-verdict.sh"
+      run: '"$ACTION_PATH/../../ci/scripts/post-review-verdict.sh"'

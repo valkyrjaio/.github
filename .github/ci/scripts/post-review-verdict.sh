@@ -23,16 +23,9 @@
 #     .github/ci/scripts/post-review-verdict.sh
 # ---------------------------------------------------------------------------
 
-# Warning: this script carries a block from a composite action, and an action
-# step names `shell: bash`. That form is `bash --noprofile --norc -eo pipefail`,
-# so the block already ran with `pipefail` and the script keeps it.
-#
-# A script that a bare `run:` step invokes is the other case, and it sets
-# `set -e` alone. A `run:` step that names no shell gives `bash -e` and no
-# `pipefail`. Read the shell before you copy a `set` line between the two.
-#
-# `-u` is absent, because the block ran without it.
-set -eo pipefail
+# A composite action step invokes this script, so it sets `set -euo pipefail`.
+# `.github/workflows/README.md` holds the rule for each family, under Scripts.
+set -euo pipefail
 
 # The review event GitHub accepts from anybody, including the author of the pull
 # request. Every branch below falls back to it, so it is named rather than

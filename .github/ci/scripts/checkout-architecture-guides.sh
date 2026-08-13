@@ -32,9 +32,8 @@
 #     .github/ci/scripts/checkout-architecture-guides.sh
 # ---------------------------------------------------------------------------
 
-# Warning: `-u` and `pipefail` are deliberately absent. This script carries a
-# block from a `run:` step that names no shell, and GitHub runs that as
-# `bash -e {0}`.
+# A bare `run:` step invokes this script, so it sets `set -e`.
+# `.github/workflows/README.md` holds the rule for each family, under Scripts.
 set -e
 
 ARCHITECTURE_REPOSITORY='https://github.com/valkyrjaio/architecture.git'

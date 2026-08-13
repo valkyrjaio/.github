@@ -63,4 +63,4 @@ runs:
         APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
         BEFORE: ${{ inputs.before }}
         ACTION_PATH: ${{ github.action_path }}
-      run: "$ACTION_PATH/../../ci/scripts/resolve-review-threads.sh"
+      run: '"$ACTION_PATH/../../ci/scripts/resolve-review-threads.sh"'

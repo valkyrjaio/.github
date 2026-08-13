@@ -34,11 +34,12 @@
 #     .github/ci/scripts/auto-merge-bot-prs.sh
 # ---------------------------------------------------------------------------
 
-# Warning: `-u` and `pipefail` are deliberately absent. A GitHub Actions `run:`
-# block runs under `bash -e` alone, and this script holds the block that ran
-# there. `pipefail` would change what the script does, because a pipeline here
-# takes its status from the last stage and an earlier stage that fails is not
-# a failure today.
+# A bare `run:` step invokes this script, so it sets `set -e`.
+# `.github/workflows/README.md` holds the rule for each family, under Scripts.
+#
+# `pipefail` would change what this script does. A pipeline here takes its
+# status from the last stage, so an earlier stage that fails is not a failure
+# today.
 set -e
 
 # Every gate below is required rather than defaulted. A default here

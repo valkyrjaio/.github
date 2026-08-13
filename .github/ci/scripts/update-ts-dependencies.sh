@@ -21,8 +21,8 @@
 #     .github/ci/scripts/update-ts-dependencies.sh
 # ---------------------------------------------------------------------------
 
-# Warning: a bare `run:` step runs this, so `-u` and `pipefail` stay off. The
-# rule and the shell table are in `.github/workflows/README.md`, under Scripts.
+# A bare `run:` step invokes this script, so it sets `set -e`.
+# `.github/workflows/README.md` holds the rule for each family, under Scripts.
 set -e
 
 : > /tmp/dependency_changes.txt

@@ -20,16 +20,9 @@
 #     .github/ci/scripts/resolve-review-threads.sh
 # ---------------------------------------------------------------------------
 
-# Warning: this script carries a block from a composite action, and an action
-# step names `shell: bash`. That form is `bash --noprofile --norc -eo pipefail`,
-# so the block already ran with `pipefail` and the script keeps it.
-#
-# A script that a bare `run:` step invokes is the other case, and it sets
-# `set -e` alone. A `run:` step that names no shell gives `bash -e` and no
-# `pipefail`. Read the shell before you copy a `set` line between the two.
-#
-# `-u` is absent, because the block ran without it.
-set -eo pipefail
+# A composite action step invokes this script, so it sets `set -euo pipefail`.
+# `.github/workflows/README.md` holds the rule for each family, under Scripts.
+set -euo pipefail
 
 if [[ -z "$PR_NUMBER" ]]; then
   echo 'No pull request number, so there are no threads to resolve.'

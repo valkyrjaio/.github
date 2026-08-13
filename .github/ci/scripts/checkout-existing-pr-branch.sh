@@ -24,10 +24,8 @@
 #     .github/ci/scripts/checkout-existing-pr-branch.sh
 # ---------------------------------------------------------------------------
 
-# Warning: `-u` and `pipefail` are deliberately absent. This script carries a
-# block from a `run:` step that names no shell, and GitHub runs that as
-# `bash -e {0}`. An action step is the other case, and a script it invokes sets
-# `pipefail`.
+# A bare `run:` step invokes this script, so it sets `set -e`.
+# `.github/workflows/README.md` holds the rule for each family, under Scripts.
 set -e
 
 EXISTING=$(gh pr list \

@@ -27,11 +27,8 @@
 #     .github/ci/scripts/fix-trailing-newlines.sh
 # ---------------------------------------------------------------------------
 
-# Warning: `-u` and `pipefail` are deliberately absent. A `run:` step that names
-# no shell runs under `bash -e {0}`, and this script holds such a block. The
-# `bash --noprofile --norc -eo pipefail {0}` form is what an explicit
-# `shell: bash` selects, which is why a script that `run-script` invokes sets
-# `pipefail` and this one does not.
+# A bare `run:` step invokes this script, so it sets `set -e`.
+# `.github/workflows/README.md` holds the rule for each family, under Scripts.
 set -e
 
 TMPFILE=$(mktemp)

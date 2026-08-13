@@ -523,8 +523,14 @@ explicitly."
 That table is why the two families of script differ, and neither is the odd one out:
 
 - A script a **bare `run:`** invokes sets `set -e`, because that is the shell that ran the block.
-- A script **`run-script`** invokes sets `set -euo pipefail`, because `action.yml` sets `shell: bash`
-  and `pipefail` is already on.
+- A script a **composite action step** invokes sets `set -euo pipefail`, whether the step names the
+  script itself or reaches it through `run-script`. `shell: bash` is
+  `bash --noprofile --norc -eo pipefail`, and `-u` is the one option this repository adds rather
+  than mirrors.
+
+Warning: no option is inherited in any family. A script is a fresh `bash` started from its own
+shebang, so the `set` line is what turns every option on, and the shell of the step is what the
+line mirrors.
 
 So read the shell before you copy a `set` line from a neighboring script. Then check every pipeline:
 one that ends in a command which always succeeds hides a failing stage today, and `pipefail` stops
@@ -550,9 +556,9 @@ The path to the action follows the path to a script. A workflow that runs from t
 `./dot-github/.github/actions/run-script` after the second checkout.
 
 A composite action obeys the rule as well, because no linter reads its `action.yml` either. An
-action reaches its own script at `"$ACTION_PATH/../../ci/scripts/<name>.sh"`, since an action cannot
-assume a working directory. `resolve-review-threads/action.yml` and `post-review-verdict/action.yml`
-show the shape.
+action reaches its own script at `'"$ACTION_PATH/../../ci/scripts/<name>.sh"'`, since an action
+cannot assume a working directory. The outer quotes are the YAML scalar, and the inner quotes are
+what reaches the shell.
 
 Warning: the check that proves the checkout is the pinned commit stays in the `run:` block. That
 check reads the tree that holds the scripts, so a script cannot carry it. A checkout at the wrong
@@ -653,7 +659,7 @@ the table decides which form a step takes:
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
 | Only from this repository  | `.github/ci/scripts/<name>.sh`, or `run-script` at `./.github/actions/run-script`                                                                      | The default checkout is this repository     |
 | From a consumer repository | `dot-github/.github/ci/scripts/<name>.sh`, or `run-script` at `./dot-github/.github/actions/run-script`, after a second checkout at `job.workflow_sha` | The default checkout is the consumer's tree |
-| Inside a composite action  | `"$ACTION_PATH/../../ci/scripts/<name>.sh"`                                                                                                            | An action cannot assume a working directory |
+| Inside a composite action  | `'"$ACTION_PATH/../../ci/scripts/<name>.sh"'`                                                                                                          | An action cannot assume a working directory |
 
 Warning: `run-script` **buffers**. It runs `OUTPUT=$("$SCRIPT_PATH" 2>&1)` and prints the result
 after the script exits, so a script that reports progress shows nothing until it finishes. A job that

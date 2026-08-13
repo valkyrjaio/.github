@@ -12,8 +12,10 @@ description: Runs one script from this repository's .github/ci/scripts against t
 inputs:
   script:
     description: >
-      File name of the script to run, within `.github/ci/scripts/`. A name only — a path separator
-      is rejected, so a caller cannot reach outside that directory.
+      File name of the script to run, within `.github/ci/scripts/`. A name only. A path separator
+      is rejected, so a caller cannot reach outside that directory. The runner's own name is
+      rejected as well, because it would run itself again with the same input, and each level
+      captures its child, so the job holds silently until the six-hour timeout.
     required: true
   expected-ref:
     description: >
@@ -79,23 +81,8 @@ runs:
       shell: bash
       env:
         SCRIPT_ENV: ${{ inputs.env }}
-      run: |
-        # Each line becomes an environment variable for the run step. The key is checked first,
-        # because `GITHUB_ENV` takes whatever it is given, and a malformed key would define a
-        # variable no script can read, or shadow one the runner set.
-        while IFS= read -r LINE; do
-          [[ -z "$LINE" ]] && continue
-
-          KEY="${LINE%%=*}"
-
-          case "$KEY" in
-            "$LINE") echo "Not a KEY=VALUE line: $LINE" >&2; exit 1 ;;
-            ''|[0-9]*|*[!A-Za-z0-9_]*) echo "Not a shell name: $KEY" >&2; exit 1 ;;
-            *) ;;
-          esac
-
-          printf '%s\n' "$LINE" >> "$GITHUB_ENV"
-        done <<< "$SCRIPT_ENV"
+        ACTION_PATH: ${{ github.action_path }}
+      run: '"$ACTION_PATH/../../ci/scripts/export-script-environment.sh"'
 
     - name: Run the script
       id: run
@@ -103,44 +90,4 @@ runs:
       env:
         SCRIPT: ${{ inputs.script }}
         ACTION_PATH: ${{ github.action_path }}
-      run: |
-        # A name only. A separator would let a caller run a file outside the scripts directory.
-        case "$SCRIPT" in
-          */*|'.'|'..'|'') echo "Not a script name: $SCRIPT" >&2; exit 1 ;;
-          *) ;;
-        esac
-
-        SCRIPT_PATH="$ACTION_PATH/../../ci/scripts/$SCRIPT"
-
-        if [[ ! -x "$SCRIPT_PATH" ]]; then
-          echo "No executable script at $SCRIPT_PATH." >&2
-          echo 'A script lives in `.github/ci/scripts/`, and it carries the executable bit.' >&2
-          exit 1
-        fi
-
-        set +e
-        OUTPUT=$("$SCRIPT_PATH" 2>&1)
-        STATUS=$?
-        set -e
-
-        printf '%s\n' "$OUTPUT"
-
-        # The outputs are written before the step fails, so a later step can read the report of a
-        # run that did not pass. That is why a caller marks this step `continue-on-error`.
-        if [[ "$STATUS" -eq 0 ]]; then
-          printf 'outcome=success\n' >> "$GITHUB_OUTPUT"
-        else
-          printf 'outcome=failure\n' >> "$GITHUB_OUTPUT"
-        fi
-
-        {
-          echo 'report<<RUN_SCRIPT_EOF'
-          printf '%s\n' "$OUTPUT"
-          echo 'RUN_SCRIPT_EOF'
-
-          echo 'report-markdown<<RUN_SCRIPT_EOF'
-          printf '```\n%s\n```\n' "$OUTPUT"
-          echo 'RUN_SCRIPT_EOF'
-        } >> "$GITHUB_OUTPUT"
-
-        exit "$STATUS"
+      run: '"$ACTION_PATH/../../ci/scripts/run-pinned-script.sh"'
