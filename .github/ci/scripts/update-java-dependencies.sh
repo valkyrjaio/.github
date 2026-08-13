@@ -22,8 +22,6 @@
 # rule and the shell table are in `.github/workflows/README.md`, under Scripts.
 set -e
 
-: > /tmp/dependency_changes.txt
-
 LENGTH=$(echo "$DEPENDENCIES" | jq 'length')
 for i in $(seq 0 $((LENGTH - 1))); do
   NAME=$(echo "$DEPENDENCIES" | jq -r ".[$i].name")
