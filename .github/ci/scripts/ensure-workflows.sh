@@ -763,7 +763,12 @@ while IFS= read -r REPO_NAME; do
       fi
     done
 
-    if [[ -n "$LANG_DIR" ]]; then
+    # `BRANCH_FAILED` means the branch could not be created, so nothing below it can land. The
+    # reads would each be retried against the answer that failed the branch, and each one would
+    # log `missing, will create` for a file the guard then refuses to create.
+    if [[ -n "$BRANCH_FAILED" ]]; then
+      echo "  [$BASE_BRANCH] Skipping the rest of this branch's files, the branch did not land"
+    elif [[ -n "$LANG_DIR" ]]; then
       for WORKFLOW in "${LANG_WORKFLOWS[@]}"; do
         WORKFLOW_RC=0
         ensure_workflow "$WORKFLOW" "$TEMPLATE_DIR/$LANG_DIR/$WORKFLOW" \
