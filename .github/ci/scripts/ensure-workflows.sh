@@ -581,9 +581,9 @@ ensure_ci_jobs() {
 
   local file_path=".github/workflows/ci.yml"
 
-  # The same rule `add_workflows` states, for the one file it does not carry.
+  # The same rule `add_workflows` states, for the one file that helper does not add.
   if [[ -n "$BRANCH_FAILED" ]]; then
-    echo "  [$base_branch] Skipping $file_path: the branch did not land"
+    echo "  [$base_branch] Skipping ${file_path##*/}: the branch did not land"
 
     return 0
   fi
