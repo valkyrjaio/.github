@@ -31,7 +31,7 @@ set -euo pipefail
 # The caller runs this script from the workspace root, not from this directory. The script it runs
 # is a sibling, so the directory comes from `BASH_SOURCE`.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-RUNNER_NAME="${BASH_SOURCE[0]##*/}"
+SELF_NAME="${BASH_SOURCE[0]##*/}"
 
 # A name only. A separator would let a caller run a file outside the scripts directory.
 #
@@ -40,7 +40,7 @@ RUNNER_NAME="${BASH_SOURCE[0]##*/}"
 # child, so nothing reaches the log. The job then holds until the six-hour timeout.
 case "$SCRIPT" in
   */*|'.'|'..'|'') echo "Not a script name: $SCRIPT" >&2; exit 1 ;;
-  "$RUNNER_NAME") echo "The runner cannot run itself: $SCRIPT" >&2; exit 1 ;;
+  "$SELF_NAME") echo "The runner cannot run itself: $SCRIPT" >&2; exit 1 ;;
   *) ;;
 esac
 
