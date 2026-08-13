@@ -32,7 +32,6 @@ jobs:
       pull-requests: write
 
     steps:
-
       - name: Generate a token
         id: generate-token
         uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
@@ -56,7 +55,6 @@ jobs:
 
       # The scripts the next steps run live in this repository, and the checkout above holds the
       # calling repository.
-
       - name: Checkout the CI scripts
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -66,7 +64,6 @@ jobs:
 
       # Warning: `git add -A` stages a nested checkout as a gitlink. Without this the dependency
       # commit would carry a stray `dot-github` submodule entry.
-
       - name: Keep the CI scripts out of the dependency commit
         run: printf '%s\n' 'dot-github/' >> .git/info/exclude
 

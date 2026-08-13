@@ -21,8 +21,9 @@
 set -e
 
 # Warning: strip comments before splitting, or an `// indirect` marker becomes a
-# field. The `$1 ~ /\./` guard keeps module paths, which always carry a dot, and
-# drops the `go` and `toolchain` directives.
+# field. Stripping a leading `require` lets the block form and the single-line
+# form parse alike. The `$1 ~ /\./` guard keeps module paths, which always carry
+# a dot, and drops the `go` and `toolchain` directives.
 #
 # Warning: `LC_ALL=C` so the order matches the collation `join` expects.
 sed -e 's|//.*||' "$1/go.mod" \
