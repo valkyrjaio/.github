@@ -302,11 +302,6 @@ create_branch_if_needed() {
 
   [[ -n "$BRANCH_EXISTS" ]] && return 0
 
-  # The branch failed for this base branch, so nothing after it can land. Every caller stops
-  # before reaching here, and that is what saves the reads. This keeps the rule with the
-  # function that owns it.
-  [[ -n "$BRANCH_FAILED" ]] && return 2
-
   echo "  [$base_branch] Creating branch $update_branch..."
   # A 404 here is an answer: the base branch does not exist. The `master` fallback produces
   # that for a repository carrying neither a version branch nor `master`. Counting it as unread
