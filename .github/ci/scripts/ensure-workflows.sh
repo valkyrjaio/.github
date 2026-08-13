@@ -568,13 +568,14 @@ add_workflows() {
   # The branch failed earlier for this base branch, so nothing here can land. Each file would
   # still cost a contents read, and log `missing, will create` for a file that nothing creates.
   if [[ -n "$BRANCH_FAILED" ]]; then
-    echo "  [$base_branch] Skipping $*: the branch did not land"
+    local pending=("${@/#/.github/workflows/}")
+    echo "  [$base_branch] Skipping ${pending[*]}: the branch did not land"
 
     return 0
   fi
 
   local index=0
-  local remaining
+  local remaining=()
 
   for workflow in "$@"; do
     index=$((index + 1))
@@ -585,10 +586,11 @@ add_workflows() {
     # 2 means the branch could not be created, so the rest of this branch's files cannot land
     # either. Any other non-zero is one file's failure, and the loop carries on.
     if [[ "$rc" -eq 2 ]]; then
-      remaining="${*:$((index + 1))}"
+      local rest=("${@:$((index + 1))}")
 
-      if [[ -n "$remaining" ]]; then
-        echo "  [$base_branch] Skipping $remaining: the branch did not land"
+      if [[ "${#rest[@]}" -gt 0 ]]; then
+        remaining=("${rest[@]/#/.github/workflows/}")
+        echo "  [$base_branch] Skipping ${remaining[*]}: the branch did not land"
       fi
 
       break
@@ -606,7 +608,7 @@ ensure_ci_jobs() {
 
   # The same rule `add_workflows` states, for the one file that helper does not add.
   if [[ -n "$BRANCH_FAILED" ]]; then
-    echo "  [$base_branch] Skipping ${file_path##*/}: the branch did not land"
+    echo "  [$base_branch] Skipping $file_path: the branch did not land"
 
     return 0
   fi
