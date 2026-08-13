@@ -13,30 +13,38 @@
 # reports what the script wrote. The step that proves the checkout is the
 # pinned commit runs before this script, so the tree is already proven here.
 #
-# Reads SCRIPT, ACTION_PATH, and GITHUB_OUTPUT from the environment. It writes
-# `outcome`, `report`, and `report-markdown` to GITHUB_OUTPUT, and it ends with
-# the status of the script it ran.
+# Reads SCRIPT and GITHUB_OUTPUT from the environment. It writes `outcome`,
+# `report`, and `report-markdown` to GITHUB_OUTPUT, and it ends with the status
+# of the script it ran.
 #
 # Usage:
 #
 #     .github/ci/scripts/run-pinned-script.sh
 # ---------------------------------------------------------------------------
 
-# Warning: an action step names `shell: bash`, which is `-eo pipefail`, and a
-# `run:` step that names no shell gives `bash -e` alone. This script carries a
-# block from an action step. Read the shell before you copy a `set` line
-# between the two.
-#
-# `-u` is absent, because the block ran without it.
-set -eo pipefail
+# An action step names `shell: bash`, so the script sets `set -euo pipefail`. A
+# script that a bare `run:` step invokes sets `set -e` alone, because that step
+# runs under `bash -e`. Read the shell before you copy a `set` line between the
+# two.
+set -euo pipefail
+
+# The caller runs this script from the workspace root, not from this directory. The script it runs
+# is a sibling, so the directory comes from `BASH_SOURCE`.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+RUNNER_NAME="${BASH_SOURCE[0]##*/}"
 
 # A name only. A separator would let a caller run a file outside the scripts directory.
+#
+# Warning: this script is a sibling of every script it runs, so its own name passes the test above.
+# A caller that named it would run it again with the same environment, and each level captures its
+# child, so nothing reaches the log. The job then holds until the six-hour timeout.
 case "$SCRIPT" in
   */*|'.'|'..'|'') echo "Not a script name: $SCRIPT" >&2; exit 1 ;;
+  "$RUNNER_NAME") echo "The runner cannot run itself: $SCRIPT" >&2; exit 1 ;;
   *) ;;
 esac
 
-SCRIPT_PATH="$ACTION_PATH/../../ci/scripts/$SCRIPT"
+SCRIPT_PATH="$SCRIPT_DIR/$SCRIPT"
 
 if [[ ! -x "$SCRIPT_PATH" ]]; then
   echo "No executable script at $SCRIPT_PATH." >&2

@@ -80,7 +80,7 @@ runs:
       env:
         SCRIPT_ENV: ${{ inputs.env }}
         ACTION_PATH: ${{ github.action_path }}
-      run: "$ACTION_PATH/../../ci/scripts/export-script-environment.sh"
+      run: '"$ACTION_PATH/../../ci/scripts/export-script-environment.sh"'
 
     - name: Run the script
       id: run
@@ -88,4 +88,4 @@ runs:
       env:
         SCRIPT: ${{ inputs.script }}
         ACTION_PATH: ${{ github.action_path }}
-      run: "$ACTION_PATH/../../ci/scripts/run-pinned-script.sh"
+      run: '"$ACTION_PATH/../../ci/scripts/run-pinned-script.sh"'

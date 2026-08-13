@@ -53,4 +53,4 @@ runs:
         MARKER: ${{ inputs.marker }}
         BODY: ${{ inputs.body }}
         ACTION_PATH: ${{ github.action_path }}
-      run: "$ACTION_PATH/../../ci/scripts/post-marked-comment.sh"
+      run: '"$ACTION_PATH/../../ci/scripts/post-marked-comment.sh"'

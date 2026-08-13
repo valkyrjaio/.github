@@ -20,13 +20,11 @@
 #     .github/ci/scripts/export-script-environment.sh
 # ---------------------------------------------------------------------------
 
-# Warning: an action step names `shell: bash`, which is `-eo pipefail`, and a
-# `run:` step that names no shell gives `bash -e` alone. This script carries a
-# block from an action step. Read the shell before you copy a `set` line
-# between the two.
-#
-# `-u` is absent, because the block ran without it.
-set -eo pipefail
+# An action step names `shell: bash`, so the script sets `set -euo pipefail`. A
+# script that a bare `run:` step invokes sets `set -e` alone, because that step
+# runs under `bash -e`. Read the shell before you copy a `set` line between the
+# two.
+set -euo pipefail
 
 # Each line becomes an environment variable for the run step. The key is checked first, because
 # `GITHUB_ENV` takes whatever it is given, and a malformed key would define a variable no script

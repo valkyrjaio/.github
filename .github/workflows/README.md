@@ -523,8 +523,9 @@ explicitly."
 That table is why the two families of script differ, and neither is the odd one out:
 
 - A script a **bare `run:`** invokes sets `set -e`, because that is the shell that ran the block.
-- A script **`run-script`** invokes sets `set -euo pipefail`, because `action.yml` sets `shell: bash`
-  and `pipefail` is already on.
+- A script a **composite action step** invokes sets `set -euo pipefail`, because the step sets
+  `shell: bash` and `pipefail` is already on. The step reaches the script through `run-script`, or it
+  names the script itself.
 
 So read the shell before you copy a `set` line from a neighboring script. Then check every pipeline:
 one that ends in a command which always succeeds hides a failing stage today, and `pipefail` stops
