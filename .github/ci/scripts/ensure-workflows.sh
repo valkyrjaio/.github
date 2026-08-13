@@ -115,6 +115,83 @@ retry_gh() {
 # either one.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
+TEMPLATE_DIR="dot-github/required-workflows"
+
+REQUIRED_WORKFLOWS=(
+  "cherry-pick-commits.yml"
+  "claude-review.yml"
+  "pr.yml"
+  "rebase-from-master.yml"
+  "rebase-to-master.yml"
+  "restore-branch-from-backup.yml"
+)
+
+# Workflows that only exist in a language-specific flavor, so they are
+# sourced from required-workflows/<lang>/ rather than the root.
+LANG_WORKFLOWS=(
+  "update-dependencies.yml"
+)
+
+# Workflows the root and every language flavor both carry, which `ensure_workflow` adds.
+SHARED_WORKFLOWS=(
+  "create-version-branch.yml"
+  "release-new-version.yml"
+)
+
+# `ci.yml` sits beside them in both places, and `ensure_ci_jobs` adds it, so it is named apart.
+CI_WORKFLOW="ci.yml"
+
+# The language flavors, and the suffix each one claims. The loop below reads this array rather
+# than a second list of names, so a flavor cannot reach the sweep without reaching the guard.
+LANG_DIRS=(
+  "php"
+  "go"
+  "python"
+  "java"
+  "ts"
+)
+
+# Fails the run on a file this repository does not hold. The templates and `merge_ci_jobs.py`
+# ship here, so a renamed or emptied one is a defect in this repository rather than an answer
+# about any repository the sweep visits.
+#
+# The call sits above every API call. A guard inside the loop would report the one defect once
+# for each repository-branch that reached it, and only after the sweep spent its whole budget.
+check_templates() {
+  local dir workflow tmpl
+  local bad=""
+
+  for workflow in "${REQUIRED_WORKFLOWS[@]}" "${SHARED_WORKFLOWS[@]}" "$CI_WORKFLOW"; do
+    tmpl="$TEMPLATE_DIR/$workflow"
+
+    if [[ ! -r "$tmpl" ]] || [[ ! -s "$tmpl" ]]; then
+      bad="$bad"$'\n'"  - $tmpl"
+    fi
+  done
+
+  for dir in "${LANG_DIRS[@]}"; do
+    for workflow in "${LANG_WORKFLOWS[@]}" "${SHARED_WORKFLOWS[@]}" "$CI_WORKFLOW"; do
+      tmpl="$TEMPLATE_DIR/$dir/$workflow"
+
+      if [[ ! -r "$tmpl" ]] || [[ ! -s "$tmpl" ]]; then
+        bad="$bad"$'\n'"  - $tmpl"
+      fi
+    done
+  done
+
+  if [[ ! -r "$SCRIPT_DIR/merge_ci_jobs.py" ]]; then
+    bad="$bad"$'\n'"  - $SCRIPT_DIR/merge_ci_jobs.py"
+  fi
+
+  if [[ -n "$bad" ]]; then
+    echo "This repository is missing a file the sweep names:"
+    printf '%s\n' "${bad#$'\n'}"
+    exit 1
+  fi
+}
+
+check_templates
+
 # Reads something the whole run needs, and ends the run when the read fails. Each caller below
 # runs at top level, where `set -e` would end the sweep on a 403 secondary rate limit and leave
 # nothing behind that says why.
@@ -141,69 +218,6 @@ LATEST_SHA="$RETRY_OUT"
 
 echo "Latest .github release: $LATEST_TAG ($LATEST_SHA)"
 
-TEMPLATE_DIR="dot-github/required-workflows"
-
-REQUIRED_WORKFLOWS=(
-  "cherry-pick-commits.yml"
-  "claude-review.yml"
-  "pr.yml"
-  "rebase-from-master.yml"
-  "rebase-to-master.yml"
-  "restore-branch-from-backup.yml"
-)
-
-# Workflows that only exist in a language-specific flavor, so they are
-# sourced from required-workflows/<lang>/ rather than the root.
-LANG_WORKFLOWS=(
-  "update-dependencies.yml"
-)
-
-# Workflows the root and every language flavor both carry.
-SHARED_WORKFLOWS=(
-  "create-version-branch.yml"
-  "release-new-version.yml"
-  "ci.yml"
-)
-
-# The language flavors `LANG_DIR` selects from, below.
-LANG_DIRS=(
-  "php"
-  "go"
-  "python"
-  "java"
-  "ts"
-)
-
-# Fails the run on a template this repository does not hold. The templates ship here, so a
-# renamed or emptied one is a defect in this repository rather than an answer about any
-# repository the sweep visits.
-#
-# This runs before the first call. A guard inside the loop would report the one defect once for
-# each repository-branch that reached it, and only after the sweep spent its whole API budget.
-check_templates() {
-  local dir workflow tmpl
-  local bad=""
-
-  for workflow in "${REQUIRED_WORKFLOWS[@]}" "${SHARED_WORKFLOWS[@]}"; do
-    tmpl="$TEMPLATE_DIR/$workflow"
-    [[ -r "$tmpl" ]] && [[ -s "$tmpl" ]] || bad="$bad"$'\n'"  - $tmpl"
-  done
-
-  for dir in "${LANG_DIRS[@]}"; do
-    for workflow in "${LANG_WORKFLOWS[@]}" "${SHARED_WORKFLOWS[@]}"; do
-      tmpl="$TEMPLATE_DIR/$dir/$workflow"
-      [[ -r "$tmpl" ]] && [[ -s "$tmpl" ]] || bad="$bad"$'\n'"  - $tmpl"
-    done
-  done
-
-  if [[ -n "$bad" ]]; then
-    echo "This repository is missing a template the sweep names:"
-    printf '%s\n' "${bad#$'\n'}"
-    exit 1
-  fi
-}
-
-check_templates
 
 PHP_EXCLUDED_REPOS="valkyrja-benchmarking-php valkyrja-docker-php"
 
@@ -668,19 +682,15 @@ while IFS= read -r REPO_NAME; do
   # Empty means the repo has no language-specific flavor (or is excluded
   # from one), and the language-agnostic root templates are used instead.
   LANG_DIR=""
-  if [[ "$REPO_NAME" == *-php ]]; then
-    LANG_DIR="php"
-    if [[ " $PHP_EXCLUDED_REPOS " == *" $REPO_NAME "* ]]; then
-      LANG_DIR=""
+  for FLAVOR in "${LANG_DIRS[@]}"; do
+    if [[ "$REPO_NAME" == *-"$FLAVOR" ]]; then
+      LANG_DIR="$FLAVOR"
+      break
     fi
-  elif [[ "$REPO_NAME" == *-go ]]; then
-    LANG_DIR="go"
-  elif [[ "$REPO_NAME" == *-python ]]; then
-    LANG_DIR="python"
-  elif [[ "$REPO_NAME" == *-java ]]; then
-    LANG_DIR="java"
-  elif [[ "$REPO_NAME" == *-ts ]]; then
-    LANG_DIR="ts"
+  done
+
+  if [[ "$LANG_DIR" == "php" ]] && [[ " $PHP_EXCLUDED_REPOS " == *" $REPO_NAME "* ]]; then
+    LANG_DIR=""
   fi
 
   while IFS= read -r BASE_BRANCH; do
@@ -731,19 +741,21 @@ while IFS= read -r REPO_NAME; do
           break
         fi
       done
-      ensure_workflow "create-version-branch.yml" "$TEMPLATE_DIR/$LANG_DIR/create-version-branch.yml" \
-        "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
-      ensure_workflow "release-new-version.yml" "$TEMPLATE_DIR/$LANG_DIR/release-new-version.yml" \
-        "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
+      for WORKFLOW in "${SHARED_WORKFLOWS[@]}"; do
+        ensure_workflow "$WORKFLOW" "$TEMPLATE_DIR/$LANG_DIR/$WORKFLOW" \
+          "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
+      done
+
       ensure_ci_jobs "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
-        "$TEMPLATE_DIR/$LANG_DIR/ci.yml" || true
+        "$TEMPLATE_DIR/$LANG_DIR/$CI_WORKFLOW" || true
     else
-      ensure_workflow "create-version-branch.yml" "$TEMPLATE_DIR/create-version-branch.yml" \
-        "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
-      ensure_workflow "release-new-version.yml" "$TEMPLATE_DIR/release-new-version.yml" \
-        "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
+      for WORKFLOW in "${SHARED_WORKFLOWS[@]}"; do
+        ensure_workflow "$WORKFLOW" "$TEMPLATE_DIR/$WORKFLOW" \
+          "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" || true
+      done
+
       ensure_ci_jobs "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
-        "$TEMPLATE_DIR/ci.yml" || true
+        "$TEMPLATE_DIR/$CI_WORKFLOW" || true
     fi
 
     # A file read asks the update branch, so a branch already carrying every file adds nothing.
