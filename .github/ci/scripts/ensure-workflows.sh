@@ -302,10 +302,9 @@ create_branch_if_needed() {
 
   [[ -n "$BRANCH_EXISTS" ]] && return 0
 
-  # The branch failed once for this base branch, and the files after it cannot land without
-  # it. Each later file that is absent enters here again, so without this the sweep asks the
-  # API for the same branch up to five times. A failure it records lands in the list five
-  # times too.
+  # The branch failed for this base branch, so nothing after it can land. Every caller stops
+  # before reaching here, and that is what saves the reads. This keeps the rule with the
+  # function that owns it.
   [[ -n "$BRANCH_FAILED" ]] && return 2
 
   echo "  [$base_branch] Creating branch $update_branch..."
@@ -535,7 +534,7 @@ branch_carries_unmerged_work() {
   return 0
 }
 
-# Adds each workflow in turn, and stops at the first one whose branch does not land.
+# Adds each workflow in turn, and stops when the update branch cannot be created.
 #
 # Warning: capture the status into a variable rather than testing `$?` inside a `||` group. The
 # group's own status then decides whether the call failed, and how `set -e` reads a compound
@@ -547,6 +546,15 @@ add_workflows() {
   local repo_name="$4"
   shift 4
   local workflow rc
+
+  # The branch failed earlier for this base branch, so nothing here can land. Each read would
+  # ask the API again for the answer that failed the branch, and log `missing, will create`
+  # for a file that nothing then creates.
+  if [[ -n "$BRANCH_FAILED" ]]; then
+    echo "  [$base_branch] Skipping $*: the branch did not land"
+
+    return 0
+  fi
 
   for workflow in "$@"; do
     rc=0
@@ -568,6 +576,13 @@ ensure_ci_jobs() {
   local tmpl_file="$4"
 
   local file_path=".github/workflows/ci.yml"
+
+  # The same rule `add_workflows` states, for the one file it does not carry.
+  if [[ -n "$BRANCH_FAILED" ]]; then
+    echo "  [$base_branch] Skipping $file_path: the branch did not land"
+
+    return 0
+  fi
   render_template "$tmpl_file" "$base_branch" "$repo_name" "ci.yml" || return 1
   local tmpl_with_sha="$TEMPLATE_TEXT"
 
@@ -773,9 +788,6 @@ while IFS= read -r REPO_NAME; do
     FILES_ADDED=0
     FILES_LIST=""
 
-    # 2 means the branch could not be created, so the rest of this branch's files cannot
-    # land either. Any other non-zero is one file's failure, and the loop carries on.
-    #
     add_workflows "$TEMPLATE_DIR" "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
       "${REQUIRED_WORKFLOWS[@]}"
 
@@ -783,29 +795,16 @@ while IFS= read -r REPO_NAME; do
 
     if [[ -n "$LANG_DIR" ]]; then
       LANG_TEMPLATE_DIR="$TEMPLATE_DIR/$LANG_DIR"
+
+      add_workflows "$LANG_TEMPLATE_DIR" "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
+        "${LANG_WORKFLOWS[@]}"
     fi
 
-    # `BRANCH_FAILED` means the branch could not be created, so nothing after it can land. Each
-    # later read would ask the API again for the answer that failed the branch. Each one would
-    # also log `missing, will create` for a file that nothing then creates.
-    if [[ -n "$BRANCH_FAILED" ]]; then
-      echo "  [$BASE_BRANCH] Skipping the rest of this branch's files, the branch did not land"
-    else
-      if [[ -n "$LANG_DIR" ]]; then
-        add_workflows "$LANG_TEMPLATE_DIR" "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
-          "${LANG_WORKFLOWS[@]}"
-      fi
+    add_workflows "$LANG_TEMPLATE_DIR" "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
+      "${SHARED_WORKFLOWS[@]}"
 
-      if [[ -z "$BRANCH_FAILED" ]]; then
-        add_workflows "$LANG_TEMPLATE_DIR" "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
-          "${SHARED_WORKFLOWS[@]}"
-      fi
-
-      if [[ -z "$BRANCH_FAILED" ]]; then
-        ensure_ci_jobs "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
-          "$LANG_TEMPLATE_DIR/$CI_WORKFLOW" || true
-      fi
-    fi
+    ensure_ci_jobs "$BASE_BRANCH" "$UPDATE_BRANCH" "$REPO_NAME" \
+      "$LANG_TEMPLATE_DIR/$CI_WORKFLOW" || true
 
     # A file read asks the update branch, so a branch already carrying every file adds nothing.
     # Without the check below such a branch never reaches the pull request path again, and its
