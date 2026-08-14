@@ -338,6 +338,10 @@ create_branch_if_needed() {
   fi
   echo "  [$base_branch] Branch $update_branch created."
   BRANCH_EXISTS="$base_sha"
+
+  # Cut from the base branch a moment ago, so the two carry the same files. The base-branch
+  # reads below have nothing to add for this branch.
+  BRANCH_PREDATES_RUN=""
 }
 
 # Names the branch a file read has to ask about. It is the branch the write lands on, and a file
@@ -429,7 +433,7 @@ ensure_workflow() {
   # branch. Ask before adding it. Without the read the sweep proposes a second copy from an
   # ancestor that has neither. The pull request then conflicts on a file the base branch
   # already carries. `ensure_ci_jobs` asks the same question for its own file.
-  if [[ -n "$BRANCH_EXISTS" ]]; then
+  if [[ -n "$BRANCH_PREDATES_RUN" ]]; then
     read_exists "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch" '.name'
 
     if [[ "$READ_STATE" == "unread" ]]; then
@@ -635,7 +639,7 @@ ensure_ci_jobs() {
   # The two branches diverge, so a file absent from the update branch can still be on the base
   # branch. Ask before taking the create path. That path writes the template whole, and the
   # header promises this script merges into a repository's own `ci.yml` instead.
-  if [[ "$READ_STATE" == "absent" ]] && [[ -n "$BRANCH_EXISTS" ]]; then
+  if [[ "$READ_STATE" == "absent" ]] && [[ -n "$BRANCH_PREDATES_RUN" ]]; then
     read_exists "repos/$ORG/$repo_name/contents/$file_path?ref=$base_branch"
     file_data="$READ_BODY"
     sha_on_update=0
@@ -809,6 +813,7 @@ while IFS= read -r REPO_NAME; do
 
     read_exists "repos/$ORG/$REPO_NAME/git/ref/heads/$UPDATE_BRANCH" '.object.sha'
     BRANCH_EXISTS="$READ_BODY"
+    BRANCH_PREDATES_RUN="$READ_BODY"
     BRANCH_FAILED=""
 
     if [[ "$READ_STATE" == "unread" ]]; then
