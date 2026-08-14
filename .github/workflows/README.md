@@ -486,7 +486,7 @@ own file beside the script that calls it. `merge_ci_jobs.py` is such a file, and
 # The caller runs this script from the workspace root, not from this directory.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
-python3 "$SCRIPT_DIR/merge_ci_jobs.py" /tmp/ci_existing.yml /tmp/ci_template.yml
+python3 "$SCRIPT_DIR/merge_ci_jobs.py" "$existing_file" "$template_file"
 ```
 
 Warning: a script cannot assume the working directory is its own. A `run:` step starts in the
