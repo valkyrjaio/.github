@@ -120,6 +120,9 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 TEMPLATE_DIR="dot-github/required-workflows"
 
+# Where a workflow lives in every repository the sweep writes to.
+WORKFLOW_DIR=".github/workflows"
+
 REQUIRED_WORKFLOWS=(
   "cherry-pick-commits.yml"
   "claude-review.yml"
@@ -406,7 +409,7 @@ ensure_workflow() {
   local update_branch="$4"
   local repo_name="$5"
 
-  local file_path=".github/workflows/$workflow"
+  local file_path="$WORKFLOW_DIR/$workflow"
 
   # Warning: this read decides whether the file gets created, so a transient answer must not
   # look like an absent file. `|| existing=""` blanked every error alike, including a 403.
@@ -478,7 +481,7 @@ ensure_workflow() {
   fi
 
   echo "  [$base_branch] $file_path committed."
-  FILES_LIST+="| \`.github/workflows/$workflow\` | Added |"$'\n'
+  FILES_LIST+="| \`$WORKFLOW_DIR/$workflow\` | Added |"$'\n'
   FILES_ADDED=$((FILES_ADDED + 1))
 }
 
@@ -572,14 +575,13 @@ add_workflows() {
   # The branch failed earlier for this base branch, so nothing here can land. Each file would
   # still cost a contents read, and log `missing, will create` for a file that nothing creates.
   if [[ -n "$BRANCH_FAILED" ]]; then
-    local pending=("${@/#/.github/workflows/}")
+    local pending=("${@/#/$WORKFLOW_DIR/}")
     echo "  [$base_branch] Skipping ${pending[*]}: the branch did not land"
 
     return 0
   fi
 
   local index=0
-  local remaining=()
 
   for workflow in "$@"; do
     index=$((index + 1))
@@ -593,8 +595,8 @@ add_workflows() {
       local rest=("${@:$((index + 1))}")
 
       if [[ "${#rest[@]}" -gt 0 ]]; then
-        remaining=("${rest[@]/#/.github/workflows/}")
-        echo "  [$base_branch] Skipping ${remaining[*]}: the branch did not land"
+        rest=("${rest[@]/#/$WORKFLOW_DIR/}")
+        echo "  [$base_branch] Skipping ${rest[*]}: the branch did not land"
       fi
 
       break
@@ -608,7 +610,7 @@ ensure_ci_jobs() {
   local repo_name="$3"
   local tmpl_file="$4"
 
-  local file_path=".github/workflows/ci.yml"
+  local file_path="$WORKFLOW_DIR/$CI_WORKFLOW"
 
   # The same rule `add_workflows` states, for the one file that helper does not add.
   if [[ -n "$BRANCH_FAILED" ]]; then
@@ -674,7 +676,7 @@ ensure_ci_jobs() {
       return 1
     fi
     echo "  [$base_branch] $file_path committed."
-    FILES_LIST+="| \`.github/workflows/ci.yml\` | Added |"$'\n'
+    FILES_LIST+="| \`$file_path\` | Added |"$'\n'
     FILES_ADDED=$((FILES_ADDED + 1))
     return 0
   fi
@@ -745,7 +747,7 @@ ensure_ci_jobs() {
     return 1
   fi
   echo "  [$base_branch] $file_path updated with missing jobs."
-  FILES_LIST+="| \`.github/workflows/ci.yml\` | Updated (added missing jobs) |"$'\n'
+  FILES_LIST+="| \`$file_path\` | Updated (added missing jobs) |"$'\n'
   FILES_ADDED=$((FILES_ADDED + 1))
 }
 
