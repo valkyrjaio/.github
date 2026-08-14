@@ -1,6 +1,12 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.24.5...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.24.6...26.x)
+
+## [v26.24.6](https://github.com/valkyrjaio/.github/compare/v26.24.5...v26.24.6) - 2026-08-14
+
+* [Workflow] docs: Correct the dependency updater file references by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/332
+* [Workflow] fix(#327): Move the composite action shell into scripts by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/330
+* [Workflow] fix(#333): Extract and guard the Java dependency update by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/331
 
 ## [v26.24.5](https://github.com/valkyrjaio/.github/compare/v26.24.4...v26.24.5) - 2026-08-13
 
