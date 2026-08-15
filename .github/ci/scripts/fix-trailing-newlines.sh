@@ -66,8 +66,6 @@ while IFS= read -r REPO_NAME; do
       UPDATE_BRANCH="deps/fix-trailing-newlines-$BASE_BRANCH"
     fi
 
-    # `git/ref/` rather than `git/refs/`. The plural path prefix-matches, so `deps/fix-trailing-newlines`
-    # would answer with the branches that extend it when no exact ref exists.
     BRANCH_EXISTS=$(gh api "repos/$ORG/$REPO_NAME/git/ref/heads/$UPDATE_BRANCH" \
       --jq '.object.sha' 2>/dev/null) || BRANCH_EXISTS=""
 
