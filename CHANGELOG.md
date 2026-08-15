@@ -1,6 +1,12 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.24.6...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.25.0...26.x)
+
+## [v26.25.0](https://github.com/valkyrjaio/.github/compare/v26.24.6...v26.25.0) - 2026-08-15
+
+* [Workflow] fix: Skip on a definite answer, and fail on an unreadable one by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/325
+* [Workflow] feat: Refresh dependencies inside the release by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/326
+* [Workflow] refactor: Open the update pull request from one script by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/338
 
 ## [v26.24.6](https://github.com/valkyrjaio/.github/compare/v26.24.5...v26.24.6) - 2026-08-14
 
