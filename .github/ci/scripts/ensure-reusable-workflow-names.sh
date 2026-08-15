@@ -92,6 +92,7 @@ while IFS= read -r REPO_NAME; do
       UPDATE_BRANCH="deps/ensure-reusable-workflow-names-$BASE_BRANCH"
     fi
 
+    # `git/ref/` rather than `git/refs/`, on purpose. `git blame` this line for why.
     BRANCH_EXISTS=$(gh api "repos/$ORG/$REPO_NAME/git/ref/heads/$UPDATE_BRANCH" \
       --jq '.object.sha' 2>/dev/null) || BRANCH_EXISTS=""
 
