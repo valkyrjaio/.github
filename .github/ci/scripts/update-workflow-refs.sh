@@ -174,7 +174,7 @@ while IFS= read -r REPO_NAME; do
       if [[ -z "$BRANCH_EXISTS" ]]; then
         echo "  [$BASE_BRANCH] Creating branch $UPDATE_BRANCH..."
         BASE_SHA=$(gh api "repos/$ORG/$REPO_NAME/git/ref/heads/$BASE_BRANCH" \
-          --jq '.object.sha' 2>/dev/null || true)
+          --jq '.object.sha' 2>/dev/null) || BASE_SHA=""
         if [[ -z "$BASE_SHA" ]]; then
           echo "  [$BASE_BRANCH] Could not get base branch SHA, skipping"
           break
