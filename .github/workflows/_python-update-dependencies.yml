@@ -81,6 +81,7 @@ jobs:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           BASE: ${{ github.ref_name }}
         run: dot-github/.github/ci/scripts/checkout-existing-pr-branch.sh
+
       - name: Setup uv
         uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
@@ -90,6 +91,7 @@ jobs:
         env:
           DEPENDENCIES: ${{ inputs.dependencies }}
         run: dot-github/.github/ci/scripts/update-python-dependencies.sh
+
       - name: Check for changes
         id: check-changes
         run: |
@@ -134,31 +136,8 @@ jobs:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           BASE: ${{ github.ref_name }}
           BRANCH: ${{ steps.prep-branch.outputs.branch }}
-        run: |
-          BODY=""
-          BODY+="# Description"$'\n'$'\n'
-          BODY+="Automated uv dependency updates."$'\n'$'\n'
-          BODY+="## Types of changes"$'\n'$'\n'
-          BODY+="- [X] Improvement _(non-breaking change which improves code)_"$'\n'
-          BODY+="- [ ] Bug fix _(non-breaking change which fixes an issue)_"$'\n'
-          BODY+="- [ ] New feature _(non-breaking change which adds functionality)_"$'\n'
-          BODY+="- [ ] Deprecation _(breaking change which removes functionality)_"$'\n'
-          BODY+="- [ ] Breaking change _(fix or feature that would cause existing functionality to change)_"$'\n'
-          BODY+="- [ ] Documentation improvement"$'\n'$'\n'
-          BODY+="## Changes"$'\n'$'\n'
-
-          if [ -s /tmp/dependency_changes.txt ]; then
-            BODY+="| Package | From | To |"$'\n'
-            BODY+="|---------|------|----|"$'\n'
-            while IFS='|' read -r pkg from to; do
-              BODY+="| \`$pkg\` | $from | $to |"$'\n'
-            done < /tmp/dependency_changes.txt
-          else
-            BODY+="_No direct constraint changes detected — lock file updates only._"$'\n'
-          fi
-
-          gh pr create \
-            --title "[Dependency] build: Update Python dependencies" \
-            --body "$BODY" \
-            --base "$BASE" \
-            --head "$BRANCH"
+          TITLE: '[Dependency] build: Update Python dependencies'
+          SUMMARY: 'Automated uv dependency updates.'
+          COLUMN_HEADING: 'Package'
+          CHANGES_MESSAGE: '_No direct constraint changes detected — lock file updates only._'
+        run: dot-github/.github/ci/scripts/create-dependency-pull-request.sh
