@@ -135,22 +135,7 @@ jobs:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           BASE: ${{ github.ref_name }}
           BRANCH: ${{ steps.prep-branch.outputs.branch }}
-        run: |
-          BODY=""
-          BODY+="# Description"$'\n'$'\n'
-          BODY+="Automated Gradle dependency updates."$'\n'$'\n'
-          BODY+="## Types of changes"$'\n'$'\n'
-          BODY+="- [X] Improvement _(non-breaking change which improves code)_"$'\n'
-          BODY+="- [ ] Bug fix _(non-breaking change which fixes an issue)_"$'\n'
-          BODY+="- [ ] New feature _(non-breaking change which adds functionality)_"$'\n'
-          BODY+="- [ ] Deprecation _(breaking change which removes functionality)_"$'\n'
-          BODY+="- [ ] Breaking change _(fix or feature that would cause existing functionality to change)_"$'\n'
-          BODY+="- [ ] Documentation improvement"$'\n'$'\n'
-          BODY+="## Changes"$'\n'$'\n'
-          BODY+="_See diff for updated dependency versions._"$'\n'
-
-          gh pr create \
-            --title "[Dependency] build: Update Gradle dependencies" \
-            --body "$BODY" \
-            --base "$BASE" \
-            --head "$BRANCH"
+          TITLE: '[Dependency] build: Update Gradle dependencies'
+          SUMMARY: 'Automated Gradle dependency updates.'
+          EMPTY_MESSAGE: '_See diff for updated dependency versions._'
+        run: dot-github/.github/ci/scripts/create-dependency-pull-request.sh
