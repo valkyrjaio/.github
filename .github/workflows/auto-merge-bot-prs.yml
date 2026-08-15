@@ -1,10 +1,10 @@
 name: Auto Merge Bot Pull Requests
 
 on:
-  # Hourly rather than daily. The dependency sweep opens its pull requests
-  # mid-morning and the release sweep runs at 14:00 expecting dependencies to
-  # already be current — a bump still sitting open at that hour fails the
-  # release outright, so the gap between green and merged has to stay small.
+  # Hourly rather than daily. A release no longer depends on this sweep — it
+  # merges its own dependency pull request and waits for it. This sweep lands
+  # everything else the generators open, and an hour is short enough that a
+  # green pull request does not sit open long.
   schedule:
     - cron: '30 * * * *'
   workflow_dispatch:

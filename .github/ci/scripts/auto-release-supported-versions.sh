@@ -14,13 +14,24 @@
 # `??.x` branch whose major matches SUPPORTED_VERSIONS. It never dispatches to
 # `master`, because a release is never cut from `master`.
 #
-# A cohort that consumes a first-party dependency refreshes two hours before
-# it releases, so the hourly auto-merge sweep lands the bump pull requests in
-# between. The infra cohort has no refresh slot, because it gates on no
-# first-party dependency. A cohort releases after the cohorts it depends on,
-# with enough of a gap for each registry to serve what the dependency shipped.
-# The dispatches inside one release slot go out seconds apart, so every
-# outdated-dependency gate evaluates before the first sibling publishes.
+# The release slots carry the day's plan, and a release refreshes its own
+# dependencies as its first step. No slot refreshes them beforehand, and no
+# slot waits for a refresh to land. A cohort releases after the cohorts it
+# depends on, with enough of a gap for each registry to serve what the
+# dependency shipped.
+#
+# Warning: a gate no longer evaluates seconds after its dispatch. The refresh
+# in front of it takes up to 30 minutes, so the old reason one cohort member
+# could not turn another's gate red — every gate ran before any sibling could
+# publish — no longer holds. What holds instead is the cohort itself: its
+# members are peers that do not consume one another, and a cohort releases
+# after the cohorts it does consume.
+#
+# The `deps` action still exists, and `update-dependencies-all-repos.yml`
+# drives it on its own schedule. That sweep keeps every repository current
+# between releases, and it reaches the back version branches that a
+# repository's own cron cannot — a scheduled workflow runs on the default
+# branch alone.
 #
 # A repository's cohort is derived from its name, per REPOSITORY_NAMING.md. A
 # repository that no cohort claims lands in `catchall`, releases in the last
@@ -208,9 +219,14 @@ now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 # Echoes the run conclusion, or `timeout` / `missing`.
 wait_for_dispatch() {
   local repo="$1" workflow="$2" branch="$3" since="$4" deadline="${5:-$STAGE_TIMEOUT}"
-  local run_id="" waited=0 status
+  local run_id="" status started_at
 
-  while [[ "$waited" -lt "$deadline" ]]; do
+  # Warning: measure the wall clock, not the sleeping. Every pass also makes one or two `gh`
+  # calls, and counting only `POLL_SECONDS` would leave that time out of the budget — so the
+  # wait, and the phase budget the caller spends through it, would both run past what they say.
+  started_at=$(date +%s)
+
+  while [[ "$(( $(date +%s) - started_at ))" -lt "$deadline" ]]; do
     maybe_mint_token
 
     if [[ -z "$run_id" ]]; then
@@ -230,7 +246,6 @@ wait_for_dispatch() {
     fi
 
     sleep "$POLL_SECONDS"
-    waited=$((waited + POLL_SECONDS))
   done
 
   if [[ -n "$run_id" ]]; then echo "timeout"; else echo "missing"; fi
@@ -394,6 +409,8 @@ DISPATCHED=0
 SUCCEEDED=0
 FAILED=0
 TIMED_OUT=0
+UNWATCHED=0
+UNWATCHED_WORK=""
 RESULTS=""
 
 if [[ "$DRY_RUN" = "true" ]]; then
@@ -407,11 +424,20 @@ else
   maybe_mint_token
 
   DISPATCH_SINCE=$(now_utc)
+  # One deadline for the whole wait phase, not one per wait. `wait_for_dispatch` is called once
+  # per repository-branch in sequence, so a per-call budget adds up: two runs that both overrun
+  # would hold the slot for twice STAGE_TIMEOUT. Slots sit an hour apart and share one
+  # concurrency group with `cancel-in-progress: false`, and GitHub holds only one run pending per
+  # group — so a slot that overran into a third would have its successor cancelled outright,
+  # dropping a cohort's release for the day. Every run was dispatched at DISPATCH_SINCE, so each
+  # wait gets what is left of the budget measured from here.
+  WAIT_PHASE_STARTED_AT=$(date +%s)
   DISPATCHED_WORK=""
 
-  # Every dispatch in the slot goes out before the first wait starts. The
-  # release runs of one cohort therefore all evaluate their gates before any
-  # sibling publishes, so a sibling's release cannot turn a gate red mid-slot.
+  # Every dispatch in the slot goes out before the first wait starts. What keeps one
+  # cohort member from turning another's gate red is the cohort itself — its members are
+  # peers that do not consume one another — rather than the order of the two, which the
+  # refresh in front of each gate no longer guarantees. See the header.
   while read -r REPO_NAME BRANCH; do
     [[ -z "$REPO_NAME" ]] && continue
 
@@ -442,13 +468,30 @@ else
     [[ -z "$REPO_NAME" ]] && continue
 
     maybe_mint_token
-    OUTCOME=$(wait_for_dispatch "$REPO_NAME" "$ACTION_WORKFLOW" "$BRANCH" "$DISPATCH_SINCE")
+    REMAINING=$(( STAGE_TIMEOUT - ($(date +%s) - WAIT_PHASE_STARTED_AT) ))
+
+    # Warning: a spent budget is not a timeout. A timeout means the sweep watched a run and
+    # stopped, so the run may still finish — informational, and it leaves the slot green. A
+    # spent budget means the sweep never looked at this run at all, so its outcome is unknown
+    # rather than probably fine, and reporting it as a timeout would let a failed release
+    # finish the slot green.
+    #
+    # The boundary is one poll rather than zero. A budget shorter than a single pass buys one
+    # query and one sleep, and `wait_for_dispatch` then reports `timeout` — the green answer —
+    # for a run it had no time to watch.
+    if [[ "$REMAINING" -le "$POLL_SECONDS" ]]; then
+      OUTCOME="unwatched"
+      UNWATCHED_WORK="$UNWATCHED_WORK"$'\n'"$REPO_NAME $BRANCH"
+    else
+      OUTCOME=$(wait_for_dispatch "$REPO_NAME" "$ACTION_WORKFLOW" "$BRANCH" "$DISPATCH_SINCE" "$REMAINING")
+    fi
     echo "$SLOT_ACTION $REPO_NAME ($BRANCH): $OUTCOME"
     RESULTS="$RESULTS"$'\n'"| \`$REPO_NAME\` | $BRANCH | $OUTCOME |"
 
     case "$OUTCOME" in
       success) SUCCEEDED=$((SUCCEEDED + 1)) ;;
       timeout|missing) TIMED_OUT=$((TIMED_OUT + 1)) ;;
+      unwatched) UNWATCHED=$((UNWATCHED + 1)) ;;
       *) FAILED=$((FAILED + 1)) ;;
     esac
   done <<< "$DISPATCHED_WORK"
@@ -469,6 +512,7 @@ fi
   echo "| Succeeded | $SUCCEEDED |"
   echo "| Failed | $FAILED |"
   echo "| Failed (branch list unreadable) | $UNREADABLE_BRANCHES |"
+  echo "| Never watched (budget spent) | $UNWATCHED |"
   echo "| Timed out waiting | $TIMED_OUT |"
   echo "| Skipped (other cohort) | $SKIPPED_OTHER_COHORT |"
   echo "| Skipped (no $ACTION_WORKFLOW on the default branch) | $SKIPPED_NO_WORKFLOW |"
@@ -498,6 +542,14 @@ fi
     printf '%s\n' "$MISSING_BRANCH_WORKFLOW" | awk 'NF {print "- `" $1 "` (" $2 ")"}'
   fi
 
+  if [[ -n "$(printf '%s' "$UNWATCHED_WORK" | tr -d '[:space:]')" ]]; then
+    echo
+    echo "Warning: the wait budget ran out before these runs were looked at."
+    echo "Open each one to see whether it released:"
+    echo
+    printf '%s\n' "$UNWATCHED_WORK" | awk 'NF {print "- `" $1 "` (" $2 ")"}'
+  fi
+
   if [[ -n "$(printf '%s' "$CATCHALL_REPOS" | tr -d '[:space:]')" ]]; then
     echo
     echo "Warning: these repositories match no cohort and ran in \`catchall\`."
@@ -516,8 +568,8 @@ fi
 # an unfinished run, or never finds the run to watch. Either way the script
 # gives up on the answer rather than on the run.
 #
-# Warning: the two conditions below are independent, and one run can hit both. Each reports
-# before anything exits, so the last lines of the log name every reason the slot is red.
+# Warning: the three conditions below are independent, and one run can hit more than one. Each
+# reports before anything exits, so the last lines of the log name every reason the slot is red.
 SLOT_FAILED=0
 
 if [[ "$FAILED" -gt 0 ]]; then
@@ -529,6 +581,13 @@ fi
 # skipped, so the slot says so rather than reporting a clean run over it.
 if [[ "$UNREADABLE_BRANCHES" -gt 0 ]]; then
   echo "$UNREADABLE_BRANCHES repository branch list(s) could not be read."
+  SLOT_FAILED=1
+fi
+
+# A run the wait phase never reached is not a timeout either. Nothing here knows whether it
+# released, and silence would read as success.
+if [[ "$UNWATCHED" -gt 0 ]]; then
+  echo "$UNWATCHED dispatched run(s) were never watched — the wait budget ran out first."
   SLOT_FAILED=1
 fi
 

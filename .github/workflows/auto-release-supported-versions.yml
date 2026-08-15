@@ -7,20 +7,25 @@ on:
     # Times are UTC. The org's clock is America/Phoenix (UTC-7, no DST), so
     # each cron maps to the same local hour all year.
     #
-    # A cohort's dependencies refresh two hours before its release, so the
-    # hourly auto-merge sweep gets two passes at the bump pull requests. A
-    # cohort releases after the cohorts it depends on, with a gap for each
-    # registry to serve what shipped. Infra goes first so the workflow-ref
-    # re-pins a `.github` release pushes are in every later cohort's release.
-    - cron: '0 7 * * *'
-    - cron: '0 8 * * *'
+    # Every slot releases. A release refreshes its own dependencies as its
+    # first step, so no slot exists to refresh them beforehand and no slot
+    # waits for one to land. The gap between slots therefore covers one thing:
+    # a cohort releases after the cohorts it depends on, and each registry
+    # needs time to serve what shipped. An hour covers that. Infra goes first,
+    # because a `.github` release pushes a workflow-ref re-pin into every later
+    # cohort's release.
+    #
+    # Warning: no slot sits on 09:00. Every repository's own `update-dependencies`
+    # cron fires then, on its default branch. That default branch is the current-year
+    # `??.x`, which is also the branch a release is cut from today, so the cron's run
+    # and a release's own dispatch land on the same branch. Both push the same
+    # dependency branch, and the release is the one holding a deadline. The first slot
+    # is an hour later, and the cohort that consumes dependencies is three.
     - cron: '0 10 * * *'
     - cron: '0 11 * * *'
+    - cron: '0 12 * * *'
     - cron: '0 13 * * *'
     - cron: '0 14 * * *'
-    - cron: '0 16 * * *'
-    - cron: '0 17 * * *'
-    - cron: '0 19 * * *'
   workflow_dispatch:
     inputs:
       slot:
@@ -29,13 +34,9 @@ on:
         required: true
         options:
           - infra-release
-          - ci-deps
           - ci-release
-          - framework-deps
           - framework-release
-          - sindri-deps
           - sindri-release
-          - project-deps
           - project-release
       dry_run:
         description: 'Preview only — list dispatches without triggering any'
@@ -63,15 +64,33 @@ jobs:
       # REPOSITORY_NAMING.md — see `cohort_of` in the script. A repository no
       # cohort claims runs in `catchall` and is flagged in the run summary.
       slots: |
-        infra-release     | 0 7 * * *  | release | infra
-        ci-deps           | 0 8 * * *  | deps    | ci
-        ci-release        | 0 10 * * * | release | ci
-        framework-deps    | 0 11 * * * | deps    | frameworks
-        framework-release | 0 13 * * * | release | frameworks
-        sindri-deps       | 0 14 * * * | deps    | sindri
-        sindri-release    | 0 16 * * * | release | sindri
-        project-deps      | 0 17 * * * | deps    | projects catchall
-        project-release   | 0 19 * * * | release | projects catchall
+        infra-release     | 0 10 * * * | release | infra
+        ci-release        | 0 11 * * * | release | ci
+        framework-release | 0 12 * * * | release | frameworks
+        sindri-release    | 0 13 * * * | release | sindri
+        project-release   | 0 14 * * * | release | projects catchall
+      # A release run now carries the dependency refresh, its pull request's checks, and the
+      # merge, on top of the publish and the wait for the registry to serve it. Measured, that
+      # is about eight minutes of refresh in front of a release that has reached 33 — so 45
+      # leaves room for the work these runs actually do.
+      #
+      # It does not cover a run that reaches every ceiling at once: 12 plus 18 for the refresh
+      # in front of a 33-minute release exceeds it. That is the intent. Those ceilings bound a
+      # run that has gone wrong rather than describe one that has not, and a slot that spends
+      # its budget reports `unwatched` and goes red — which is the outcome worth having for a
+      # run nobody read.
+      #
+      # Warning: this has to leave the slot finishing inside the hour before the next one. Slots
+      # share one concurrency group with `cancel-in-progress: false`, and GitHub holds only one
+      # run pending per group — so a slot that overran into a third would have its successor
+      # cancelled outright, dropping a cohort's release for the day rather than delaying it.
+      #
+      # The script spends this budget across the whole wait phase rather than per dispatch, so
+      # the slot cannot exceed it however many runs overrun at once. A wait that reaches its own
+      # deadline does not fail the slot — the run it stopped watching carries on and still
+      # publishes. A budget spent before a run is looked at does fail it, because nobody read
+      # that outcome.
+      stage-timeout-minutes: 45
       slot: ${{ inputs.slot || '' }}
       schedule: ${{ github.event.schedule || '' }}
       dry_run: ${{ inputs.dry_run || false }}

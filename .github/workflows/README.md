@@ -158,28 +158,34 @@ takes a `slot` to run, plus `dry_run` and a single-`repo` target.
 
 #### The slot plan
 
-The slot table in the caller is the master plan. Each cohort that consumes a
-first-party dependency refreshes two hours before it releases, so the hourly
-`auto-merge-bot-prs.yml` sweep gets two passes to land the bump pull requests
-in between — no run waits on a merge. Each cohort releases hours after the
-cohorts it depends on, so every registry has served what the dependency
-shipped by the time the dependent refreshes against it. All times are UTC; the
-org's clock is America/Phoenix (UTC-7, no DST), so each cron maps to the same
-local hour all year.
+Every slot in the caller's table releases. A release refreshes its own
+dependencies as its first step, so no slot refreshes them beforehand and no
+slot waits for a refresh to land. The gap between slots covers one thing: a
+cohort releases after the cohorts it depends on, and each registry needs time
+to serve what the dependency shipped. An hour covers that. All times are UTC;
+the org's clock is America/Phoenix (UTC-7, no DST), so each cron maps to the
+same local hour all year.
 
-| Slot (UTC)    | Action         | Cohort             | Why it is here                                                  |
-| ------------- | -------------- | ------------------ | --------------------------------------------------------------- |
-| 07:00         | release        | infra              | `.github` re-pins workflow refs everywhere; ship that first     |
-| 08:00 / 10:00 | deps / release | ci                 | The framework consumes the CI tools                             |
-| 11:00 / 13:00 | deps / release | frameworks         | Everything else consumes the framework                          |
-| 14:00 / 16:00 | deps / release | sindri             | `sindri` builds against the framework                           |
-| 17:00 / 19:00 | deps / release | projects, catchall | The leaf consumers of everything above; unmatched repos go last |
+| Slot (UTC) | Cohort             | Why it is here                                                  |
+| ---------- | ------------------ | --------------------------------------------------------------- |
+| 10:00      | infra              | `.github` re-pins workflow refs everywhere; ship that first     |
+| 11:00      | ci                 | The framework consumes the CI tools                             |
+| 12:00      | frameworks         | Everything else consumes the framework                          |
+| 13:00      | sindri             | `sindri` builds against the framework                           |
+| 14:00      | projects, catchall | The leaf consumers of everything above; unmatched repos go last |
 
-The `infra` cohort releases without a refresh slot, and that is deliberate. No
-repository in the cohort has a first-party dependency to gate a release on:
-`architecture` and `art` have no dependency workflow, and `.github` carries no
-manifest and no outdated-dependency gate. A refresh slot would have nothing to
-land.
+Warning: no slot sits on 09:00. Every repository's own `update-dependencies`
+cron fires then, on its default branch. That default branch is the current-year
+`??.x`, which is also the branch a release is cut from today. So the cron's run
+and a release's own dispatch land on the same branch, both push the same
+dependency branch, and the release is the one holding a deadline.
+
+A separate sweep, `update-dependencies-all-repos.yml`, runs the `deps` action
+across every cohort at 04:00. It is not what keeps a release green — the
+release does that itself. It keeps every repository current between releases,
+and it reaches the back version branches a repository's own
+`update-dependencies.yml` cron cannot, because a scheduled workflow runs on the
+default branch alone.
 
 A cohort is derived from the repository name, per `REPOSITORY_NAMING.md`, with
 the language suffix set read from the `SUPPORTED_LANGUAGES` org variable:
@@ -189,11 +195,18 @@ is `ci`; `valkyrja-{lang}` is `frameworks`; `sindri-{lang}` is `sindri`;
 A repository that no rule claims runs in `catchall` and is flagged in the run
 summary, so it can be given a slot or a rule. Project components such as
 `valkyrja-docker-php` and `valkyrja-benchmarking-php` are `catchall` today and
-share the `projects` slot pair.
+share the `projects` slot.
 
-The dispatches inside one release slot go out seconds apart, so every
-outdated-dependency gate evaluates before the first sibling publishes — one
-cohort member cannot turn another's gate red mid-slot.
+The dispatches inside one release slot still go out seconds apart, but a gate no
+longer evaluates seconds later: the refresh in front of it takes up to 30
+minutes. The old reason one cohort member could not turn another's gate red was
+that every gate ran before any sibling could publish. That reason no longer
+holds.
+
+What holds instead is the cohort itself. Its members are peers that do not
+consume one another, so a sibling's publish is nothing the gate reads. A cohort
+releases after every cohort it does consume, and that ordering is what the slot
+table exists for.
 
 Warning: the caller's `on.schedule` cron list and the slot table must name the
 same crons. The script fails a scheduled run whose cron the table does not
@@ -208,15 +221,16 @@ either stops watching an unfinished run, or never finds the run to watch.
 Either way the slot stays green, because the script gives up on the answer
 rather than on the run.
 
+A run the wait phase never reached is a failure rather than a skip. Once
+`stage-timeout-minutes` is spent the script reports the remaining runs as
+`unwatched`, an outcome nobody read rather than one that is probably fine.
+
 The job summary counts what the slot dispatched, skipped and failed, and names
 the repositories and branches worth acting on.
 
 `.github/ci/scripts/auto-release-supported-versions.sh` is the script behind
 this sweep. The script is the authority on which condition produces which
 outcome.
-
-A cohort whose gate rejects a stale dependency self-heals the next day: the
-morning refresh lands the bump, and the next release slot ships it.
 
 This ordering is what a release of `@valkyrjaio/sindri` needs. Before it, the
 sweep dispatched every repository at once in `gh repo list` order, so `sindri`
@@ -240,6 +254,42 @@ branch (the current-year `??.x` for these repos, not `master`), and a
 authenticates as the GitHub App. The script mints the installation token itself and
 re-mints it as it ages, because a minted token lives one hour and a wait on a slow
 release can approach that.
+
+#### A release refreshes its own dependencies
+
+`_update-dependencies-for-release.yml` runs as the first step of every
+language release, before the outdated-dependency gate. It dispatches the
+repository's own `update-dependencies.yml`, waits for that run, then merges the
+pull request it opens once every required check passes. The gate then reads a
+branch that already carries the bump.
+
+A registry publishes at any hour. A refresh on its own schedule leaves a window
+between itself and the release, and a package published inside that window
+fails the gate — the release fails on a bump nothing had a chance to take.
+Refreshing inside the release shortens that window to the minutes between the
+merge and the gate.
+
+A branch with nothing else pending is not refreshed by its release. The refresh
+sits behind `should-release`, and `check-version` reports false for a branch
+with no pending commits. The two dependency sweeps cover that case: each
+repository's own cron at 09:00, and `update-dependencies-all-repos.yml` at
+04:00. The hourly auto-merge sweep lands each bump as a `[Dependency] build:`
+commit, before the first release slot at 10:00. The same day's release ships
+it.
+
+The alternative is to refresh before the version is computed. Every quiet
+repository would then run a full dependency update to discover it has nothing
+to release.
+
+The merge step runs `auto-merge-bot-prs.sh`, the hourly sweep's own script,
+narrowed to one repository and one base branch and told to wait. Which pull
+request qualifies, and which checks have to pass, is decided in one place.
+
+Warning: every job that reads or writes the branch after that merge must take
+the branch tip rather than the commit that started the run. `actions/checkout`
+defaults to `github.sha`, which is frozen at dispatch — a job that reads it
+would report the bump as still outstanding, and a job that commits on it would
+push a non-fast-forward.
 
 ### Stable release flow (`auto` / `patch` / `feature` / `yearly`)
 
@@ -346,10 +396,12 @@ package is not resolvable yet, so nothing may release against it.
 The flow above (`_create-release` → `_get-version-for-release` →
 `_update-version-files` → `_release`) drives the `.github` repo itself. Consumer
 language repos instead call `_{go,php,java,python,ts}-create-release.yml`, which
-wraps the same core steps with a pre-release outdated-dependency gate
+wraps the same core steps with a dependency refresh
+(`_update-dependencies-for-release`), a pre-release outdated-dependency gate
 (`_<lang>-check-outdated-dependencies`) and a version/build-date bump in the
-language's info file (`_<lang>-update-info-files`). These orchestrators end at
-`_release.yml` (which creates the GitHub release and tag).
+language's info file (`_<lang>-update-info-files`). The refresh runs first, so
+the gate reads a branch that already carries the bump. These orchestrators end
+at `_release.yml` (which creates the GitHub release and tag).
 
 **Publishing** is a separate concern. The publish workflows below are standalone
 `workflow_call` building blocks — they are **not** invoked by the create-release
@@ -1260,14 +1312,43 @@ checks run normally.
 
 ## Dependency Updates
 
+### `update-dependencies-all-repos.yml`
+
+Trigger: cron (04:00 UTC) + `workflow_dispatch`.
+
+The org-level entry point for every language. Reuses
+`_auto-release-supported-versions.yml` with a single `all-deps` slot naming
+every cohort, so one pass dispatches each repo's own `update-dependencies`
+workflow on every supported `??.x` branch.
+
+It names the slot rather than resolving it from the fired cron, so a scheduled
+run and a manual one take the same path — a one-slot table has no second slot
+for a cron to select.
+
+It is not what keeps a release green; the release refreshes its own
+dependencies. This sweep keeps every repository current between releases, and
+it reaches the back version branches a repository's own cron cannot, because a
+scheduled workflow runs on the default branch alone.
+
+It sets its own `stage-timeout-minutes`, higher than a release slot's. That
+budget bounds the whole wait phase, and one pass here covers every repository
+where a release slot covers one cohort. The waits are serial, so a budget sized
+for a release slot would spend out mid-sweep, and every run it never reached
+would report `unwatched` and fail the sweep — red over runs that were doing
+nothing wrong.
+
 ### `update-php-dependencies.yml`
 
 Trigger: `workflow_dispatch`.
 
-Org-level fan-out entry point. Delegates to
-`_php-update-dependencies-across-repos.yml`, which iterates every non-archived
-`*-php` repo and triggers that repo's own `update-dependencies` workflow across
-its supported `??.x` branches (per `SUPPORTED_VERSIONS`).
+PHP-only fan-out, kept for a manual run against the PHP repos alone. Delegates
+to `_php-update-dependencies-across-repos.yml`, which iterates every
+non-archived `*-php` repo and triggers that repo's own `update-dependencies`
+workflow across its supported `??.x` branches (per `SUPPORTED_VERSIONS`).
+
+`update-dependencies-all-repos.yml` is the org-level entry point for every
+language, and it runs on a schedule. Reach for this one only when the target is
+PHP and nothing else.
 
 ### Per-repo dependency updates
 
@@ -1288,8 +1369,8 @@ force-pushes onto the same branch. Each language also has a
 `_<lang>-check-outdated-dependencies.yml` gate, which runs before a release
 proceeds.
 
-To pass extra flags (e.g., ignore a platform requirement), embed them directly
-in the `command` string:
+The input is a JSON array in a block scalar. To pass extra flags (e.g., ignore a
+platform requirement), embed them directly in the `command` string:
 
 ```yaml
 dependencies: |
@@ -1307,9 +1388,9 @@ dependencies: |
 Trigger: cron (hourly at `:30`) + `workflow_dispatch`.
 
 Sweeps every non-archived repo and merges the bot's own pull requests once they
-qualify. Hourly rather than daily because the release sweep at 14:00 fails a
-repo outright when a dependency bump is still sitting open — the window between
-green and merged is what that failure is made of.
+qualify. Hourly rather than daily so a green pull request does not sit open
+long. A release no longer depends on this sweep: it merges its own dependency
+pull request and waits for it.
 
 A pull request merges only when **all** of the following hold:
 
@@ -1454,6 +1535,7 @@ reusable workflows (leading `_`) are `workflow_call` only.
 | `fix-trailing-newlines.yml`          | cron (Mon 11:00) + dispatch           | Add missing trailing newlines across all repos via PRs                |
 | `update-github-workflow-refs.yml`    | release + cron (Mon 10:00) + dispatch | Pin workflow refs to latest `.github` release SHA                     |
 | `update-php-dependencies.yml`        | `workflow_dispatch`                   | Fan out PHP dependency updates across all PHP repos                   |
+| `update-dependencies-all-repos.yml`  | cron (04:00) + dispatch               | Fan out dependency updates across every cohort and version branch     |
 | `auto-merge-bot-prs.yml`             | cron (hourly :30) + dispatch          | Merge qualifying bot pull requests across all repos                   |
 | `cherry-pick-commits.yml`            | `workflow_dispatch`                   | Cherry-pick a commit to a target branch                               |
 | `rebase-to-master.yml`               | `workflow_dispatch`                   | Rebase `master` onto the current (latest major) version branch        |
@@ -1518,6 +1600,7 @@ reusable workflows (leading `_`) are `workflow_call` only.
 | `_{go,php,java,python,ts}-check-outdated-dependencies.yml` | Verify all direct dependencies are up to date before release |
 | `_{go,php,java,python,ts}-update-dependencies.yml`         | Run the dependency updater and open/refresh a PR             |
 | `_php-update-dependencies-across-repos.yml`                | Trigger `update-dependencies` across all PHP repos           |
+| `_update-dependencies-for-release.yml`                     | Refresh and merge dependencies before a release              |
 
 ### Repository & workflow management (reusable)
 

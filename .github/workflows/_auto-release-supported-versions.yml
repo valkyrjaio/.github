@@ -16,7 +16,7 @@ on:
         type: string
         default: ''
       stage-timeout-minutes:
-        description: 'How long to wait for one dispatched run before the slot gives up on it'
+        description: 'How long the slot spends waiting on the runs it dispatched, across all of them'
         type: number
         default: 30
       dry_run:

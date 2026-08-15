@@ -56,7 +56,21 @@ if [[ -n "$EXISTING" ]]; then
   echo "branch=$EXISTING" >> "$GITHUB_OUTPUT"
   echo "is-new=false" >> "$GITHUB_OUTPUT"
 else
-  BRANCH="deps/update-dependencies-$(date +%Y-%m-%d)"
+  # Warning: the base belongs in the name. The lookup above is already scoped to one base, so
+  # two supported majors refreshed on the same day each find nothing of their own and would
+  # otherwise pick the same new name — and the second force-push would take the first one's
+  # branch. A release now refreshes its own dependencies, so that collision would fail a
+  # release rather than a dependency run.
+  #
+  # The name can also match a branch a merged pull request already used, when a repository does
+  # not delete a head branch on merge and a second refresh runs the same day. `--force-with-lease`
+  # refuses to push without a remote-tracking ref, so fetch one when the remote still has it.
+  BRANCH="deps/update-dependencies-$BASE-$(date +%Y-%m-%d)"
+
+  if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+    echo "Remote still carries $BRANCH from an earlier run. Fetching it so the push has a lease."
+    git fetch origin "$BRANCH"
+  fi
   echo "No existing PR branch. Will create: $BRANCH"
   echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
   echo "is-new=true" >> "$GITHUB_OUTPUT"

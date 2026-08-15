@@ -37,6 +37,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          # The branch tip, not the commit that started the run. The release merges a dependency
+          # bump onto the branch before this gate reads it, and the default checkout would read
+          # the commit from before that merge and report the bump as still outstanding.
+          ref: ${{ github.ref_name }}
 
       - name: Setup Java
         uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0

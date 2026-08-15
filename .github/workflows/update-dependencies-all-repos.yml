@@ -1,0 +1,56 @@
+name: Update Dependencies Across All Repos
+
+# The release refreshes the dependencies of the branch it releases, so this sweep is not what
+# keeps a release green. It keeps every repository current between releases, and it reaches the
+# branches a repository's own `update-dependencies.yml` cron cannot: a scheduled workflow runs on
+# the default branch alone, so a back version branch is only refreshed from here.
+#
+# It runs before the release slots open, so a bump it lands is already merged by the time a
+# release reads the branch, and the release's own refresh then finds nothing to do.
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview only — list dispatches without triggering any'
+        type: boolean
+        default: false
+      repo:
+        description: 'Single repository name to target (leave empty for all repos)'
+        type: string
+        default: ''
+
+run-name: "Update dependencies across all repos"
+
+# Two overlapping sweeps would dispatch the same repository twice, and the second run would open
+# its pull request against a branch the first is still writing.
+concurrency:
+  group: update-dependencies-all-repos
+  cancel-in-progress: false
+
+jobs:
+  update-dependencies:
+    uses: ./.github/workflows/_auto-release-supported-versions.yml
+    with:
+      # One slot covering every cohort, because nothing here is staggered — a dependency refresh
+      # depends on no other repository having refreshed first.
+      slots: |
+        all-deps | 0 4 * * * | deps | infra ci frameworks sindri projects catchall
+      # Named rather than resolved from the fired cron, so a manual run and a scheduled run take
+      # the same path. A one-slot table has no second slot for a cron to select.
+      slot: all-deps
+      # `stage-timeout-minutes` bounds the whole wait phase rather than each wait, and this slot
+      # names every cohort — one pass covers every repository on every supported branch, where a
+      # release slot covers one cohort. The waits are serial, so one slow repository pushes every
+      # later one nearer the deadline, and a run the budget never reached reports `unwatched`,
+      # which fails the sweep. A budget sized for a release slot would go red over runs that were
+      # doing nothing wrong. Nothing competes with this run: it is six hours ahead of the first
+      # release slot.
+      stage-timeout-minutes: 60
+      dry_run: ${{ inputs.dry_run || false }}
+      repo: ${{ inputs.repo || '' }}
+    secrets:
+      VALKYRJA_GHA_APP_ID: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+      VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}

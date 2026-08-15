@@ -1,0 +1,117 @@
+name: Z Reusable Update Dependencies For Release
+
+# A release refreshes its own dependencies rather than trusting a refresh that ran earlier. The
+# job dispatches the repository's own `update-dependencies.yml` and waits for it, then merges the
+# pull request that run opens once every required check on it passes. The outdated-dependency
+# gate that follows therefore reads a branch that already carries the bump.
+#
+# A registry publishes at any hour, so a refresh on its own schedule leaves a window between
+# itself and the release. A package published inside that window fails the gate, and the release
+# fails with it. Refreshing inside the release shortens that window to the minutes between these
+# two steps and the gate.
+#
+# The merge step runs the hourly sweep's own script rather than a second implementation, narrowed
+# to this repository and this branch and told to wait. Which pull request qualifies, and which
+# checks have to pass, is decided in one place.
+#
+# Warning: this workflow runs the script rather than calling `_auto-merge-bot-prs.yml`. A release
+# reaches this workflow through two callers already, and GitHub connects at most four levels of
+# workflows, so calling a third would sit on that limit. The script is the reuse.
+
+on:
+  workflow_call:
+    inputs:
+      bot-login:
+        description: 'Author login whose dependency pull requests may auto-merge'
+        type: string
+        default: 'app/valkyrja-volundr'
+      run-timeout-minutes:
+        description: 'How long to wait for the dependency update run to finish'
+        type: number
+        default: 12
+      # Warning: missing either deadline abandons the release rather than delaying it, and the
+      # pair also has a ceiling. The sweep stops watching a release after `stage-timeout-minutes`
+      # (45), and slots sit an hour apart with `cancel-in-progress: false` — a slot that overruns
+      # into a third leaves GitHub cancelling the pending one, which drops a cohort's release for
+      # the day rather than delaying it. So the two budgets together stay well inside the slot.
+      #
+      # Measured, they are generous: the update run takes two to five minutes, and a dependency
+      # pull request's full required suite finishes in one to three minutes in every language,
+      # Java included. 12 and 18 leave roughly six times the observed work. A caller whose check
+      # budget is genuinely larger raises them rather than inheriting them.
+      merge-timeout-minutes:
+        description: 'How long to wait for the dependency pull request checks to pass'
+        type: number
+        default: 18
+    secrets:
+      VALKYRJA_GHA_APP_ID:
+        description: 'App ID of the GitHub App that mints the token this workflow uses'
+        required: true
+      VALKYRJA_GHA_PRIVATE_KEY:
+        description: 'Private key of the GitHub App that mints the token this workflow uses'
+        required: true
+
+jobs:
+  update-dependencies-for-release:
+    name: Refresh Dependencies
+
+    runs-on: ubuntu-latest
+
+    # Both steps work through the app token minted below. The only thing that reads
+    # GITHUB_TOKEN is the checkout of this repository, and a read is all that needs.
+    permissions:
+      contents: read
+
+    # Both steps below wait on work in another run, and each carries its own deadline. This is the
+    # ceiling on the pair, so a job that hangs on the API cannot hold a runner for the default six
+    # hours. It exceeds `run-timeout-minutes` plus `merge-timeout-minutes`, or it would cut short
+    # a wait the inputs still allowed.
+    timeout-minutes: 40
+
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ secrets.VALKYRJA_GHA_APP_ID }}
+          private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      # The scripts the steps below run live in this repository, and the release that calls this
+      # workflow runs in another one, so the checkout names this repository at the commit the
+      # caller pinned. `path:` keeps it out of the workspace root, which is the shape every
+      # sibling reached from a consumer repository uses — see the table in workflows/README.md.
+      # Both steps work through the API alone, so neither needs the calling repository on disk.
+      - name: Checkout the CI scripts
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          repository: valkyrjaio/.github
+          ref: ${{ job.workflow_sha }}
+          path: dot-github
+
+      - name: Dispatch the dependency update and wait for it
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          ORG: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+          BRANCH: ${{ github.ref_name }}
+          WORKFLOW: update-dependencies.yml
+          RUN_TIMEOUT_MINUTES: ${{ inputs.run-timeout-minutes }}
+        run: dot-github/.github/ci/scripts/update-dependencies-for-release.sh
+
+      - name: Merge the dependency pull request
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          ORG: ${{ github.repository_owner }}
+          BOT_LOGIN: ${{ inputs.bot-login }}
+          ENABLED_TYPES: 'Dependency'
+          EXCLUDE_REPOS: ''
+          # No SUPPORTED_VERSIONS. BASE_FILTER below names the one branch this release is cut
+          # from, which is the stricter constraint, and a version filter that disagreed with it
+          # would skip the merge the release is waiting for.
+          REVIEWER: ${{ vars.VALKYRJA_REVIEWER }}
+          DRY_RUN: false
+          SINGLE_REPO: ${{ github.event.repository.name }}
+          BASE_FILTER: ${{ github.ref_name }}
+          WAIT_MINUTES: ${{ inputs.merge-timeout-minutes }}
+        run: dot-github/.github/ci/scripts/auto-merge-bot-prs.sh
