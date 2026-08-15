@@ -139,6 +139,6 @@ jobs:
           BRANCH: ${{ steps.prep-branch.outputs.branch }}
           TITLE: '[Dependency] build: Update composer dependencies'
           SUMMARY: 'Automated composer dependency updates.'
-          NOUN: 'Package'
-          EMPTY_MESSAGE: '_No explicit version changes detected — lock file or constraint updates only._'
+          COLUMN_HEADING: 'Package'
+          CHANGES_MESSAGE: '_No explicit version changes detected — lock file or constraint updates only._'
         run: dot-github/.github/ci/scripts/create-dependency-pull-request.sh

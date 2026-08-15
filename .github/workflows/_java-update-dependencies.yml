@@ -137,5 +137,5 @@ jobs:
           BRANCH: ${{ steps.prep-branch.outputs.branch }}
           TITLE: '[Dependency] build: Update Gradle dependencies'
           SUMMARY: 'Automated Gradle dependency updates.'
-          EMPTY_MESSAGE: '_See diff for updated dependency versions._'
+          CHANGES_MESSAGE: '_See diff for updated dependency versions._'
         run: dot-github/.github/ci/scripts/create-dependency-pull-request.sh

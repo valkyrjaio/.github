@@ -137,6 +137,6 @@ jobs:
           BRANCH: ${{ steps.prep-branch.outputs.branch }}
           TITLE: '[Dependency] build: Update Go dependencies'
           SUMMARY: 'Automated Go dependency updates.'
-          NOUN: 'Module'
-          EMPTY_MESSAGE: '_No pinned version changes detected — go.sum updates only._'
+          COLUMN_HEADING: 'Module'
+          CHANGES_MESSAGE: '_No pinned version changes detected — go.sum updates only._'
         run: dot-github/.github/ci/scripts/create-dependency-pull-request.sh
