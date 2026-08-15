@@ -239,7 +239,17 @@ wait_for_dispatch() {
 release_branches_for() {
   local repo="$1" all b major out=""
 
-  all=$(gh api "repos/$ORG/$repo/branches" --paginate --jq '.[].name' 2>/dev/null || true)
+  # Warning: read the exit status. `gh api --jq` leaves an error body unfiltered, so a
+  # failed read arrives as JSON that matches no branch pattern below — and an empty result
+  # reads as "this repository has no version branch". A transient answer would drop the
+  # repository from the slot in silence, which is the failure this guard exists to prevent.
+  #
+  # The message is kept rather than suppressed. The caller fails the slot on this, and a
+  # repository name alone does not say whether a second run would answer differently. Only
+  # stdout is captured here, so `gh` writes its message straight to the job log.
+  if ! all=$(gh api "repos/$ORG/$repo/branches" --paginate --jq '.[].name'); then
+    return 1
+  fi
 
   while IFS= read -r b; do
     if [[ "$b" =~ ^([0-9]+)\.x$ ]]; then
@@ -284,8 +294,12 @@ fi
 # rather than discovers. A repository appears once per version branch.
 WORK=""
 SKIPPED_NO_WORKFLOW=0
+SKIPPED_NO_BRANCH_WORKFLOW=0
 SKIPPED_NO_BRANCH=0
 SKIPPED_OTHER_COHORT=0
+UNREADABLE_BRANCHES=0
+UNREADABLE_BRANCH_REPOS=""
+MISSING_BRANCH_WORKFLOW=""
 CATCHALL_REPOS=""
 
 while IFS= read -r REPO_NAME; do
@@ -298,15 +312,35 @@ while IFS= read -r REPO_NAME; do
     continue
   fi
 
-  WORKFLOW_EXISTS=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows/$ACTION_WORKFLOW" \
-    --jq '.name' 2>/dev/null || true)
+  # Two independent conditions decide whether the dispatch below succeeds, and this is the
+  # first. `gh workflow run` resolves the workflow against the repository's registered
+  # workflows, which come from the default branch, so a file absent there answers HTTP 404
+  # before `ref` is read at all. The answer does not vary by branch, so it is asked once.
+  #
+  # Warning: read the message, never the body. `gh api --jq` leaves an error body unfiltered,
+  # so a 404 arrives as the error JSON rather than as the empty string an absent workflow
+  # should produce. Only a definite 404 skips. Every other answer says nothing about the
+  # workflow, so it goes to the dispatch, which reports a failure and fails the slot rather
+  # than dropping the repository in silence.
+  WORKFLOW_ERR=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows/$ACTION_WORKFLOW" \
+    --silent 2>&1 >/dev/null || true)
 
-  if [[ -z "$WORKFLOW_EXISTS" ]]; then
+  if [[ "$WORKFLOW_ERR" == *"HTTP 404"* ]]; then
+    echo "$ORG/$REPO_NAME: no $ACTION_WORKFLOW on the default branch, skipping."
     SKIPPED_NO_WORKFLOW=$((SKIPPED_NO_WORKFLOW + 1))
     continue
   fi
 
-  BRANCHES=$(release_branches_for "$REPO_NAME")
+  if [[ -n "$WORKFLOW_ERR" ]]; then
+    echo "$ORG/$REPO_NAME: could not check for $ACTION_WORKFLOW, dispatching anyway: $WORKFLOW_ERR"
+  fi
+
+  if ! BRANCHES=$(release_branches_for "$REPO_NAME"); then
+    echo "$ORG/$REPO_NAME: could not read the branch list. This fails the slot."
+    UNREADABLE_BRANCHES=$((UNREADABLE_BRANCHES + 1))
+    UNREADABLE_BRANCH_REPOS="$UNREADABLE_BRANCH_REPOS"$'\n'"$REPO_NAME"
+    continue
+  fi
 
   if [[ -z "$(printf '%s' "$BRANCHES" | tr -d '[:space:]')" ]]; then
     echo "$ORG/$REPO_NAME: no supported version branch, skipping."
@@ -320,6 +354,38 @@ while IFS= read -r REPO_NAME; do
 
   while IFS= read -r BRANCH; do
     [[ -z "$BRANCH" ]] && continue
+
+    # The second condition. The workflow resolved against the default branch above, but the
+    # dispatch runs the file as this branch carries it, and a branch without it answers HTTP
+    # 422. The two branches differ for most of a year: the default branch follows the current
+    # major, and an older major stays supported alongside it.
+    #
+    # While one major is supported this repeats the probe above, because the only supported
+    # branch is the default branch. One call per repository-branch costs less than a guard
+    # that someone must revisit when the next major opens.
+    #
+    # The same reading rule as above applies — a definite 404 skips, and every other answer
+    # goes to the dispatch.
+    BRANCH_WORKFLOW_ERR=$(gh api "repos/$ORG/$REPO_NAME/contents/.github/workflows/$ACTION_WORKFLOW?ref=$BRANCH" \
+      --silent 2>&1 >/dev/null || true)
+
+    if [[ "$BRANCH_WORKFLOW_ERR" == *"HTTP 404"* ]]; then
+      # Warning: the two 404s do not mean the same thing. Absent on the default branch means
+      # the repository never opted the workflow in, which is a steady state nobody needs to
+      # hear about. Absent here, with the file on the default branch, means this branch is
+      # behind or the file was dropped, and for a release that means the branch stops
+      # releasing. A count in a table does not say which branch, so it earns a warning
+      # block of its own.
+      echo "$ORG/$REPO_NAME ($BRANCH): branch carries no $ACTION_WORKFLOW, skipping."
+      SKIPPED_NO_BRANCH_WORKFLOW=$((SKIPPED_NO_BRANCH_WORKFLOW + 1))
+      MISSING_BRANCH_WORKFLOW="$MISSING_BRANCH_WORKFLOW"$'\n'"$REPO_NAME $BRANCH"
+      continue
+    fi
+
+    if [[ -n "$BRANCH_WORKFLOW_ERR" ]]; then
+      echo "$ORG/$REPO_NAME ($BRANCH): could not check for $ACTION_WORKFLOW, dispatching anyway: $BRANCH_WORKFLOW_ERR"
+    fi
+
     WORK="$WORK"$'\n'"$REPO_NAME $BRANCH"
   done <<< "$BRANCHES"
 done <<< "$REPOS"
@@ -402,9 +468,11 @@ fi
   echo "| Dispatched | $DISPATCHED |"
   echo "| Succeeded | $SUCCEEDED |"
   echo "| Failed | $FAILED |"
+  echo "| Failed (branch list unreadable) | $UNREADABLE_BRANCHES |"
   echo "| Timed out waiting | $TIMED_OUT |"
   echo "| Skipped (other cohort) | $SKIPPED_OTHER_COHORT |"
-  echo "| Skipped (no $ACTION_WORKFLOW) | $SKIPPED_NO_WORKFLOW |"
+  echo "| Skipped (no $ACTION_WORKFLOW on the default branch) | $SKIPPED_NO_WORKFLOW |"
+  echo "| Skipped (branch carries no $ACTION_WORKFLOW) | $SKIPPED_NO_BRANCH_WORKFLOW |"
   echo "| Skipped (no supported version branch) | $SKIPPED_NO_BRANCH |"
 
   if [[ -n "$RESULTS" ]]; then
@@ -412,6 +480,22 @@ fi
     echo "| Repository | Branch | Outcome |"
     echo "|------------|--------|---------|"
     printf '%s\n' "${RESULTS#$'\n'}"
+  fi
+
+  if [[ -n "$(printf '%s' "$UNREADABLE_BRANCH_REPOS" | tr -d '[:space:]')" ]]; then
+    echo
+    echo "Warning: the branch list would not read for these repositories, so the slot failed."
+    echo "The \`gh\` message for each one is in the run log:"
+    echo
+    printf '%s\n' "$UNREADABLE_BRANCH_REPOS" | awk 'NF {print "- `" $1 "`"}'
+  fi
+
+  if [[ -n "$(printf '%s' "$MISSING_BRANCH_WORKFLOW" | tr -d '[:space:]')" ]]; then
+    echo
+    echo "Warning: these branches carry no \`$ACTION_WORKFLOW\`, and the repository passed the default branch check."
+    echo "Each one is out of the $SLOT_ACTION rotation until the file reaches it:"
+    echo
+    printf '%s\n' "$MISSING_BRANCH_WORKFLOW" | awk 'NF {print "- `" $1 "` (" $2 ")"}'
   fi
 
   if [[ -n "$(printf '%s' "$CATCHALL_REPOS" | tr -d '[:space:]')" ]]; then
@@ -427,9 +511,27 @@ fi
   echo "\`_get-version-for-release.yml\`. Quiet branches produce nothing."
 } >> "$GITHUB_STEP_SUMMARY"
 
-# A failure fails the slot, so the day's plan shows red where it broke. A
-# timeout does not: the run the sweep stopped watching may still finish.
+# A failure fails the slot, so the day's plan shows red where it broke. A wait
+# that ends without an answer does not. The script either stops watching
+# an unfinished run, or never finds the run to watch. Either way the script
+# gives up on the answer rather than on the run.
+#
+# Warning: the two conditions below are independent, and one run can hit both. Each reports
+# before anything exits, so the last lines of the log name every reason the slot is red.
+SLOT_FAILED=0
+
 if [[ "$FAILED" -gt 0 ]]; then
   echo "$FAILED $SLOT_ACTION dispatch(es) failed."
+  SLOT_FAILED=1
+fi
+
+# A repository whose branch list would not read was neither dispatched nor deliberately
+# skipped, so the slot says so rather than reporting a clean run over it.
+if [[ "$UNREADABLE_BRANCHES" -gt 0 ]]; then
+  echo "$UNREADABLE_BRANCHES repository branch list(s) could not be read."
+  SLOT_FAILED=1
+fi
+
+if [[ "$SLOT_FAILED" -gt 0 ]]; then
   exit 1
 fi

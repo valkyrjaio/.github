@@ -199,11 +199,24 @@ Warning: the caller's `on.schedule` cron list and the slot table must name the
 same crons. The script fails a scheduled run whose cron the table does not
 name, so drift is loud, not silent.
 
-Warning: a failed dispatch or release fails the slot, so the day's plan shows
-red where it broke. A wait that times out does not fail the slot — the run it
-stopped watching may still finish. A cohort whose gate rejects a stale
-dependency self-heals the next day: the morning refresh lands the bump, and
-the next release slot ships it.
+Warning: the script tells a deliberate skip apart from a failure. A skip passes
+a repository or a branch over and leaves the slot green. A failure means
+something the script tries does not work, and the slot goes red.
+
+A wait that ends without an answer is neither a skip nor a failure. The script
+either stops watching an unfinished run, or never finds the run to watch.
+Either way the slot stays green, because the script gives up on the answer
+rather than on the run.
+
+The job summary counts what the slot dispatched, skipped and failed, and names
+the repositories and branches worth acting on.
+
+`.github/ci/scripts/auto-release-supported-versions.sh` is the script behind
+this sweep. The script is the authority on which condition produces which
+outcome.
+
+A cohort whose gate rejects a stale dependency self-heals the next day: the
+morning refresh lands the bump, and the next release slot ships it.
 
 This ordering is what a release of `@valkyrjaio/sindri` needs. Before it, the
 sweep dispatched every repository at once in `gh repo list` order, so `sindri`
@@ -473,7 +486,7 @@ own file beside the script that calls it. `merge_ci_jobs.py` is such a file, and
 # The caller runs this script from the workspace root, not from this directory.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
-python3 "$SCRIPT_DIR/merge_ci_jobs.py" /tmp/ci_existing.yml /tmp/ci_template.yml
+python3 "$SCRIPT_DIR/merge_ci_jobs.py" "$existing_file" "$template_file"
 ```
 
 Warning: a script cannot assume the working directory is its own. A `run:` step starts in the
