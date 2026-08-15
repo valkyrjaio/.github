@@ -10,11 +10,11 @@
 # Dependency update pull request.
 #
 # Opens the pull request that carries a dependency update. The body follows the
-# repository's pull request template, and it lists every package the update
-# moved.
+# repository's pull request template.
 #
-# Reads GH_TOKEN, BASE, BRANCH, TITLE, SUMMARY, and CHANGES_MESSAGE from the
-# environment, and fails the step when the caller sets none of them.
+# Reads BASE, BRANCH, TITLE, SUMMARY, and CHANGES_MESSAGE from the environment,
+# and fails the step on the first one a caller leaves unset. It reads GH_TOKEN
+# as well, which `gh` reads for itself.
 #
 # COLUMN_HEADING is optional, and it heads the table's first column. A caller
 # that sets it gets a table of every package the update moved, read from
@@ -43,6 +43,9 @@ BODY+="- [ ] Breaking change _(fix or feature that would cause existing function
 BODY+="- [ ] Documentation improvement"$'\n'$'\n'
 BODY+="## Changes"$'\n'$'\n'
 
+# Every caller sets the message, and only the branch below reads it.
+: "${CHANGES_MESSAGE:?}"
+
 if [[ -n "${COLUMN_HEADING:-}" && -s /tmp/dependency_changes.txt ]]; then
   # The separator matches the heading it sits under, so the rendered table lines up.
   SEPARATOR="$(printf '%*s' "$(( ${#COLUMN_HEADING} + 2 ))" '' | tr ' ' '-')"
@@ -54,7 +57,7 @@ if [[ -n "${COLUMN_HEADING:-}" && -s /tmp/dependency_changes.txt ]]; then
     BODY+="| \`$NAME\` | $FROM | $TO |"$'\n'
   done < /tmp/dependency_changes.txt
 else
-  BODY+="${CHANGES_MESSAGE:?}"$'\n'
+  BODY+="$CHANGES_MESSAGE"$'\n'
 fi
 
 gh pr create \
