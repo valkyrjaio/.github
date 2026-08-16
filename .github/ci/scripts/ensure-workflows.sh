@@ -306,7 +306,7 @@ create_branch_if_needed() {
   # A 404 here is an answer: the base branch does not exist. The `master` fallback produces
   # that for a repository carrying neither a version branch nor `master`. Counting it as unread
   # would fail the sweep on a fact the API stated.
-  # `git/ref/` rather than `git/refs/`, on purpose. `git blame` this line for why.
+  # `git/ref/`, not `git/refs/`: the plural path prefix-matches a name with no exact ref.
   read_exists "repos/$ORG/$repo_name/git/ref/heads/$base_branch" '.object.sha'
   local base_sha="$READ_BODY"
 
