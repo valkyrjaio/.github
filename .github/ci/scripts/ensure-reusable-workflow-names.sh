@@ -92,7 +92,8 @@ while IFS= read -r REPO_NAME; do
       UPDATE_BRANCH="deps/ensure-reusable-workflow-names-$BASE_BRANCH"
     fi
 
-    BRANCH_EXISTS=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/$UPDATE_BRANCH" \
+    # `git/ref/`, not `git/refs/`: the plural path prefix-matches a name with no exact ref.
+    BRANCH_EXISTS=$(gh api "repos/$ORG/$REPO_NAME/git/ref/heads/$UPDATE_BRANCH" \
       --jq '.object.sha' 2>/dev/null) || BRANCH_EXISTS=""
 
     FILES_UPDATED=0
@@ -102,8 +103,8 @@ while IFS= read -r REPO_NAME; do
       [[ -n "$BRANCH_EXISTS" ]] && return 0
       echo "  [$BASE_BRANCH] Creating branch $UPDATE_BRANCH..."
       local base_sha
-      base_sha=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/$BASE_BRANCH" \
-        --jq '.object.sha' 2>/dev/null || true)
+      base_sha=$(gh api "repos/$ORG/$REPO_NAME/git/ref/heads/$BASE_BRANCH" \
+        --jq '.object.sha' 2>/dev/null) || base_sha=""
       if [[ -z "$base_sha" ]]; then
         echo "  [$BASE_BRANCH] Could not get base branch SHA, skipping"
         return 2

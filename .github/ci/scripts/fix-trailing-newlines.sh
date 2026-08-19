@@ -66,7 +66,8 @@ while IFS= read -r REPO_NAME; do
       UPDATE_BRANCH="deps/fix-trailing-newlines-$BASE_BRANCH"
     fi
 
-    BRANCH_EXISTS=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/$UPDATE_BRANCH" \
+    # `git/ref/`, not `git/refs/`: the plural path prefix-matches a name with no exact ref.
+    BRANCH_EXISTS=$(gh api "repos/$ORG/$REPO_NAME/git/ref/heads/$UPDATE_BRANCH" \
       --jq '.object.sha' 2>/dev/null) || BRANCH_EXISTS=""
 
     FILES_UPDATED=0
@@ -105,8 +106,8 @@ while IFS= read -r REPO_NAME; do
       if [[ -z "$BRANCH_EXISTS" ]]; then
         echo "  [$BASE_BRANCH] Creating branch $UPDATE_BRANCH..."
 
-        BASE_SHA=$(gh api "repos/$ORG/$REPO_NAME/git/refs/heads/$BASE_BRANCH" \
-          --jq '.object.sha' 2>/dev/null || true)
+        BASE_SHA=$(gh api "repos/$ORG/$REPO_NAME/git/ref/heads/$BASE_BRANCH" \
+          --jq '.object.sha' 2>/dev/null) || BASE_SHA=""
         if [[ -z "$BASE_SHA" ]]; then
           echo "  [$BASE_BRANCH] Could not get base branch SHA, skipping"
           break
