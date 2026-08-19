@@ -1,6 +1,10 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.25.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.25.1...26.x)
+
+## [v26.25.1](https://github.com/valkyrjaio/.github/compare/v26.25.0...v26.25.1) - 2026-08-19
+
+* [Workflow] fix(#337): Read the singular ref endpoint in the sibling sweeps by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/339
 
 ## [v26.25.0](https://github.com/valkyrjaio/.github/compare/v26.24.6...v26.25.0) - 2026-08-15
 
