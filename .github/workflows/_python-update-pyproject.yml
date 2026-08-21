@@ -7,6 +7,10 @@ on:
         description: 'The version without v prefix (e.g. 26.1.0)'
         type: string
         required: true
+      python-version:
+        description: 'Python version to use'
+        type: string
+        default: '3.14'
     secrets:
       VALKYRJA_GHA_APP_ID:
         description: 'App ID of the GitHub App that mints the token this workflow uses'
@@ -52,6 +56,8 @@ jobs:
 
       - name: Setup uv
         uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          python-version: ${{ inputs.python-version }}
 
       - name: Update pyproject.toml version
         env:

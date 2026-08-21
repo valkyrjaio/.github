@@ -81,6 +81,7 @@ jobs:
       VALKYRJA_GHA_PRIVATE_KEY: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
     with:
       version: ${{ needs.check-version.outputs.version }}
+      python-version: ${{ inputs.python-version }}
 
   update-python-info-files:
     needs: [update-python-pyproject, check-version]
