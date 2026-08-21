@@ -1,6 +1,10 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.25.1...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.25.2...26.x)
+
+## [v26.25.2](https://github.com/valkyrjaio/.github/compare/v26.25.1...v26.25.2) - 2026-08-21
+
+* [Workflow] fix: Give the Python pyproject update an interpreter by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/340
 
 ## [v26.25.1](https://github.com/valkyrjaio/.github/compare/v26.25.0...v26.25.1) - 2026-08-19
 
