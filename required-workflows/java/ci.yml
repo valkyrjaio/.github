@@ -27,7 +27,7 @@ jobs:
   trailing-newline-check:
     name: Trailing Newline Check
     if: github.event_name == 'pull_request'
-    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@c80901f56c70ac0e092dc3718e813e7503ee5fb7
+    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@ef403c89e96d3dc78d16136ee3e6861f246500cf
     permissions:
       pull-requests: write
       contents: read
@@ -38,7 +38,7 @@ jobs:
   markdown-check:
     name: Markdown Check
     if: github.event_name == 'pull_request'
-    uses: valkyrjaio/.github/.github/workflows/_markdown-check.yml@c80901f56c70ac0e092dc3718e813e7503ee5fb7
+    uses: valkyrjaio/.github/.github/workflows/_markdown-check.yml@ef403c89e96d3dc78d16136ee3e6861f246500cf
     permissions:
       pull-requests: write
       contents: read
@@ -50,7 +50,7 @@ jobs:
   # this composes as `CI / Tools / <Tool> / <version>`.
   tools:
     name: Tools
-    uses: valkyrjaio/.github/.github/workflows/_java-ci-tools.yml@c80901f56c70ac0e092dc3718e813e7503ee5fb7
+    uses: valkyrjaio/.github/.github/workflows/_java-ci-tools.yml@ef403c89e96d3dc78d16136ee3e6861f246500cf
     with:
       java-version: '21'
       source-paths: |
