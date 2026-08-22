@@ -62,8 +62,13 @@ jobs:
       - name: Update pyproject.toml version
         env:
           VERSION: ${{ inputs.version }}
+          PYTHON_VERSION: ${{ inputs.python-version }}
         run: |
           sed -i -E "0,/^version = .*/s//version = \"$VERSION\"/" pyproject.toml
+
+          # `setup-uv` sets UV_PYTHON and installs no interpreter, and the lock below
+          # reaches no network. The interpreter is fetched here so that it cannot.
+          uv python install "$PYTHON_VERSION"
 
           # Warning: `uv.lock` records the project's own version, so the `sed` above
           # leaves the lock one version behind. Every later `uv run` rewrites the lock,
