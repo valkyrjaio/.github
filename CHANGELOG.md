@@ -1,6 +1,10 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.25.2...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.25.3...26.x)
+
+## [v26.25.3](https://github.com/valkyrjaio/.github/compare/v26.25.2...v26.25.3) - 2026-08-23
+
+* [Workflow] fix: Install the interpreter before the offline lock by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/341
 
 ## [v26.25.2](https://github.com/valkyrjaio/.github/compare/v26.25.1...v26.25.2) - 2026-08-21
 
