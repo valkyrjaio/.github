@@ -27,7 +27,7 @@ jobs:
   trailing-newline-check:
     name: Trailing Newline Check
     if: github.event_name == 'pull_request'
-    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@ef403c89e96d3dc78d16136ee3e6861f246500cf
+    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@912735f0e9eef1300261cfedd23051d661e9d243
     permissions:
       pull-requests: write
       contents: read
@@ -38,7 +38,7 @@ jobs:
   markdown-check:
     name: Markdown Check
     if: github.event_name == 'pull_request'
-    uses: valkyrjaio/.github/.github/workflows/_markdown-check.yml@ef403c89e96d3dc78d16136ee3e6861f246500cf
+    uses: valkyrjaio/.github/.github/workflows/_markdown-check.yml@912735f0e9eef1300261cfedd23051d661e9d243
     permissions:
       pull-requests: write
       contents: read
@@ -50,7 +50,7 @@ jobs:
   # `CI / Tools / <Tool> / PHP <version>`.
   tools:
     name: Tools
-    uses: valkyrjaio/.github/.github/workflows/_php-ci-tools.yml@ef403c89e96d3dc78d16136ee3e6861f246500cf
+    uses: valkyrjaio/.github/.github/workflows/_php-ci-tools.yml@912735f0e9eef1300261cfedd23051d661e9d243
     with:
       php-version: '8.4'
       php-versions: '["8.4", "8.5", "8.6"]'
