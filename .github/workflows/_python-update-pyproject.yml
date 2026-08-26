@@ -62,20 +62,16 @@ jobs:
       - name: Update pyproject.toml version
         env:
           VERSION: ${{ inputs.version }}
-          PYTHON_VERSION: ${{ inputs.python-version }}
         run: |
           sed -i -E "0,/^version = .*/s//version = \"$VERSION\"/" pyproject.toml
-
-          # `setup-uv` sets UV_PYTHON and installs no interpreter, and the lock below
-          # reaches no network. The interpreter is fetched here so that it cannot.
-          uv python install "$PYTHON_VERSION"
 
           # Warning: `uv.lock` records the project's own version, so the `sed` above
           # leaves the lock one version behind. Every later `uv run` rewrites the lock,
           # so a developer finds a dirty tree on a clean checkout, and the drift grows by
-          # one version on every release. `--offline` resolves nothing from the network:
-          # the version of this project is the only value that changes.
-          uv lock --offline
+          # one version on every release. `uv lock` keeps every version the lock holds
+          # already, because only `--upgrade` moves a dependency: the version of this
+          # project is the only value that changes.
+          uv lock
 
       - name: Commit pyproject.toml change
         uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7.2.0
