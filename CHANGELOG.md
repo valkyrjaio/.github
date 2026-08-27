@@ -1,6 +1,11 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.25.3...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.25.4...26.x)
+
+## [v26.25.4](https://github.com/valkyrjaio/.github/compare/v26.25.3...v26.25.4) - 2026-08-27
+
+* [Workflow] fix: Expose whether the Java release happened by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/343
+* [Workflow] fix: Lock the Python project online by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/342
 
 ## [v26.25.3](https://github.com/valkyrjaio/.github/compare/v26.25.2...v26.25.3) - 2026-08-23
 
