@@ -26,6 +26,10 @@ on:
         description: 'Simple file name for display (e.g. ApplicationInfo). Leave empty to skip the info file update.'
         type: string
         default: ''
+    outputs:
+      should-release:
+        description: 'Whether a release happened. A caller gates its publish job on this, because a publish of a version that exists already fails the release.'
+        value: ${{ jobs.check-version.outputs.should-release }}
     secrets:
       VALKYRJA_GHA_APP_ID:
         description: 'App ID of the GitHub App that mints the token this workflow uses'
