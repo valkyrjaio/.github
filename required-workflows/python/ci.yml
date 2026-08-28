@@ -27,7 +27,7 @@ jobs:
   trailing-newline-check:
     name: Trailing Newline Check
     if: github.event_name == 'pull_request'
-    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@d11e5129a9605bddf58695e9baaf16d28291a46c
+    uses: valkyrjaio/.github/.github/workflows/_trailing-newline-check.yml@ef619bde82278473084578970b5904feda935e28
     permissions:
       pull-requests: write
       contents: read
@@ -38,7 +38,7 @@ jobs:
   markdown-check:
     name: Markdown Check
     if: github.event_name == 'pull_request'
-    uses: valkyrjaio/.github/.github/workflows/_markdown-check.yml@d11e5129a9605bddf58695e9baaf16d28291a46c
+    uses: valkyrjaio/.github/.github/workflows/_markdown-check.yml@ef619bde82278473084578970b5904feda935e28
     permissions:
       pull-requests: write
       contents: read
@@ -50,7 +50,7 @@ jobs:
   # this composes as `CI / Tools / <Tool> / <version>`.
   tools:
     name: Tools
-    uses: valkyrjaio/.github/.github/workflows/_python-ci-tools.yml@d11e5129a9605bddf58695e9baaf16d28291a46c
+    uses: valkyrjaio/.github/.github/workflows/_python-ci-tools.yml@ef619bde82278473084578970b5904feda935e28
     with:
       python-version: '3.14'
       source-paths: |
