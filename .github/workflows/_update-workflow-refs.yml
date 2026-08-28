@@ -7,6 +7,14 @@ on:
         description: 'Repository whose refs to update (e.g. .github or ci-phparkitect-php)'
         type: string
         required: true
+      bot-login:
+        description: 'Author login whose workflow reference pull requests may auto-merge'
+        type: string
+        default: 'app/valkyrja-volundr'
+      merge-timeout-minutes:
+        description: 'How long to wait for the workflow reference pull request checks to pass'
+        type: number
+        default: 15
     secrets:
       VALKYRJA_GHA_APP_ID:
         description: 'App ID of the GitHub App that mints the token this workflow uses'
@@ -30,9 +38,9 @@ jobs:
           private-key: ${{ secrets.VALKYRJA_GHA_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
-      # The script the last step runs lives in this repository, so the job needs it on disk. Only
-      # this repository calls this workflow, so the default checkout is the one that holds the
-      # script. The job reads no other file from the working tree.
+      # The scripts the steps below run live in this repository, so the job needs them on disk.
+      # Only this repository calls this workflow, so the default checkout is the one that holds
+      # them. The job reads no other file from the working tree.
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
@@ -43,3 +51,25 @@ jobs:
           SOURCE_REPO: ${{ inputs.source-repo }}
           SUPPORTED_VERSIONS: ${{ vars.SUPPORTED_VERSIONS }}
         run: .github/ci/scripts/update-workflow-refs.sh
+
+      # The step above opens a pull request in every repository that pins the source, and the
+      # hourly sweep is the only thing that came back for them. A dropped schedule therefore left
+      # a release undelivered for as long as the gap, and nothing reported it. This step merges
+      # them here instead. It polls rather than sleeps, because a fixed wait either ends before
+      # the checks report or holds the runner after they have.
+      - name: Merge the workflow reference pull requests
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          ORG: ${{ github.repository_owner }}
+          BOT_LOGIN: ${{ inputs.bot-login }}
+          ENABLED_TYPES: 'Workflow'
+          # The same exclusion the hourly sweep makes: a pull request against this repository
+          # keeps a person in the loop.
+          EXCLUDE_REPOS: '.github'
+          SUPPORTED_VERSIONS: ${{ vars.SUPPORTED_VERSIONS }}
+          REVIEWER: ${{ vars.VALKYRJA_REVIEWER }}
+          DRY_RUN: false
+          SINGLE_REPO: ''
+          BASE_FILTER: ''
+          WAIT_MINUTES: ${{ inputs.merge-timeout-minutes }}
+        run: .github/ci/scripts/auto-merge-bot-prs.sh
