@@ -1,6 +1,11 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.25.4...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.25.5...26.x)
+
+## [v26.25.5](https://github.com/valkyrjaio/.github/compare/v26.25.4...v26.25.5) - 2026-08-28
+
+* [Workflow] fix: Merge the workflow reference pull requests as they are opened by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/345
+* [Workflow] fix: Expose whether the TypeScript and Python releases happened by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/344
 
 ## [v26.25.4](https://github.com/valkyrjaio/.github/compare/v26.25.3...v26.25.4) - 2026-08-27
 
