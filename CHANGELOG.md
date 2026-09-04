@@ -1,6 +1,11 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.25.5...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.25.6...26.x)
+
+## [v26.25.6](https://github.com/valkyrjaio/.github/compare/v26.25.5...v26.25.6) - 2026-09-04
+
+* [Workflow] fix: Update TypeScript dependencies on Node 24 by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/346
+* [Workflow] ci: Ask a review summary for one sentence for each finding by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/347
 
 ## [v26.25.5](https://github.com/valkyrjaio/.github/compare/v26.25.4...v26.25.5) - 2026-08-28
 
