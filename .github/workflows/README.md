@@ -759,8 +759,8 @@ the default branch. The job then runs the script from an unpinned commit, and it
 
 A step that matches the constraint and a preference at once takes the direct form. No workflow works
 around the constraint. That step accepts the weaker guarantee, and the job's own pinned checkout is
-what it has. The steps that run `checkout-existing-pr-branch.sh` and `read-review-verdict.sh` are
-that shape.
+what it has. The steps that run `checkout-existing-pr-branch.sh`, `read-review-prompt.sh`, and
+`read-review-verdict.sh` are that shape.
 
 ---
 
@@ -1208,9 +1208,11 @@ Behavior:
 - Authenticates to Claude with `CLAUDE_CODE_OAUTH_TOKEN` (org secret), billing
   the Claude subscription rather than API credits.
 
-The `prompt` input overrides the review instructions wholesale; the default asks
-for an independent, defect-hunting review against the guides, inline and
-concrete, with no praise or restatement of the diff.
+The `prompt` input overrides the review instructions wholesale. The default is
+[`.github/ci/claude-review/prompt.md`](../ci/claude-review/prompt.md), which
+asks for an independent, defect-hunting review against the guides, inline and
+concrete, with no praise or restatement of the diff. A review run locally before
+the push reads the same file.
 
 ### The verdict
 
