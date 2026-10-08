@@ -1233,8 +1233,8 @@ runs `claude` in `--safe-mode`, with no auto-memory and no user settings.
 `--safe-mode` keeps out every CLAUDE.md, and it also turns off skills, plugins,
 hooks, MCP servers, custom agents and output styles. The bot keeps all of them,
 so in a repository that ships any of them, a draw is not an exact copy of the
-bot. The reviewer reads the guides from the local `architecture` checkout. The script
-warns when one of these is true:
+bot. The reviewer reads the guides from the local `architecture` checkout. The
+script warns when one of these is true:
 
 - The `architecture` checkout is not on the branch the bot reads.
 - The `architecture` checkout is behind or ahead of that branch.
