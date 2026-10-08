@@ -1217,17 +1217,19 @@ concrete, with no praise or restatement of the diff. A review run locally can
 read the same file, and the two then judge a change by the same instructions.
 
 [`scripts/local-review.sh`](../../scripts/local-review.sh) runs the same review
-on your machine before the push. The script reads the prompt, the model, the
-verdict schema and the tool lists from this workflow. The script leaves out the
-tools that reach a pull request.
+on your machine before the push. The script reads the prompt from
+`.github/ci/claude-review/prompt.md`. The script reads the model, the verdict
+schema, the tool lists and the guides paragraph from this workflow. The script
+leaves out the tools that reach a pull request.
 
 Each draw is one run of `claude`, with no memory of an earlier draw. The script
 runs `claude` in `--safe-mode`, with no auto-memory and no user settings. The
 reviewer reads the guides from the local `architecture` checkout. The script
 warns when one of these is true:
 
-- The `architecture` checkout is not at the tip of the branch the bot reads.
-- The `architecture` checkout has uncommitted changes.
+- The `architecture` checkout is not on the branch the bot reads.
+- The `architecture` checkout is behind or ahead of that branch.
+- The `architecture` checkout has uncommitted changes or untracked files.
 - The `.github` checkout lacks commits of the base branch.
 - The review instructions in the `.github` checkout have uncommitted changes.
 

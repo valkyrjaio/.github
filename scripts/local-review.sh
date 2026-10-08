@@ -29,7 +29,7 @@
 # `.github` checkout. The script warns when one of these is true:
 #
 #   - The architecture checkout is on a branch that the bot does not read.
-#   - The architecture checkout is behind that branch.
+#   - The architecture checkout is behind or ahead of that branch.
 #   - The architecture checkout has uncommitted changes.
 #   - The `.github` checkout lacks commits of the base branch.
 #   - The review instructions in the `.github` checkout have uncommitted
@@ -45,8 +45,8 @@
 #
 # Run the script from the repository under review. BASE is the branch that
 # the pull request goes into, and the script requires it. DRAWS is 2 by
-# default. OUTPUT_DIR keeps the findings of each draw. The
-# default is a new temporary directory.
+# default. OUTPUT_DIR keeps the findings of each draw. The default is a new
+# temporary directory.
 #
 # Requires: `claude` (logged in) and `jq`.
 #
@@ -173,7 +173,7 @@ architecture_has_branch() {
 
 # The branch the bot reads the guides from, by the fallbacks `checkout-architecture-guides.sh`
 # takes: the base branch, then the default branch of the repository under review, then the
-# default branch of the architecture repository. The value is empty when the query failed.
+# default branch of the architecture repository. The value is empty when any query failed.
 GUIDES_REF=''
 GUIDES_STATUS=0
 architecture_has_branch "$BASE_REF" || GUIDES_STATUS=$?
@@ -181,9 +181,16 @@ architecture_has_branch "$BASE_REF" || GUIDES_STATUS=$?
 if [[ "$GUIDES_STATUS" -eq 0 ]]; then
   GUIDES_REF="$BASE_REF"
 elif [[ "$GUIDES_STATUS" -eq 1 ]]; then
-  if [[ "$BASE_REF" != "$DEFAULT_REF" ]] && architecture_has_branch "$DEFAULT_REF"; then
+  DEFAULT_STATUS=1
+
+  if [[ "$BASE_REF" != "$DEFAULT_REF" ]]; then
+    DEFAULT_STATUS=0
+    architecture_has_branch "$DEFAULT_REF" || DEFAULT_STATUS=$?
+  fi
+
+  if [[ "$DEFAULT_STATUS" -eq 0 ]]; then
     GUIDES_REF="$DEFAULT_REF"
-  else
+  elif [[ "$DEFAULT_STATUS" -eq 1 ]]; then
     GUIDES_REF="$(git -C "$ARCHITECTURE_DIR" ls-remote --symref origin HEAD 2> /dev/null \
       | sed -n 's|^ref: refs/heads/\([^[:space:]]*\).*|\1|p' | sed -n 1p || true)"
   fi
@@ -194,22 +201,33 @@ if [[ -z "$GUIDES_REF" ]]; then
 else
   ARCHITECTURE_BRANCH="$(git -C "$ARCHITECTURE_DIR" branch --show-current 2> /dev/null || true)"
 
-  # The bot reads the tip of that branch, so a checkout behind it judges against old guides. On
-  # another branch, the count would measure how far the two branches diverge, so it is skipped.
+  # The bot reads the tip of that branch. A checkout behind it judges against old guides, and a
+  # checkout ahead of it enforces guides the bot cannot read. On another branch, the counts would
+  # measure how far the two branches diverge, so the script skips them. The explicit refspec
+  # updates `origin/$GUIDES_REF` even in a clone that tracks one branch.
   if [[ "$ARCHITECTURE_BRANCH" != "$GUIDES_REF" ]]; then
     printf 'Warning: the guides are read from %s, but the bot reads them from %s.\n' \
       "${ARCHITECTURE_BRANCH:-a detached HEAD}" "$GUIDES_REF" >&2
-  elif git -C "$ARCHITECTURE_DIR" fetch --quiet origin "$GUIDES_REF" 2> /dev/null; then
-    BEHIND="$(git -C "$ARCHITECTURE_DIR" rev-list --count "HEAD..origin/$GUIDES_REF" 2> /dev/null || echo 0)"
+  elif git -C "$ARCHITECTURE_DIR" fetch --quiet origin \
+    "+refs/heads/$GUIDES_REF:refs/remotes/origin/$GUIDES_REF" 2> /dev/null; then
+    COUNTS="$(git -C "$ARCHITECTURE_DIR" rev-list --left-right --count "HEAD...origin/$GUIDES_REF" 2> /dev/null || true)"
+    AHEAD="${COUNTS%%[[:space:]]*}"
+    BEHIND="${COUNTS##*[[:space:]]}"
 
-    if [[ "$BEHIND" -gt 0 ]]; then
+    if [[ "${BEHIND:-0}" -gt 0 ]]; then
       printf 'Warning: the architecture checkout is %s commit(s) behind origin/%s. Pull it.\n' \
         "$BEHIND" "$GUIDES_REF" >&2
+    fi
+
+    if [[ "${AHEAD:-0}" -gt 0 ]]; then
+      printf 'Warning: the architecture checkout is %s commit(s) ahead of origin/%s, which the bot does not read.\n' \
+        "$AHEAD" "$GUIDES_REF" >&2
     fi
   fi
 fi
 
-if [[ -n "$(git -C "$ARCHITECTURE_DIR" status --porcelain --untracked-files=no 2> /dev/null)" ]]; then
+# A new guide file that is not committed is on disk too, so the check counts untracked files.
+if [[ -n "$(git -C "$ARCHITECTURE_DIR" status --porcelain 2> /dev/null)" ]]; then
   echo 'Warning: the architecture checkout has uncommitted changes, which the bot does not see.' >&2
 fi
 
@@ -229,15 +247,16 @@ OUTPUT_DIR="$(cd -- "$OUTPUT_DIR" && pwd)"
 
 # The workflow adds a paragraph about the guides after the prompt. The script reads that paragraph
 # from the workflow too: the lines of the `prompt:` block after the prompt output, without their
-# indentation, with the local guides path in place of the runner path.
+# twelve spaces of indentation, with the local guides path in place of the runner path. The
+# literal spaces work in every awk, where a `{12}` interval does not.
 GUIDES_PARAGRAPH="$(awk '
   /steps\.prompt\.outputs\.prompt }}/ { found = 1; next }
-  found && /^ {12}/ { sub(/^ {12}/, ""); print; started = 1; next }
+  found && /^            / { print substr($0, 13); started = 1; next }
   found && /^[[:space:]]*$/ { if (started) print; next }
   found { exit }
 ' "$WORKFLOW_FILE")"
 RUNNER_GUIDES_DIR="\${{ runner.temp }}/architecture"
-GUIDES_PARAGRAPH="${GUIDES_PARAGRAPH//"$RUNNER_GUIDES_DIR"/$ARCHITECTURE_DIR}"
+GUIDES_PARAGRAPH="${GUIDES_PARAGRAPH//"$RUNNER_GUIDES_DIR"/"$ARCHITECTURE_DIR"}"
 
 [[ "$GUIDES_PARAGRAPH" == *"$ARCHITECTURE_DIR"* ]] || fail "No guides paragraph in the prompt of $WORKFLOW_FILE."
 
@@ -254,10 +273,13 @@ instead of an inline comment, each naming its file and line."
 printf 'Reviewing %s against origin/%s with %s, %s draw(s). Findings go to %s.\n' \
   "$(git -C "$REPO_ROOT" rev-parse --short HEAD)" "$BASE_REF" "$MODEL" "$DRAWS" "$OUTPUT_DIR"
 
-# `--safe-mode` turns off hooks, MCP servers, commands and agents from every source.
-# `--setting-sources project` leaves out the settings of the user, such as permissions that grant
-# more tools than the workflow does. The settings of the repository stay, as they do for the bot,
-# which runs `claude` in a checkout of the repository.
+# `--safe-mode` turns off CLAUDE.md, skills, plugins, hooks, MCP servers, commands, agents and
+# output styles from every source, the repository included. The bot loads the CLAUDE.md of the
+# repository on its own, so here the prompt is what sends the reviewer to it. The help text
+# does not say that `--safe-mode` turns off auto-memory, so `CLAUDE_CODE_DISABLE_AUTO_MEMORY`
+# stays. `--setting-sources project` leaves out the settings of the user, such as permissions
+# that grant more tools than the workflow does. The `settings.json` of the repository stays, as
+# it does for the bot.
 PIDS=()
 
 for ((DRAW = 1; DRAW <= DRAWS; DRAW++)); do
