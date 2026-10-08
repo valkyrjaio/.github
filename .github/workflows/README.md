@@ -1221,7 +1221,8 @@ review on your machine before the push. It reads the prompt, model, verdict
 schema and tool lists from this workflow, less the tools that only reach a pull
 request, and it starts with no memory of an earlier run: no CLAUDE.md of its
 own, no auto-memory, no user settings. It reads the guides from the local
-`architecture` checkout, and warns when that is not at the tip of the base branch.
+`architecture` checkout, and warns when that is not at the tip of the base
+branch.
 
 The same reviewer reaches different findings on the same code, so it runs
 `DRAWS` reviews in parallel (2 by default) and passes only when every one
