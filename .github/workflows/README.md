@@ -471,13 +471,15 @@ Two properties follow from that choice:
   pinned, so it adds no commit at all.
 
 The pinned paths are `.github/workflows/`, `.github/actions/`, and
-`.github/ci/`, and Markdown is excluded. A reference loads the workflow file
+`.github/ci/`, and every README is excluded. A reference loads the workflow file
 from the commit it names, and a relative `uses:` inside that file loads from the
 same commit. A workflow also checks this repository out at that commit to reach
 the composite actions, and an action runs a script from `.github/ci/`. A change
 to any of them changes what the reference runs, so each one moves the
-references. A Markdown file is documentation that a reference never reaches, so
-a change to a document does not move the references.
+references. A README is documentation that a reference never reaches, so a
+change to one does not move the references. Other Markdown can be reached: the
+Claude review reads its instructions from `.github/ci/claude-review/prompt.md`
+at the pinned commit, so a change to the prompt moves the references.
 
 Warning: the script reads the git history, and `actions/checkout` fetches one
 commit. `_release.yml` deepens the checkout first, and the script stops on a
@@ -759,8 +761,8 @@ the default branch. The job then runs the script from an unpinned commit, and it
 
 A step that matches the constraint and a preference at once takes the direct form. No workflow works
 around the constraint. That step accepts the weaker guarantee, and the job's own pinned checkout is
-what it has. The steps that run `checkout-existing-pr-branch.sh` and `read-review-verdict.sh` are
-that shape.
+what it has. The steps that run `checkout-existing-pr-branch.sh`, `read-review-prompt.sh`, and
+`read-review-verdict.sh` are that shape.
 
 ---
 
@@ -1208,9 +1210,11 @@ Behavior:
 - Authenticates to Claude with `CLAUDE_CODE_OAUTH_TOKEN` (org secret), billing
   the Claude subscription rather than API credits.
 
-The `prompt` input overrides the review instructions wholesale; the default asks
-for an independent, defect-hunting review against the guides, inline and
-concrete, with no praise or restatement of the diff.
+The `prompt` input overrides the review instructions wholesale. The default is
+[`.github/ci/claude-review/prompt.md`](../ci/claude-review/prompt.md), which
+asks for an independent, defect-hunting review against the guides, inline and
+concrete, with no praise or restatement of the diff. A review run locally can
+read the same file, and the two then judge a change by the same instructions.
 
 ### The verdict
 

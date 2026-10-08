@@ -25,9 +25,11 @@
 # the same value at each step of the release. A second run finds each reference
 # already correct and changes no file.
 #
-# A Markdown file under the pinned paths is documentation. A reader reaches it
-# through the repository, and a reference never reaches it, so a change to a
-# Markdown file does not move the references.
+# A README under the pinned paths is documentation. A reader reaches it through
+# the repository, and a reference never reaches it, so a change to a README does
+# not move the references. Other Markdown can be reached: the Claude review
+# reads its instructions from `.github/ci/claude-review/prompt.md` at the pinned
+# commit, so a change to the prompt moves the references.
 #
 # Warning: the script reads the git history. A shallow checkout holds one
 # commit, and `git log` then reports the wrong commit. The script stops on a
@@ -87,12 +89,14 @@ fi
 # file from that commit, and a relative `uses:` inside that file loads from the same commit. A
 # workflow also checks this repository out at that commit to reach the composite actions in
 # `.github/actions/`, and an action runs a script from `.github/ci/`. A change to any of them
-# changes what the reference runs, so each one moves the reference.
+# changes what the reference runs, so each one moves the reference. A README only describes the
+# paths it sits in, so it is excluded. Other Markdown is not: a workflow reads the review prompt
+# from `.github/ci/claude-review/prompt.md` at the pinned commit.
 PIN_PATHS=(
     '.github/workflows'
     '.github/actions'
     '.github/ci'
-    ':(exclude)*.md'
+    ':(exclude,glob).github/**/README.md'
 )
 
 if [[ "$(git rev-parse --is-shallow-repository)" == 'true' ]]; then
