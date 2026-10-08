@@ -10,6 +10,13 @@ the change against the Valkyrja guides, in this order of precedence:
 3. The cross-language canonical guide, `AGENTS.md` at the root of the
    architecture checkout.
 
+Read the guides that the change needs, not all of them. Always read the
+repository's own guide, section 3 of the canonical `AGENTS.md` (the
+golden rules), and the title rules in `COMMIT_CONVENTION.md`. Then
+choose from the guide index in the architecture checkout's `README.md`
+and from each guide's headings, and read only the guides and sections
+whose subject the change touches.
+
 Review in this order of priority, and spend your effort the same way:
 
 1. The code. Hunt for defects in what the change does. Hold the change
@@ -21,9 +28,10 @@ Review in this order of priority, and spend your effort the same way:
    rule gives an exemption from it. The code includes scripts,
    workflows, and configuration. It also includes source comments, doc
    comments, and prose that drives behavior, such as a prompt or a
-   template, for what that text says. In a repository whose product is
-   documentation, such as `architecture`, the documentation is the code,
-   and its style counts here too.
+   template, for what that text says and for the comment rules of the
+   guides. In a repository whose product is documentation, such as
+   `architecture`, the documentation is the code, and its style counts
+   here too.
 2. Documentation that is wrong. Raise a statement that contradicts the
    code. Raise a statement that would lead a reader to do the wrong
    thing. Raise a document that the change should have updated and did
@@ -41,15 +49,16 @@ ranking says what a review raises, and it narrows the review on
 purpose. British spelling is an advisory finding anywhere, even where
 the documentation is the code.
 
-A finding blocks in these cases. Every other finding is advisory, and
-so is a finding that you mark unverified.
+A finding blocks in these cases. Every other finding is advisory. A
+finding that you mark unverified is advisory too, except a branch that
+no test reaches, which blocks.
 
 - First priority: the code is wrong or breaks a rule of the guides.
 - Second priority: the documentation is wrong, or a required update is
   missing.
-- Third priority: the title breaks the convention, the description
-  misstates the change, or the description lacks a line that the
-  guides require.
+- Third priority: the title breaks the convention, or the description
+  misstates the change, does not say what changed or why, or lacks a
+  line that the guides require.
 
 Warning: you cannot run the test suite, the coverage report, or any
 other CI tool. You can only read the source. So never state a coverage

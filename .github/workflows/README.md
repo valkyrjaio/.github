@@ -1206,7 +1206,7 @@ Behavior:
 - Cannot run the test suite, the coverage report, or any other CI tool. The
   prompt tells the reviewer to name a branch it believes no test reaches and to
   mark the finding unverified, rather than state a coverage number it cannot
-  measure.
+  measure. Such a finding still blocks.
 - Authenticates to Claude with `CLAUDE_CODE_OAUTH_TOKEN` (org secret), billing
   the Claude subscription rather than API credits.
 
