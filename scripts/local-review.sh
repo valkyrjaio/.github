@@ -15,8 +15,9 @@
 # the bot when the bot changes.
 #
 # The script leaves out the tools that reach a pull request on GitHub,
-# because no pull request exists yet. The reviewer writes its findings in the
-# structured output, not in inline comments.
+# because the review runs before the push, and no pull request holds the
+# commit under review yet. The reviewer writes its findings in the structured
+# output, not in inline comments.
 #
 # Each draw starts with no memory of an earlier draw, as the bot does. A
 # reviewer that remembers its own findings tends to accept their fixes. So
@@ -49,8 +50,8 @@
 # when the working tree has a change that is not committed. Untracked files
 # under `.claude/` are Claude Code state, and the script does not count them.
 #
-# When a pull request for the branch already exists and `gh` can read it, the
-# prompt names its title, as the bot sees it.
+# When a pull request for the branch is open and `gh` can read it, the prompt
+# names its title, as the bot sees it.
 #
 # A draw is one run of `claude`. The same reviewer finds different things in
 # the same code, so one draw shows only part of what the bot can find. The
@@ -185,7 +186,7 @@ uncommitted() {
   || fail 'The working tree has changes that are not committed. Commit them, then review.'
 
 # The instructions in this `.github` checkout must match the base branch tip and be committed.
-# The bot reads the canonical repository, not the `origin` of the local checkout, which can be a fork.
+# The bot reads the canonical repository, not the local `origin`, which can be a fork.
 GITHUB_REMOTE='https://github.com/valkyrjaio/.github.git'
 INSTRUCTION_FILES=('.github/ci/claude-review/prompt.md' '.github/workflows/_claude-review.yml')
 
@@ -210,7 +211,7 @@ if [[ "$REVIEWING_GITHUB" == 'false' ]]; then
   fi
 fi
 
-# The bot reads the canonical repository, not the `origin` of the local checkout, which can be a fork.
+# The bot reads the canonical repository, not the local `origin`, which can be a fork.
 ARCHITECTURE_REMOTE='https://github.com/valkyrjaio/architecture.git'
 
 # Reports whether the architecture repository holds the branch: 0 when it does, 1 when it does
