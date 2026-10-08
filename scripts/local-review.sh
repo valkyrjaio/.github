@@ -358,7 +358,8 @@ this run exists and there is no inline comment tool. The change is
 instead of an inline comment, each naming its file and line."
 
 # The bot reads the title of the pull request, so a draw reads it too when one already exists.
-PR_TITLE="$(cd -- "$REPO_ROOT" && gh pr view --json title --jq .title 2> /dev/null || true)"
+PR_TITLE="$(cd -- "$REPO_ROOT" && gh pr view --json title,state \
+  --jq 'select(.state == "OPEN") | .title' 2> /dev/null || true)"
 
 if [[ -n "$PR_TITLE" ]]; then
   PROMPT="$PROMPT
