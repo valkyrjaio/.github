@@ -83,7 +83,11 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 GITHUB_ROOT="$(dirname -- "$SCRIPT_DIR")"
 
 DRAWS="${DRAWS:-2}"
-ARCHITECTURE_DIR="${ARCHITECTURE_DIR:-$(dirname -- "$GITHUB_ROOT")/architecture}"
+
+# The default sits beside the main `.github` checkout, also when the script runs from a worktree.
+MAIN_GIT_DIR="$(git -C "$GITHUB_ROOT" rev-parse --path-format=absolute --git-common-dir 2> /dev/null || true)"
+MAIN_ROOT="$(dirname -- "${MAIN_GIT_DIR:-$GITHUB_ROOT/.git}")"
+ARCHITECTURE_DIR="${ARCHITECTURE_DIR:-$(dirname -- "$MAIN_ROOT")/architecture}"
 
 [[ "$DRAWS" =~ ^[1-9][0-9]*$ ]] || fail "DRAWS must be a positive whole number, not '$DRAWS'."
 
@@ -153,7 +157,7 @@ ALLOWED_TOOLS="$(read_workflow_flag '--allowedTools' | tr ',' '\n' \
 # The instructions in this `.github` checkout must match the base branch tip and be committed.
 INSTRUCTION_FILES=('.github/ci/claude-review/prompt.md' '.github/workflows/_claude-review.yml')
 
-if [[ "$REVIEWING_GITHUB" == false ]]; then
+if [[ "$REVIEWING_GITHUB" == 'false' ]]; then
   if git -C "$GITHUB_ROOT" fetch --quiet origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF" 2> /dev/null; then
     git -C "$GITHUB_ROOT" diff --quiet "origin/$BASE_REF" HEAD -- "${INSTRUCTION_FILES[@]}" 2> /dev/null \
       || printf 'Warning: the review instructions in the .github checkout differ from origin/%s.\n' \
@@ -233,6 +237,9 @@ else
     "+refs/heads/$GUIDES_REF:refs/remotes/origin/$GUIDES_REF" 2> /dev/null; then
     COUNTS="$(git -C "$ARCHITECTURE_DIR" rev-list --left-right --count "HEAD...origin/$GUIDES_REF" \
       2> /dev/null || true)"
+
+    [[ -n "$COUNTS" ]] \
+      || echo "Warning: could not compare the architecture checkout with origin/$GUIDES_REF." >&2
     AHEAD="${COUNTS%%[[:space:]]*}"
     BEHIND="${COUNTS##*[[:space:]]}"
 
@@ -271,12 +278,27 @@ if [[ -z "${OUTPUT_DIR:-}" ]]; then
   OUTPUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/local-review.XXXXXX")" || fail 'Could not make a temporary directory.'
 fi
 
+# Resolves a path that may not exist yet through its nearest existing ancestor, without symlinks.
+physical_path() {
+  local path="$1"
+  local rest=''
+
+  while [[ ! -d "$path" ]]; do
+    rest="/$(basename -- "$path")$rest"
+    path="$(dirname -- "$path")"
+  done
+
+  printf '%s%s\n' "$(cd -- "$path" && pwd -P)" "$rest"
+}
+
 # Findings inside the repository would fail the clean-tree check on the next run.
 [[ "$OUTPUT_DIR" == /* ]] || OUTPUT_DIR="$PWD/$OUTPUT_DIR"
-[[ "$OUTPUT_DIR/" != "$REPO_ROOT/"* ]] || fail "OUTPUT_DIR must sit outside the repository under review."
+OUTPUT_DIR="$(physical_path "$OUTPUT_DIR")"
+REPO_PHYSICAL="$(cd -- "$REPO_ROOT" && pwd -P)"
+[[ "$OUTPUT_DIR/" != "$REPO_PHYSICAL/"* ]] || fail "OUTPUT_DIR must sit outside the repository under review."
 
 mkdir -p -- "$OUTPUT_DIR" 2> /dev/null && [[ -w "$OUTPUT_DIR" ]] || fail "Could not write to $OUTPUT_DIR."
-OUTPUT_DIR="$(cd -- "$OUTPUT_DIR" && pwd)"
+OUTPUT_DIR="$(cd -- "$OUTPUT_DIR" && pwd -P)"
 
 # The guides paragraph follows the prompt output in the workflow's `prompt:` block, indented by
 # twelve literal spaces, since some awk versions lack the `{12}` interval.

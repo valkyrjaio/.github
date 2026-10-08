@@ -595,6 +595,10 @@ That table is why the two families of script differ, and neither is the odd one 
   `bash --noprofile --norc -eo pipefail`, and `-u` is the one option this repository adds rather
   than mirrors.
 
+A script that no workflow runs lives in `scripts/` at the root of the repository
+and sets `set -euo pipefail`. A person runs it from a terminal, so no step shell
+decides its options.
+
 Warning: no option is inherited in any family. A script is a fresh `bash` started from its own
 shebang, so the `set` line is what turns every option on, and the shell of the step is what the
 line mirrors.
@@ -1222,7 +1226,9 @@ read the same file, and the two then judge a change by the same instructions.
 on your machine before the push. The script reads the prompt from
 `.github/ci/claude-review/prompt.md`. The script reads the model, the verdict
 schema, the tool lists and the guides paragraph from this workflow. The script
-leaves out the tools that reach a pull request.
+leaves out the tools that reach a pull request. In the workflow,
+`--allowedTools` adds to the defaults of the action. For a bare `claude`, it is
+the whole grant, so a draw has fewer tools than the bot.
 
 Each draw is one run of `claude`, with no memory of an earlier draw. The script
 runs `claude` in `--safe-mode`, with no auto-memory and no user settings. The
@@ -1241,8 +1247,8 @@ The same reviewer finds different things in the same code. So the script runs
 draw approves with no finding.
 
 The script needs two commands: `claude`, with a login, and `jq`. Commit your
-changes first. Then run the script from the repository under review. The base
-branch is required:
+changes first. Then run the script from the repository under review, and name
+the base branch:
 
 ```bash
 <dot-github>/scripts/local-review.sh 26.x

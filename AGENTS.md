@@ -31,12 +31,14 @@ workflow, so moving the shell into a script is what puts it under a linter. See
 and for the `set` line each kind of caller needs.
 
 So the logic of a step lives in `.github/ci/scripts/`, and the step names the
-script. A tool that a person runs and no workflow runs lives in `scripts/` at
-the root of the repository instead. A workflow takes one of two forms: the `run-script` action, or a `run:`
+script. A workflow takes one of two forms: the `run-script` action, or a `run:`
 step that runs the script directly. An action takes the direct form alone, and
 it reaches its script through `$ACTION_PATH`. Besides that call, a `run:` block
 holds glue. Glue is a line or two that moves one value. The step that reads the
 bot user id into a step output is glue.
+
+A tool that a person runs and no workflow runs lives in `scripts/` at the root
+of the repository instead.
 
 Warning: one check stays inline whatever it holds. The check that proves a
 checkout is the pinned commit reads the tree that holds the scripts, so a script
