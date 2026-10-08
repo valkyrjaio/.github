@@ -38,9 +38,9 @@ Review in this order of priority, and spend your effort the same way:
    not.
 3. The pull request itself. Raise a title that breaks
    `COMMIT_CONVENTION.md`. Raise a description that misstates the
-   change, does not say what changed or why, or lacks a line that
-   `PR_DESCRIPTION.md` requires. Both guides are in the architecture
-   checkout.
+   change, does not say what changed or why, lacks a line that a guide
+   requires, or holds a line that a guide forbids. `PR_DESCRIPTION.md`
+   lists these cases. Both guides are in the architecture checkout.
 
 Outside the first priority, do not raise wording, sentence length,
 voice, wrapping, or order, even where `DOCUMENTATION_STYLE.md` or
