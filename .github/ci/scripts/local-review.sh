@@ -118,9 +118,9 @@ ALLOWED_TOOLS="$(read_workflow_flag '--allowedTools' | tr ',' '\n' \
 
 # The instructions come from the `.github` checkout this script lives in, and the bot reads them
 # from the ref its caller pins. A checkout behind its upstream reviews by old instructions.
-GITHUB_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
+GITHUB_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2> /dev/null || true)"
 
-if git -C "$GITHUB_ROOT" fetch --quiet 2> /dev/null; then
+if [[ -n "$GITHUB_ROOT" ]] && git -C "$GITHUB_ROOT" fetch --quiet 2> /dev/null; then
   BEHIND="$(git -C "$GITHUB_ROOT" rev-list --count 'HEAD..@{upstream}' 2> /dev/null || echo 0)"
 
   if [[ "$BEHIND" -gt 0 ]]; then
@@ -160,7 +160,7 @@ elif [[ "$GUIDES_STATUS" -eq 1 ]]; then
     GUIDES_REF="$DEFAULT_REF"
   else
     GUIDES_REF="$(git -C "$ARCHITECTURE_DIR" ls-remote --symref origin HEAD 2> /dev/null \
-      | sed -n 's|^ref: refs/heads/\([^[:space:]]*\).*|\1|p' | sed -n 1p)"
+      | sed -n 's|^ref: refs/heads/\([^[:space:]]*\).*|\1|p' | sed -n 1p || true)"
   fi
 fi
 

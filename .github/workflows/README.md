@@ -430,7 +430,7 @@ Central workflow alone.
 
 Version branches follow the pattern `??.x` (e.g., `26.x`, `27.x`). All stable
 releases (`auto`, `patch`, `feature`, `yearly`) must be triggered from a version
-bot reads them from, or when the `.github` checkout is behind its upstream.
+branch.
 
 The **default branch** of the `.github` repo is always the current active
 version branch. Crons run on the default branch, so they automatically use the
