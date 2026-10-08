@@ -10,11 +10,13 @@
 # Claude review prompt reader.
 #
 # The review instructions live in .github/ci/claude-review/prompt.md rather
-# than in the workflow, so a review run before the push can read the same
+# than in the workflow, so a review run locally can read the same
 # instructions. A caller that passes its own prompt replaces them. The script
 # writes whichever applies to GITHUB_OUTPUT as `prompt`.
 #
-# Reads PROMPT, PROMPT_FILE, and GITHUB_OUTPUT from the environment.
+# Reads PROMPT_FILE and GITHUB_OUTPUT from the environment. PROMPT is optional:
+# a caller that passes its own review instructions sets it, and an empty or
+# unset value reads PROMPT_FILE instead.
 #
 # Usage:
 #
@@ -28,17 +30,20 @@ set -e
 
 : "${PROMPT_FILE:?PROMPT_FILE must name the review prompt file}"
 
-# The prompt holds newlines, so it needs a delimiter that its text cannot contain.
+[[ -f "$PROMPT_FILE" ]] || {
+  printf 'No review prompt at %s.\n' "$PROMPT_FILE" >&2
+  exit 1
+}
+
+if [[ -n "${PROMPT:-}" ]]; then
+  REVIEW_PROMPT="$PROMPT"
+else
+  REVIEW_PROMPT="$(cat "$PROMPT_FILE")"
+fi
+
+# The prompt holds newlines, so it needs a delimiter that its text cannot contain. The whole
+# block is written at once, after the prompt is read, so the delimiter always closes it on a
+# line of its own, whether or not the prompt ends in a newline.
 DELIMITER="PROMPT_$(openssl rand -hex 16)"
 
-{
-  echo "prompt<<$DELIMITER"
-
-  if [[ -n "$PROMPT" ]]; then
-    printf '%s\n' "$PROMPT"
-  else
-    cat "$PROMPT_FILE"
-  fi
-
-  echo "$DELIMITER"
-} >> "$GITHUB_OUTPUT"
+printf 'prompt<<%s\n%s\n%s\n' "$DELIMITER" "$REVIEW_PROMPT" "$DELIMITER" >> "$GITHUB_OUTPUT"

@@ -1211,8 +1211,8 @@ Behavior:
 The `prompt` input overrides the review instructions wholesale. The default is
 [`.github/ci/claude-review/prompt.md`](../ci/claude-review/prompt.md), which
 asks for an independent, defect-hunting review against the guides, inline and
-concrete, with no praise or restatement of the diff. A review run locally before
-the push reads the same file.
+concrete, with no praise or restatement of the diff. A review run locally can
+read the same file, so the two judge a change by the same instructions.
 
 ### The verdict
 

@@ -6,7 +6,7 @@ on:
       prompt:
         description: >
           Review instructions for Claude. Empty reads `.github/ci/claude-review/prompt.md` from
-          this repository, at the commit this workflow runs from. A local review reads the same
+          this repository, at the commit this workflow runs from. A local review can read the same
           file, so the two judge a change by the same instructions.
         type: string
         default: ''
