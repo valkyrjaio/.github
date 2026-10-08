@@ -18,15 +18,18 @@
 #
 # Each run starts with no memory of an earlier one, as the bot does, and that
 # fresh start is what the clone is for: a reviewer that remembers its own
-# findings tends to accept their fixes. So the run loads no CLAUDE.md on its
-# own, no auto-memory, no user settings and no MCP server. The prompt still
-# tells the reviewer to read the repository's own guides, as it tells the bot.
+# findings tends to accept their fixes. So the run is in `--safe-mode`, which
+# loads no CLAUDE.md, skill, hook or plugin, with auto-memory, user settings
+# and MCP servers off as well. The prompt still tells the reviewer to read the
+# repository's own guides, as it tells the bot.
 #
 # The review runs in the repository itself and reads the guides from the
 # local architecture checkout, ARCHITECTURE_DIR, which defaults to the
 # `architecture` directory beside the `.github` checkout. The bot reads them
-# from the base branch on GitHub, so the script warns when that checkout is on
-# another branch, is behind it, or has uncommitted changes.
+# from GitHub, by the fallbacks `checkout-architecture-guides.sh` takes, so the
+# script warns when that checkout is on another branch than the bot reads, is
+# behind it, or has uncommitted changes. It warns as well when the `.github`
+# checkout, which holds the instructions, is behind its upstream.
 #
 # The committed HEAD is what the push sends, so the working tree must match
 # it. The script stops when a tracked file has uncommitted changes.
@@ -41,9 +44,9 @@
 # which defaults to a new temporary directory. It needs `claude`, logged in,
 # and `jq`.
 #
-# Exits 0 when every draw reports no blocking and no advisory finding, 1 when
-# any draw reports a finding, and 2 when a draw does not complete or the
-# review cannot start.
+# Exits 0 when every draw approves with no blocking and no advisory finding,
+# 1 when any draw reports a finding, and 2 when a draw does not complete or
+# the review cannot start.
 #
 # Usage:
 #
@@ -76,12 +79,9 @@ command -v jq > /dev/null || fail 'No jq command. Install jq.'
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2> /dev/null)" || fail 'Run this from inside a git repository.'
 
-BASE_REF="${1:-}"
-
-if [[ -z "$BASE_REF" ]]; then
-  BASE_REF="$(git -C "$REPO_ROOT" symbolic-ref --short refs/remotes/origin/HEAD 2> /dev/null || true)"
-  BASE_REF="${BASE_REF#origin/}"
-fi
+DEFAULT_REF="$(git -C "$REPO_ROOT" symbolic-ref --short refs/remotes/origin/HEAD 2> /dev/null || true)"
+DEFAULT_REF="${DEFAULT_REF#origin/}"
+BASE_REF="${1:-$DEFAULT_REF}"
 
 [[ -n "$BASE_REF" ]] || fail 'Name the base branch, because origin has no default branch set.'
 
@@ -89,20 +89,23 @@ fi
 [[ -f "$WORKFLOW_FILE" ]] || fail "No review workflow at $WORKFLOW_FILE."
 [[ -f "$ARCHITECTURE_DIR/AGENTS.md" ]] || fail "No architecture checkout at $ARCHITECTURE_DIR. Set ARCHITECTURE_DIR."
 
-# Reads the value of one `claude_args` flag from the workflow, without its quotes.
+# Reads the value of one `claude_args` flag from the workflow, without its quotes. The second
+# `sed` keeps the first match and reads to the end, so a second match never breaks the pipe.
 read_workflow_flag() {
   local flag="$1"
 
-  sed -n "s/^ *$flag ['\"]\(.*\)['\"] *$/\1/p" "$WORKFLOW_FILE" | head -n 1
+  sed -n "s/^ *$flag ['\"]\(.*\)['\"] *$/\1/p" "$WORKFLOW_FILE" | sed -n 1p
 }
 
-MODEL="$(sed -n 's/^ *--model \([^ ]*\) *$/\1/p' "$WORKFLOW_FILE" | head -n 1)"
+MODEL="$(sed -n 's/^ *--model \([^ ]*\) *$/\1/p' "$WORKFLOW_FILE" | sed -n 1p)"
 SCHEMA="$(read_workflow_flag '--json-schema')"
 DISALLOWED_TOOLS="$(read_workflow_flag '--disallowedTools')"
 
 # The GitHub tools are the MCP comment tools and every `gh` call. Each one reaches a pull request
-# that does not exist yet, and some name it through a workflow expression.
-ALLOWED_TOOLS="$(read_workflow_flag '--allowedTools' | tr ',' '\n' | grep -v -e '^mcp__' -e '^Bash(gh ' | paste -s -d ',' -)"
+# that does not exist yet, and some name it through a workflow expression. `grep -v` exits 1 when
+# it keeps nothing, which is the empty list the guard below reports.
+ALLOWED_TOOLS="$(read_workflow_flag '--allowedTools' | tr ',' '\n' \
+  | { grep -v -e '^mcp__' -e '^Bash(gh ' || true; } | paste -s -d ',' -)"
 
 [[ -n "$MODEL" ]] || fail "No --model in $WORKFLOW_FILE."
 [[ -n "$SCHEMA" ]] || fail "No --json-schema in $WORKFLOW_FILE."
@@ -113,26 +116,77 @@ ALLOWED_TOOLS="$(read_workflow_flag '--allowedTools' | tr ',' '\n' | grep -v -e 
 [[ -z "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=no)" ]] \
   || fail 'Tracked files have uncommitted changes. Commit them, then review.'
 
-ARCHITECTURE_BRANCH="$(git -C "$ARCHITECTURE_DIR" branch --show-current 2> /dev/null || true)"
+# The instructions come from the `.github` checkout this script lives in, and the bot reads them
+# from the ref its caller pins. A checkout behind its upstream reviews by old instructions.
+GITHUB_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 
-if [[ "$ARCHITECTURE_BRANCH" != "$BASE_REF" ]]; then
-  printf 'Warning: the guides are read from %s, but the bot reads them from %s.\n' \
-    "${ARCHITECTURE_BRANCH:-a detached HEAD}" "$BASE_REF" >&2
+if git -C "$GITHUB_ROOT" fetch --quiet 2> /dev/null; then
+  BEHIND="$(git -C "$GITHUB_ROOT" rev-list --count 'HEAD..@{upstream}' 2> /dev/null || echo 0)"
+
+  if [[ "$BEHIND" -gt 0 ]]; then
+    printf 'Warning: the .github checkout is %s commit(s) behind its upstream. Pull it.\n' "$BEHIND" >&2
+  fi
+fi
+
+# Reports whether the architecture repository holds the branch: 0 when it does, 1 when it does
+# not, and 2 when the query failed. The same test `checkout-architecture-guides.sh` makes.
+architecture_has_branch() {
+  local candidate="$1"
+  local status=0
+
+  [[ -n "$candidate" ]] || return 1
+
+  git -C "$ARCHITECTURE_DIR" ls-remote --exit-code --heads origin "refs/heads/$candidate" > /dev/null 2>&1 \
+    || status=$?
+
+  case "$status" in
+    0) return 0 ;;
+    2) return 1 ;;
+    *) return 2 ;;
+  esac
+}
+
+# The branch the bot reads the guides from, by the fallbacks `checkout-architecture-guides.sh`
+# takes: the base branch, then the default branch of the repository under review, then the
+# default branch of the architecture repository. Empty when the query failed.
+GUIDES_REF=''
+GUIDES_STATUS=0
+architecture_has_branch "$BASE_REF" || GUIDES_STATUS=$?
+
+if [[ "$GUIDES_STATUS" -eq 0 ]]; then
+  GUIDES_REF="$BASE_REF"
+elif [[ "$GUIDES_STATUS" -eq 1 ]]; then
+  if [[ "$BASE_REF" != "$DEFAULT_REF" ]] && architecture_has_branch "$DEFAULT_REF"; then
+    GUIDES_REF="$DEFAULT_REF"
+  else
+    GUIDES_REF="$(git -C "$ARCHITECTURE_DIR" ls-remote --symref origin HEAD 2> /dev/null \
+      | sed -n 's|^ref: refs/heads/\([^[:space:]]*\).*|\1|p' | sed -n 1p)"
+  fi
+fi
+
+if [[ -z "$GUIDES_REF" ]]; then
+  echo 'Warning: could not ask the architecture repository which branch the bot reads.' >&2
+else
+  ARCHITECTURE_BRANCH="$(git -C "$ARCHITECTURE_DIR" branch --show-current 2> /dev/null || true)"
+
+  if [[ "$ARCHITECTURE_BRANCH" != "$GUIDES_REF" ]]; then
+    printf 'Warning: the guides are read from %s, but the bot reads them from %s.\n' \
+      "${ARCHITECTURE_BRANCH:-a detached HEAD}" "$GUIDES_REF" >&2
+  fi
+
+  # The bot reads the tip of that branch, so a checkout behind it judges against old guides.
+  if git -C "$ARCHITECTURE_DIR" fetch --quiet origin "$GUIDES_REF" 2> /dev/null; then
+    BEHIND="$(git -C "$ARCHITECTURE_DIR" rev-list --count "HEAD..origin/$GUIDES_REF" 2> /dev/null || echo 0)"
+
+    if [[ "$BEHIND" -gt 0 ]]; then
+      printf 'Warning: the architecture checkout is %s commit(s) behind origin/%s. Pull it.\n' \
+        "$BEHIND" "$GUIDES_REF" >&2
+    fi
+  fi
 fi
 
 if [[ -n "$(git -C "$ARCHITECTURE_DIR" status --porcelain --untracked-files=no 2> /dev/null)" ]]; then
   echo 'Warning: the architecture checkout has uncommitted changes, which the bot does not see.' >&2
-fi
-
-# The bot reads the tip of the base branch. A checkout that is behind it judges against old
-# guides. A base branch the architecture repository does not hold has nothing to compare with.
-if git -C "$ARCHITECTURE_DIR" fetch --quiet origin "$BASE_REF" 2> /dev/null; then
-  BEHIND="$(git -C "$ARCHITECTURE_DIR" rev-list --count "HEAD..origin/$BASE_REF" 2> /dev/null || echo 0)"
-
-  if [[ "$BEHIND" -gt 0 ]]; then
-    printf 'Warning: the architecture checkout is %s commit(s) behind origin/%s. Pull it.\n' \
-      "$BEHIND" "$BASE_REF" >&2
-  fi
 fi
 
 git -C "$REPO_ROOT" fetch --quiet origin "$BASE_REF" || fail "Could not fetch $BASE_REF from origin."
@@ -162,7 +216,8 @@ PIDS=()
 for ((DRAW = 1; DRAW <= DRAWS; DRAW++)); do
   (
     cd -- "$REPO_ROOT"
-    CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 claude -p "$PROMPT" \
+    CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 claude -p "$PROMPT" \
+      --safe-mode \
       --model "$MODEL" \
       --setting-sources project \
       --strict-mcp-config \
@@ -191,7 +246,9 @@ for INDEX in "${!PIDS[@]}"; do
   jq -r --arg draw "$DRAW" '.structured_output |
     "\n== Draw \($draw): \(.verdict), \(.blocking_findings) blocking, \(.advisory_findings) advisory\n\n\(.summary)"' "$RESULT"
 
-  if ! jq -e '.structured_output | .blocking_findings == 0 and .advisory_findings == 0' "$RESULT" > /dev/null; then
+  # Clean means the reviewer approved and counted nothing, so a verdict the counts contradict fails.
+  if ! jq -e '.structured_output | .verdict == "approved" and .blocking_findings == 0 and .advisory_findings == 0' \
+    "$RESULT" > /dev/null; then
     [[ "$STATUS" -eq 2 ]] || STATUS=1
   fi
 done

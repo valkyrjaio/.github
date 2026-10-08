@@ -430,7 +430,7 @@ Central workflow alone.
 
 Version branches follow the pattern `??.x` (e.g., `26.x`, `27.x`). All stable
 releases (`auto`, `patch`, `feature`, `yearly`) must be triggered from a version
-branch.
+bot reads them from, or when the `.github` checkout is behind its upstream.
 
 The **default branch** of the `.github` repo is always the current active
 version branch. Crons run on the default branch, so they automatically use the
@@ -1219,10 +1219,10 @@ read the same file, and the two then judge a change by the same instructions.
 [`.github/ci/scripts/local-review.sh`](../ci/scripts/local-review.sh) runs that
 review on your machine before the push. It reads the prompt, model, verdict
 schema and tool lists from this workflow, less the tools that only reach a pull
-request, and it starts with no memory of an earlier run: no CLAUDE.md of its
-own, no auto-memory, no user settings. It reads the guides from the local
-`architecture` checkout, and warns when that is not at the tip of the base
-branch.
+request, and it starts with no memory of an earlier run: `--safe-mode`, no
+auto-memory, no user settings. It reads the guides from the local
+`architecture` checkout, and warns when that is not at the tip of the branch
+the bot reads them from, or when the `.github` checkout is behind its upstream.
 
 The same reviewer reaches different findings on the same code, so it runs
 `DRAWS` reviews in parallel (2 by default) and passes only when every one
@@ -1235,7 +1235,7 @@ path/to/.github/.github/ci/scripts/local-review.sh 26.x
 
 | Exit | Meaning                                                |
 | ---- | ------------------------------------------------------ |
-| `0`  | Every draw is clean                                    |
+| `0`  | Every draw approves with no finding                    |
 | `1`  | A draw reports a finding                               |
 | `2`  | A draw did not complete, or the review could not start |
 
