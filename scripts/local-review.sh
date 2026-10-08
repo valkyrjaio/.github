@@ -31,9 +31,10 @@
 #   - The architecture checkout is on a branch that the bot does not read.
 #   - The architecture checkout is behind or ahead of that branch.
 #   - The architecture checkout has uncommitted changes or untracked files.
-#   - The `.github` checkout is behind or ahead of the tip of the base branch.
-#     The bot reads the `.github` ref that its caller pins, which can be older
-#     than that tip, so this warning is a hint and not a proof.
+#   - The review instructions in the `.github` checkout differ from the tip of
+#     the base branch. The bot reads the `.github` ref that its caller pins,
+#     which can be older than that tip, so this warning is a hint and not a
+#     proof.
 #   - The review instructions in the `.github` checkout have uncommitted
 #     changes.
 #
@@ -60,8 +61,10 @@
 #
 # Usage:
 #
-#     ~/Dropbox/Sites/Valkyrja/.github/scripts/local-review.sh BASE
-#     DRAWS=3 ../.github/scripts/local-review.sh 26.x
+#     <dot-github>/scripts/local-review.sh BASE
+#     DRAWS=3 <dot-github>/scripts/local-review.sh 26.x
+#
+# <dot-github> is the path to the local checkout of `valkyrjaio/.github`.
 # ---------------------------------------------------------------------------
 
 # No workflow runs this script, so it sets `-euo pipefail`. Every failure to
@@ -137,30 +140,24 @@ ALLOWED_TOOLS="$(read_workflow_flag '--allowedTools' | tr ',' '\n' \
 
 # The instructions come from this `.github` checkout. The instructions land on the version
 # branch, the same branch as the base branch of the change, and `master` follows only by hand.
-# A checkout behind that branch reviews with old instructions, and a checkout ahead of it reviews
-# with instructions the bot cannot read. The bot reads the ref that its caller pins, which can be
-# older than the tip, so the warnings name the tip.
-if git -C "$GITHUB_ROOT" fetch --quiet origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF" 2> /dev/null; then
-  COUNTS="$(git -C "$GITHUB_ROOT" rev-list --left-right --count "HEAD...origin/$BASE_REF" 2> /dev/null || true)"
-  AHEAD="${COUNTS%%[[:space:]]*}"
-  BEHIND="${COUNTS##*[[:space:]]}"
+# Instructions that differ from the tip of that branch are not the instructions the bot reads. The
+# bot reads the ref that its caller pins, which can be older than the tip, so the warning names
+# the tip. When the repository under review is `.github` itself, the instructions are part of the
+# change, so the script skips the check.
+INSTRUCTION_FILES=('.github/ci/claude-review/prompt.md' '.github/workflows/_claude-review.yml')
 
-  if [[ "${BEHIND:-0}" -gt 0 ]]; then
-    printf 'Warning: the .github checkout is %s commit(s) behind the tip of origin/%s.\n' \
-      "$BEHIND" "$BASE_REF" >&2
+if [[ "$GITHUB_ROOT" != "$REPO_ROOT" ]]; then
+  if git -C "$GITHUB_ROOT" fetch --quiet origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF" 2> /dev/null; then
+    git -C "$GITHUB_ROOT" diff --quiet "origin/$BASE_REF" HEAD -- "${INSTRUCTION_FILES[@]}" 2> /dev/null \
+      || printf 'Warning: the review instructions in the .github checkout differ from the tip of origin/%s.\n' \
+        "$BASE_REF" >&2
+  else
+    echo "Warning: could not fetch $BASE_REF into the .github checkout, so its instructions are not checked." >&2
   fi
-
-  if [[ "${AHEAD:-0}" -gt 0 ]]; then
-    printf 'Warning: the .github checkout is %s commit(s) ahead of the tip of origin/%s.\n' \
-      "$AHEAD" "$BASE_REF" >&2
-  fi
-else
-  echo "Warning: could not fetch $BASE_REF into the .github checkout, so its age is not known." >&2
 fi
 
 # The bot reads the committed instructions. An edit that is not committed changes what the clone
 # reads and not what the bot reads.
-INSTRUCTION_FILES=('.github/ci/claude-review/prompt.md' '.github/workflows/_claude-review.yml')
 
 if [[ -n "$(git -C "$GITHUB_ROOT" status --porcelain -- "${INSTRUCTION_FILES[@]}" 2> /dev/null)" ]]; then
   echo 'Warning: the review instructions in the .github checkout have uncommitted changes.' >&2
@@ -239,6 +236,8 @@ else
       printf 'Warning: the architecture checkout is %s commit(s) ahead of origin/%s, which the bot does not read.\n' \
         "$AHEAD" "$GUIDES_REF" >&2
     fi
+  else
+    echo "Warning: could not fetch $GUIDES_REF into the architecture checkout, so its age is not known." >&2
   fi
 fi
 
@@ -253,6 +252,11 @@ git -C "$REPO_ROOT" fetch --quiet origin "+refs/heads/$BASE_REF:refs/remotes/ori
   || fail "Could not fetch $BASE_REF from origin."
 git -C "$REPO_ROOT" rev-parse --verify --quiet "origin/$BASE_REF" > /dev/null \
   || fail "origin/$BASE_REF does not resolve after the fetch."
+
+# A HEAD with no commit past the base branch gives an empty diff, and a clean verdict on it says
+# nothing.
+[[ "$(git -C "$REPO_ROOT" rev-list --count "origin/$BASE_REF..HEAD")" -gt 0 ]] \
+  || fail "HEAD has no commit that origin/$BASE_REF lacks, so there is no change to review."
 
 if [[ -z "${OUTPUT_DIR:-}" ]]; then
   OUTPUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/local-review.XXXXXX")" || fail 'Could not make a temporary directory.'

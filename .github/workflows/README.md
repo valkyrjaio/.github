@@ -1216,6 +1216,8 @@ asks for an independent, defect-hunting review against the guides, inline and
 concrete, with no praise or restatement of the diff. A review run locally can
 read the same file, and the two then judge a change by the same instructions.
 
+### Running the review locally
+
 [`scripts/local-review.sh`](../../scripts/local-review.sh) runs the same review
 on your machine before the push. The script reads the prompt from
 `.github/ci/claude-review/prompt.md`. The script reads the model, the verdict
@@ -1230,7 +1232,8 @@ warns when one of these is true:
 - The `architecture` checkout is not on the branch the bot reads.
 - The `architecture` checkout is behind or ahead of that branch.
 - The `architecture` checkout has uncommitted changes or untracked files.
-- The `.github` checkout is behind or ahead of the tip of the base branch.
+- The review instructions in the `.github` checkout differ from the tip of the
+  base branch.
 - The review instructions in the `.github` checkout have uncommitted changes.
 
 The same reviewer finds different things in the same code. So the script runs
@@ -1242,7 +1245,7 @@ changes first. Then run the script from the repository under review. The base
 branch is required:
 
 ```bash
-../.github/scripts/local-review.sh 26.x
+<dot-github>/scripts/local-review.sh 26.x
 ```
 
 | Exit | Meaning                                                |
@@ -1251,9 +1254,10 @@ branch is required:
 | `1`  | A draw reports a finding                               |
 | `2`  | A draw did not complete, or the review could not start |
 
-`ARCHITECTURE_DIR` names a different guides checkout. `OUTPUT_DIR` names the
-directory for the findings of each draw. The default is a new temporary
-directory.
+`<dot-github>` is the path to the local checkout of `valkyrjaio/.github`.
+`DRAWS` sets the number of draws. `ARCHITECTURE_DIR` names a different guides
+checkout. `OUTPUT_DIR` names the directory for the findings of each draw. The
+default is a new temporary directory.
 
 ### The verdict
 
