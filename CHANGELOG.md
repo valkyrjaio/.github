@@ -1,6 +1,10 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.25.6...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.25.7...26.x)
+
+## [v26.25.7](https://github.com/valkyrjaio/.github/compare/v26.25.6...v26.25.7) - 2026-10-08
+
+* [Workflow] refactor: Read the review prompt from a file by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/348
 
 ## [v26.25.6](https://github.com/valkyrjaio/.github/compare/v26.25.5...v26.25.6) - 2026-09-04
 
