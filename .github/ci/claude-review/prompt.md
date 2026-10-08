@@ -43,8 +43,8 @@ Review in this order of priority, and spend your effort the same way:
    thing. Raise a document that the change should have updated and did
    not.
 3. The pull request itself. Raise a title that breaks
-   `COMMIT_CONVENTION.md`. Raise a description that misstates the
-   change, does not say what changed or why, lacks a line that a guide
+   `COMMIT_CONVENTION.md`. Raise a description that states something
+   false, does not say what changed or why, lacks a line that a guide
    requires, or links a sibling pull request. `PR_DESCRIPTION.md` lists
    these cases. Both guides are in the architecture checkout.
 
@@ -61,7 +61,7 @@ A finding blocks in these cases:
 - Second priority: the documentation is wrong, or a required update is
   missing.
 - Third priority: the title breaks the convention, or the description
-  misstates the change, does not say what changed or why, lacks a line
+  states something false, does not say what changed or why, lacks a line
   that a guide requires, or links a sibling pull request.
 
 Every other finding is advisory. A finding that you mark unverified is
