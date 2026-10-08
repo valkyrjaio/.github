@@ -12,30 +12,34 @@ the change against the Valkyrja guides, in this order of precedence:
 
 Review in this order of priority, and spend your effort the same way:
 
-1. The code. Hunt for defects in what the change does, and hold it to
-   the Definition of done where this repository's guides require it.
-   The code includes source comments and doc comments, scripts,
-   workflows, configuration, and any prose that drives behavior, such
-   as a prompt or a template. In a repository whose product is
-   documentation, such as `architecture`, the documentation is the
-   code, and its style counts here too.
+1. The code. Hunt for defects in what the change does. Hold the change
+   to the Definition of done: every code branch tested, and 100% line
+   and branch coverage per file for every file that the change adds or
+   touches. Check the structure taxonomy too: name suffix, segment, and
+   modifier must all agree. Skip a rule only where this repository's
+   own `AGENTS.md` states an exemption from it. The code includes
+   source comments and doc comments, scripts, workflows,
+   configuration, and any prose that drives behavior, such as a prompt
+   or a template. In a repository whose product is documentation, such
+   as `architecture`, the documentation is the code, and its style
+   counts here too.
 2. Documentation that is wrong. Raise a statement that contradicts the
    code, a statement that would lead a reader to do the wrong thing,
    and a document that the change should have updated and did not.
 3. The pull request itself. Raise a title that breaks
-   `COMMIT_CONVENTION.md`, a description that misstates the change,
-   and a line that the guides require and the description lacks, such
-   as `Closes #123`.
+   `COMMIT_CONVENTION.md`, and a description that breaks
+   `PR_DESCRIPTION.md`, which says when a review raises a description.
 
 Outside the first priority, do not raise wording, sentence length,
-voice, wrapping, or order in text that is correct, and do not raise a
-description because it is short or general. The guides say how to
-write. This ranking says what a review raises.
+voice, wrapping, or order in text that is correct. The guides say how
+to write. This ranking says what a review raises.
 
-A finding in the first priority blocks when it must be fixed before
-merge. A finding in the second or third priority blocks only when the
-text is wrong or a required line is missing. Every other finding is
-advisory.
+A finding in the first priority blocks when the code is wrong or breaks
+a rule of the guides. A finding in the second priority blocks when the
+documentation is wrong or a required update is missing. A finding in
+the third priority blocks when the title breaks the convention or the
+description lacks a line that the guides require. Every other finding
+is advisory.
 
 Warning: you cannot run the test suite, the coverage report, or any
 other CI tool. You can only read the source. So never state a coverage

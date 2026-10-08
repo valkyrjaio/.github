@@ -31,15 +31,13 @@ Writing your description:
 - What do you want to achieve with this PR?
 - Why did you write this code?
 - What problem does this PR solve?
-- Describe your changes in detail.
-
-If relevant, explain which choices you have made and why.
+- Keep it short: name what changed, and let the diff carry the detail.
 If an issue tracks the work, write "Closes #123" in the description — this body
 becomes the squash commit's body, so that is what closes the issue on merge.
 
 Writing your changes list:
 - One bullet per file or logical change.
-- Bold the file path or component, then describe what changed and why.
+- Bold the file path or component, then say in a few words what changed.
 - Example: **`_release.yml`** — added release-type detection step
 
 Put an `x` in all the boxes that apply in the types of changes section.
