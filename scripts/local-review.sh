@@ -11,8 +11,8 @@
 #
 # This script runs the review of `_claude-review.yml` on your machine before
 # the push. The script reads the prompt, the model, the verdict schema and
-# the tool lists from the workflow and its prompt file. So the clone follows the bot
-# when the bot changes.
+# the tool lists from the workflow and its prompt file. So the clone follows
+# the bot when the bot changes.
 #
 # The script leaves out the tools that reach a pull request on GitHub,
 # because no pull request exists yet. The reviewer writes its findings in the
@@ -58,7 +58,8 @@
 # default. OUTPUT_DIR keeps the findings of each draw. The default is a new
 # temporary directory.
 #
-# Requires: `claude` (logged in) and `jq`.
+# Requires: `claude` (logged in), `jq`, and a local checkout of the
+# architecture repository.
 #
 # Exit codes:
 #
@@ -167,9 +168,9 @@ ALLOWED_TOOLS="$(read_workflow_flag '--allowedTools' | tr ',' '\n' \
 [[ -n "$DISALLOWED_TOOLS" ]] || fail "No --disallowedTools in $WORKFLOW_FILE."
 [[ -n "$ALLOWED_TOOLS" ]] || fail "No --allowedTools in $WORKFLOW_FILE."
 
-# The reviewer reads the files on disk, and the push sends HEAD. A new file that is not committed
-# is on disk too, so the check counts untracked files as well.
-[[ -z "$(git -C "$REPO_ROOT" status --porcelain)" ]] \
+# The reviewer reads untracked files on disk too, so they count. `.claude/` holds Claude Code state,
+# which no clone ignores, so it does not.
+[[ -z "$(git -C "$REPO_ROOT" status --porcelain -- . ':(exclude).claude')" ]] \
   || fail 'The working tree has changes that are not committed. Commit them, then review.'
 
 # The instructions in this `.github` checkout must match the base branch tip and be committed.
@@ -247,7 +248,9 @@ elif [[ "$GUIDES_STATUS" -eq 1 ]]; then
   fi
 fi
 
-if [[ -z "$GUIDES_REF" ]]; then
+if [[ -z "$GUIDES_REF" && -z "$DEFAULT_REF" ]]; then
+  echo 'Warning: could not ask origin of the repository under review for its default branch.' >&2
+elif [[ -z "$GUIDES_REF" ]]; then
   echo 'Warning: could not ask the architecture repository which branch the bot reads.' >&2
 else
   ARCHITECTURE_BRANCH="$(git -C "$ARCHITECTURE_DIR" branch --show-current 2> /dev/null || true)"

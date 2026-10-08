@@ -1255,13 +1255,15 @@ The same reviewer finds different things in the same code. So the script runs
 `DRAWS` draws in parallel, 2 by default. The script passes only when every
 draw approves with no finding.
 
-The script needs two commands: `claude`, with a login, and `jq`. Commit your
-changes first. Then run the script from the repository under review, and name
-the base branch:
+The script needs two commands, `claude` with a login and `jq`, and a local
+checkout of the architecture repository. Commit your changes first. Then run
+the script from the repository under review, and name the base branch:
 
 ```bash
 <dot-github>/scripts/local-review.sh 26.x
 ```
+
+`<dot-github>` is the path to the local checkout of `valkyrjaio/.github`.
 
 | Exit | Meaning                                                |
 | ---- | ------------------------------------------------------ |
@@ -1269,7 +1271,6 @@ the base branch:
 | `1`  | A draw reports a finding                               |
 | `2`  | A draw did not complete, or the review could not start |
 
-`<dot-github>` is the path to the local checkout of `valkyrjaio/.github`.
 `DRAWS` sets the number of draws. `ARCHITECTURE_DIR` names a different guides
 checkout. The default is the `architecture` directory beside the `.github`
 checkout. `OUTPUT_DIR` names the directory for the findings of each draw,
