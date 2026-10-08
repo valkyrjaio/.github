@@ -10,8 +10,8 @@
 # Local clone of the Claude review.
 #
 # This script runs the review of `_claude-review.yml` on your machine before
-# the push. It reads the prompt, the model, the verdict schema and the tool
-# lists from the workflow and its prompt file. So the clone follows the bot
+# the push. The script reads the prompt, the model, the verdict schema and
+# the tool lists from the workflow and its prompt file. So the clone follows the bot
 # when the bot changes.
 #
 # The script leaves out the tools that reach a pull request on GitHub,
@@ -75,8 +75,8 @@
 # <dot-github> is the path to the local checkout of `valkyrjaio/.github`.
 # ---------------------------------------------------------------------------
 
-# No workflow runs this script, so it sets `-euo pipefail`. Every failure to
-# start goes through `fail`, which exits 2.
+# A tool in `scripts/` sets `-euo pipefail`, and every failure to start exits 2 through `fail`.
+# `.github/workflows/README.md` holds the rule for each family, under Scripts.
 set -euo pipefail
 
 # Stops the review before it starts, with the exit code that says so.
@@ -100,6 +100,12 @@ esac
 # The script takes one argument, so a second one is a mistake rather than an option.
 [[ "$#" -le 1 ]] || fail "Too many arguments. Name only the base branch, and set DRAWS in the environment."
 
+# The default branch of a repository can differ from the branch its pull requests go into, so
+# the caller names the base branch.
+BASE_REF="${1:-}"
+
+[[ -n "$BASE_REF" ]] || fail 'Name the base branch, such as 26.x.'
+
 DRAWS="${DRAWS:-2}"
 
 # The default sits beside the main `.github` checkout, also when the script runs from a worktree.
@@ -113,12 +119,6 @@ command -v claude > /dev/null || fail 'No claude command. Install Claude Code an
 command -v jq > /dev/null || fail 'No jq command. Install jq.'
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2> /dev/null)" || fail 'Run this from inside a git repository.'
-
-# The default branch of a repository can differ from the branch its pull requests go into, so
-# the caller names the base branch.
-BASE_REF="${1:-}"
-
-[[ -n "$BASE_REF" ]] || fail 'Name the base branch, such as 26.x.'
 
 # The bot falls back to the default branch of the repository under review for the guides. The
 # script asks the remote, because the local `origin/HEAD` changes only on a clone.
@@ -284,9 +284,8 @@ if [[ -n "$(git -C "$ARCHITECTURE_DIR" status --porcelain 2> /dev/null)" ]]; the
   echo 'Warning: the architecture checkout has uncommitted changes or untracked files, which the bot does not see.' >&2
 fi
 
-# The explicit refspec updates `origin/$BASE_REF` even in a clone that tracks one branch. Without
-# that ref, the reviewer cannot read the diff and could approve a change it never saw.
-# Offline, the review goes on against the `origin/$BASE_REF` that is already there.
+# The explicit refspec updates `origin/$BASE_REF` in a single-branch clone, and offline the local
+# ref stands. Without that ref the reviewer cannot read the diff, so the script stops.
 git -C "$REPO_ROOT" fetch --quiet origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF" 2> /dev/null \
   || echo "Warning: could not fetch $BASE_REF from origin, so the review uses the local origin/$BASE_REF." >&2
 git -C "$REPO_ROOT" rev-parse --verify --quiet "origin/$BASE_REF" > /dev/null \
