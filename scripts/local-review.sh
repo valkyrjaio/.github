@@ -128,12 +128,15 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2> /dev/null)" || fail 'Run this from
 
 DEFAULT_REF=''
 
-# A `.github` change under review carries its own instructions, also from a worktree or a symlink.
+# A `.github` change under review carries its own instructions: from a worktree, a symlink, or
+# another clone, which only its remote identifies.
 GITHUB_GIT_DIR="$MAIN_GIT_DIR"
 REPO_GIT_DIR="$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-common-dir 2> /dev/null || true)"
+REPO_REMOTE="$(git -C "$REPO_ROOT" remote get-url origin 2> /dev/null || true)"
 REVIEWING_GITHUB=false
 
-if [[ -n "$REPO_GIT_DIR" && "$GITHUB_GIT_DIR" == "$REPO_GIT_DIR" ]]; then
+if [[ (-n "$REPO_GIT_DIR" && "$GITHUB_GIT_DIR" == "$REPO_GIT_DIR") \
+  || "$REPO_REMOTE" =~ valkyrjaio/\.github(\.git)?$ ]]; then
   REVIEWING_GITHUB=true
   GITHUB_ROOT="$REPO_ROOT"
 fi
@@ -267,7 +270,7 @@ elif [[ "$GUIDES_STATUS" -eq 1 ]]; then
 fi
 
 if [[ -z "$GUIDES_REF" && "$GUIDES_STATUS" -eq 1 && -z "$DEFAULT_REF" ]]; then
-  echo 'Warning: could not ask origin of the repository under review for its default branch.' >&2
+  echo 'Warning: could not ask GitHub or origin for the default branch of the repository under review.' >&2
 elif [[ -z "$GUIDES_REF" ]]; then
   echo 'Warning: could not ask the architecture repository which branch the bot reads.' >&2
 else
