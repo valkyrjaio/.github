@@ -42,6 +42,10 @@ checkout is the pinned commit reads the tree that holds the scripts, so a script
 cannot carry it. The rule, the two forms, the exception, and the examples are in
 [Shell logic belongs in a script](.github/workflows/README.md#shell-logic-belongs-in-a-script).
 
+A tool that a person runs from a terminal lives in `scripts/` at the root of
+the repository, not in `.github/ci/scripts/`.
+[Scripts](.github/workflows/README.md#scripts) gives its `set` line.
+
 ## What does NOT apply
 
 There is no framework code in this repo, so ignore the framework-specific sections

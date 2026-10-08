@@ -587,13 +587,20 @@ The [shell documentation](https://docs.github.com/en/actions/reference/workflows
 states this on the default row: "Note that this runs a different command to when `bash` is specified
 explicitly."
 
-That table is why the two families of script differ, and neither is the odd one out:
+That table is why the two families of script in `.github/ci/scripts/` differ,
+and neither is the odd one out:
 
 - A script a **bare `run:`** invokes sets `set -e`, because that is the shell that ran the block.
 - A script a **composite action step** invokes sets `set -euo pipefail`, whether the step names the
   script itself or reaches it through `run-script`. `shell: bash` is
   `bash --noprofile --norc -eo pipefail`, and `-u` is the one option this repository adds rather
   than mirrors.
+
+A tool that a person runs from a terminal lives in `scripts/` at the root of the
+repository, and it sets `set -euo pipefail`. A workflow can run such a tool too,
+as `_rebase-all-to-master.yml` runs `rebase-all-to-master.sh`. The tool keeps
+`set -euo pipefail` then as well, because no single step shell is the one that
+it mirrors.
 
 Warning: no option is inherited in any family. A script is a fresh `bash` started from its own
 shebang, so the `set` line is what turns every option on, and the shell of the step is what the
@@ -1215,6 +1222,64 @@ The `prompt` input overrides the review instructions wholesale. The default is
 asks for an independent, defect-hunting review against the guides, inline and
 concrete, with no praise or restatement of the diff. A review run locally can
 read the same file, and the two then judge a change by the same instructions.
+
+### Running the review locally
+
+[`scripts/local-review.sh`](../../scripts/local-review.sh) runs the same review
+on your machine before the push. The script reads the prompt from
+`.github/ci/claude-review/prompt.md`. The script reads the model, the verdict
+schema, the tool lists and the guides paragraph from this workflow. The script
+leaves out the tools that reach a pull request.
+
+Each draw is one run of `claude`, with no memory of an earlier draw. The script
+runs `claude` in `--safe-mode`, with no auto-memory and no user settings.
+`--safe-mode` keeps out every CLAUDE.md, and it also turns off skills, plugins,
+hooks, MCP servers, custom commands and agents, output styles and workflows.
+The bot keeps all of them, so in a repository that ships any of them, a draw is
+not an exact copy of the bot.
+
+The reviewer reads the guides from the local `architecture` checkout. The script
+fetches before it compares. It updates `origin/<base>` and `FETCH_HEAD` in the
+repository under review, and it writes `FETCH_HEAD` in the `.github` checkout.
+It writes `FETCH_HEAD` in the `architecture` checkout when that checkout is on
+the branch the bot reads. The script warns when one of these is true:
+
+- The `architecture` checkout is not on the branch the bot reads.
+- The `architecture` checkout is behind or ahead of that branch.
+- The `architecture` checkout has uncommitted changes or untracked files.
+- The review instructions in the `.github` checkout differ from the tip of the
+  base branch.
+- The review instructions in the `.github` checkout have uncommitted changes.
+
+The last two warnings do not apply to a change to `.github` itself. There the
+instructions are part of the change under review.
+
+The same reviewer finds different things in the same code. `DRAWS` sets how
+many draws run in parallel, 1 by default. The script passes only when every
+draw approves with no finding.
+
+The script needs two commands, `claude` with a login and `jq`, and a local
+checkout of the architecture repository. With `gh` signed in, it also gives the
+reviewer the title and description of an open pull request. Commit your changes
+first. Then run the script from the repository under review, and name the base
+branch:
+
+```bash
+<dot-github>/scripts/local-review.sh 26.x
+```
+
+`<dot-github>` is the path to the local checkout of `valkyrjaio/.github`.
+
+| Exit | Meaning                                                |
+| ---- | ------------------------------------------------------ |
+| `0`  | Every draw approves with no finding                    |
+| `1`  | A draw reports a finding                               |
+| `2`  | A draw did not complete, or the review could not start |
+
+`ARCHITECTURE_DIR` names a different guides checkout. The default is the
+`architecture` directory beside the `.github` checkout. `OUTPUT_DIR` names the
+directory for the findings of each draw, outside the repository under review and
+the `architecture` checkout. The default is a new temporary directory.
 
 ### The verdict
 
