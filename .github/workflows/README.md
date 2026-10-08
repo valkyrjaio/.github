@@ -1239,10 +1239,10 @@ The bot keeps all of them, so in a repository that ships any of them, a draw is
 not an exact copy of the bot.
 
 The reviewer reads the guides from the local `architecture` checkout. The script
-fetches before it compares. It updates `origin/<base>` in the repository under
-review, and it writes `FETCH_HEAD` in the `.github` checkout. It writes
-`FETCH_HEAD` in the `architecture` checkout when that checkout is on the branch
-the bot reads. The script warns when one of these is true:
+fetches before it compares. It updates `origin/<base>` and `FETCH_HEAD` in the
+repository under review, and it writes `FETCH_HEAD` in the `.github` checkout.
+It writes `FETCH_HEAD` in the `architecture` checkout when that checkout is on
+the branch the bot reads. The script warns when one of these is true:
 
 - The `architecture` checkout is not on the branch the bot reads.
 - The `architecture` checkout is behind or ahead of that branch.
@@ -1274,11 +1274,10 @@ the script from the repository under review, and name the base branch:
 | `1`  | A draw reports a finding                               |
 | `2`  | A draw did not complete, or the review could not start |
 
-`DRAWS` sets the number of draws. `ARCHITECTURE_DIR` names a different guides
-checkout. The default is the `architecture` directory beside the `.github`
-checkout. `OUTPUT_DIR` names the directory for the findings of each draw,
-outside the repository under review and the `architecture` checkout. The
-default is a new temporary directory.
+`ARCHITECTURE_DIR` names a different guides checkout. The default is the
+`architecture` directory beside the `.github` checkout. `OUTPUT_DIR` names the
+directory for the findings of each draw, outside the repository under review and
+the `architecture` checkout. The default is a new temporary directory.
 
 ### The verdict
 
