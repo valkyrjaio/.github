@@ -182,6 +182,9 @@ if [[ "$REVIEWING_GITHUB" == 'false' ]]; then
   fi
 fi
 
+# The bot reads the canonical repository, not the `origin` of the local checkout, which can be a fork.
+ARCHITECTURE_REMOTE='https://github.com/valkyrjaio/architecture.git'
+
 # Reports whether the architecture repository holds the branch: 0 when it does, 1 when it does
 # not, and 2 when the query failed. `checkout-architecture-guides.sh` makes the same test.
 architecture_has_branch() {
@@ -190,7 +193,8 @@ architecture_has_branch() {
 
   [[ -n "$candidate" ]] || return 1
 
-  git -C "$ARCHITECTURE_DIR" ls-remote --exit-code --heads origin "refs/heads/$candidate" > /dev/null 2>&1 \
+  git -C "$ARCHITECTURE_DIR" ls-remote --exit-code --heads "$ARCHITECTURE_REMOTE" "refs/heads/$candidate" \
+    > /dev/null 2>&1 \
     || status=$?
 
   case "$status" in
@@ -222,7 +226,7 @@ elif [[ "$GUIDES_STATUS" -eq 1 ]]; then
   if [[ "$DEFAULT_STATUS" -eq 0 ]]; then
     GUIDES_REF="$DEFAULT_REF"
   elif [[ "$DEFAULT_STATUS" -eq 1 ]]; then
-    GUIDES_REF="$(git -C "$ARCHITECTURE_DIR" ls-remote --symref origin HEAD 2> /dev/null \
+    GUIDES_REF="$(git -C "$ARCHITECTURE_DIR" ls-remote --symref "$ARCHITECTURE_REMOTE" HEAD 2> /dev/null \
       | sed -n 's|^ref: refs/heads/\([^[:space:]]*\).*|\1|p' | sed -n 1p || true)"
   fi
 fi
@@ -237,23 +241,21 @@ else
   if [[ "$ARCHITECTURE_BRANCH" != "$GUIDES_REF" ]]; then
     printf 'Warning: the guides are read from %s, but the bot reads them from %s.\n' \
       "${ARCHITECTURE_BRANCH:-a detached HEAD}" "$GUIDES_REF" >&2
-  elif git -C "$ARCHITECTURE_DIR" fetch --quiet origin \
-    "+refs/heads/$GUIDES_REF:refs/remotes/origin/$GUIDES_REF" 2> /dev/null; then
-    COUNTS="$(git -C "$ARCHITECTURE_DIR" rev-list --left-right --count "HEAD...origin/$GUIDES_REF" \
-      2> /dev/null || true)"
+  elif git -C "$ARCHITECTURE_DIR" fetch --quiet "$ARCHITECTURE_REMOTE" "refs/heads/$GUIDES_REF" 2> /dev/null; then
+    COUNTS="$(git -C "$ARCHITECTURE_DIR" rev-list --left-right --count 'HEAD...FETCH_HEAD' 2> /dev/null || true)"
 
     [[ -n "$COUNTS" ]] \
-      || echo "Warning: could not compare the architecture checkout with origin/$GUIDES_REF." >&2
+      || echo "Warning: could not compare the architecture checkout with $GUIDES_REF." >&2
     AHEAD="${COUNTS%%[[:space:]]*}"
     BEHIND="${COUNTS##*[[:space:]]}"
 
     if [[ "${BEHIND:-0}" -gt 0 ]]; then
-      printf 'Warning: the architecture checkout is %s commit(s) behind origin/%s. Pull it.\n' \
+      printf 'Warning: the architecture checkout is %s commit(s) behind %s. Pull it.\n' \
         "$BEHIND" "$GUIDES_REF" >&2
     fi
 
     if [[ "${AHEAD:-0}" -gt 0 ]]; then
-      printf 'Warning: the architecture checkout is %s commit(s) ahead of origin/%s, which the bot does not read.\n' \
+      printf 'Warning: the architecture checkout is %s commit(s) ahead of %s, which the bot does not read.\n' \
         "$AHEAD" "$GUIDES_REF" >&2
     fi
   else

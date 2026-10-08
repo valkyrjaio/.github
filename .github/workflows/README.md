@@ -587,7 +587,8 @@ The [shell documentation](https://docs.github.com/en/actions/reference/workflows
 states this on the default row: "Note that this runs a different command to when `bash` is specified
 explicitly."
 
-That table is why the two families of script differ, and neither is the odd one out:
+That table is why the two families of script that a workflow runs differ, and
+neither is the odd one out:
 
 - A script a **bare `run:`** invokes sets `set -e`, because that is the shell that ran the block.
 - A script a **composite action step** invokes sets `set -euo pipefail`, whether the step names the
@@ -595,9 +596,10 @@ That table is why the two families of script differ, and neither is the odd one 
   `bash --noprofile --norc -eo pipefail`, and `-u` is the one option this repository adds rather
   than mirrors.
 
-A script that no workflow runs lives in `scripts/` at the root of the repository
-and sets `set -euo pipefail`. A person runs it from a terminal, so no step shell
-decides its options.
+A tool that a person runs from a terminal lives in `scripts/` at the root of the
+repository. When only a person runs it, no step shell decides its options, so it
+sets `set -euo pipefail`. When a workflow runs it too, the step that runs it
+decides its `set` line, as for any script above.
 
 Warning: no option is inherited in any family. A script is a fresh `bash` started from its own
 shebang, so the `set` line is what turns every option on, and the shell of the step is what the
@@ -1233,8 +1235,10 @@ runs `claude` in `--safe-mode`, with no auto-memory and no user settings.
 `--safe-mode` keeps out every CLAUDE.md, and it also turns off skills, plugins,
 hooks, MCP servers, custom agents and output styles. The bot keeps all of them,
 so in a repository that ships any of them, a draw is not an exact copy of the
-bot. The reviewer reads the guides from the local `architecture` checkout. The
-script warns when one of these is true:
+bot.
+
+The reviewer reads the guides from the local `architecture` checkout. The script
+warns when one of these is true:
 
 - The `architecture` checkout is not on the branch the bot reads.
 - The `architecture` checkout is behind or ahead of that branch.
