@@ -240,8 +240,10 @@ for INDEX in "${!PIDS[@]}"; do
   if ! wait "${PIDS[$INDEX]}" || ! jq -e '.structured_output.verdict' "$RESULT" > /dev/null 2>&1; then
     printf '\n== Draw %s did not complete. Its output is in %s.\n' "$DRAW" "$RESULT"
 
-    # The CLI reports why a run stopped, such as an expired login, in `result`.
-    REASON="$(jq -r 'select(.is_error) | .result // empty' "$RESULT" 2> /dev/null || true)"
+    # The CLI says why a run stopped in `result`, as for an expired login, in `errors`, or only in
+    # `subtype`, as for a run out of turns. The first of them that says anything is the reason.
+    REASON="$(jq -r '[.result, ((.errors // []) | map(tostring) | join("; ")), .subtype]
+      | map(select(type == "string" and . != "")) | first // empty' "$RESULT" 2> /dev/null || true)"
 
     if [[ -n "$REASON" ]]; then
       printf '\n%s\n' "$REASON"
