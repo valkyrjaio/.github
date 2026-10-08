@@ -239,6 +239,14 @@ for INDEX in "${!PIDS[@]}"; do
 
   if ! wait "${PIDS[$INDEX]}" || ! jq -e '.structured_output.verdict' "$RESULT" > /dev/null 2>&1; then
     printf '\n== Draw %s did not complete. Its output is in %s.\n' "$DRAW" "$RESULT"
+
+    # The CLI reports why a run stopped, such as an expired login, in `result`.
+    REASON="$(jq -r 'select(.is_error) | .result // empty' "$RESULT" 2> /dev/null || true)"
+
+    if [[ -n "$REASON" ]]; then
+      printf '\n%s\n' "$REASON"
+    fi
+
     STATUS=2
     continue
   fi
