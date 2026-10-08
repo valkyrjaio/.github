@@ -1240,10 +1240,9 @@ not an exact copy of the bot.
 
 The reviewer reads the guides from the local `architecture` checkout. The script
 fetches before it compares. It updates `origin/<base>` in the repository under
-review. It writes `FETCH_HEAD` in the `.github` checkout, except for a change to
-`.github` itself. It writes `FETCH_HEAD` in the `architecture` checkout when
-that checkout is on the branch the bot reads. The script warns when one of these
-is true:
+review, and it writes `FETCH_HEAD` in the `.github` checkout. It writes
+`FETCH_HEAD` in the `architecture` checkout when that checkout is on the branch
+the bot reads. The script warns when one of these is true:
 
 - The `architecture` checkout is not on the branch the bot reads.
 - The `architecture` checkout is behind or ahead of that branch.
