@@ -471,13 +471,15 @@ Two properties follow from that choice:
   pinned, so it adds no commit at all.
 
 The pinned paths are `.github/workflows/`, `.github/actions/`, and
-`.github/ci/`, and Markdown is excluded. A reference loads the workflow file
+`.github/ci/`, and every README is excluded. A reference loads the workflow file
 from the commit it names, and a relative `uses:` inside that file loads from the
 same commit. A workflow also checks this repository out at that commit to reach
 the composite actions, and an action runs a script from `.github/ci/`. A change
 to any of them changes what the reference runs, so each one moves the
-references. A Markdown file is documentation that a reference never reaches, so
-a change to a document does not move the references.
+references. A README is documentation that a reference never reaches, so a
+change to one does not move the references. Other Markdown can be reached: the
+Claude review reads its instructions from `.github/ci/claude-review/prompt.md`
+at the pinned commit, so a change to the prompt moves the references.
 
 Warning: the script reads the git history, and `actions/checkout` fetches one
 commit. `_release.yml` deepens the checkout first, and the script stops on a

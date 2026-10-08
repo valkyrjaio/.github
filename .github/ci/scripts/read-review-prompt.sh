@@ -14,9 +14,9 @@
 # instructions. A caller that passes its own prompt replaces them. The script
 # writes whichever applies to GITHUB_OUTPUT as `prompt`.
 #
-# Reads PROMPT_FILE and GITHUB_OUTPUT from the environment. PROMPT is optional:
-# a caller that passes its own review instructions sets it, and an empty or
-# unset value reads PROMPT_FILE instead.
+# Reads PROMPT, PROMPT_FILE, and GITHUB_OUTPUT from the environment. PROMPT is
+# optional: a caller that passes its own review instructions sets it. An empty
+# or unset value reads PROMPT_FILE instead, which is then required.
 #
 # Usage:
 #
@@ -28,16 +28,16 @@
 # `.github/workflows/README.md` holds the rule for each family, under Scripts.
 set -e
 
-: "${PROMPT_FILE:?PROMPT_FILE must name the review prompt file}"
-
-[[ -f "$PROMPT_FILE" ]] || {
-  printf 'No review prompt at %s.\n' "$PROMPT_FILE" >&2
-  exit 1
-}
-
 if [[ -n "${PROMPT:-}" ]]; then
   REVIEW_PROMPT="$PROMPT"
 else
+  : "${PROMPT_FILE:?PROMPT_FILE must name the review prompt file}"
+
+  [[ -f "$PROMPT_FILE" ]] || {
+    printf 'No review prompt at %s.\n' "$PROMPT_FILE" >&2
+    exit 1
+  }
+
   REVIEW_PROMPT="$(cat "$PROMPT_FILE")"
 fi
 
