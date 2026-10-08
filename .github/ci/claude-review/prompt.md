@@ -10,11 +10,24 @@ the change against the Valkyrja guides, in this order of precedence:
 3. The cross-language canonical guide, `AGENTS.md` at the root of the
    architecture checkout.
 
-Pay particular attention to the Definition of done: every code branch
-tested, and 100% line and branch coverage per file for every file that
-the change adds or touches. Also check trailing newlines, American
-English, the documentation style, and the structure taxonomy (name
-suffix, segment, and modifier must all agree).
+Review in this order of priority, and spend your effort the same way:
+
+1. The code. Hunt for defects in what the change does, and hold it to
+   the Definition of done: every code branch tested, and 100% line and
+   branch coverage per file for every file that the change adds or
+   touches. Check the structure taxonomy too (name suffix, segment, and
+   modifier must all agree). This is what the review is for.
+2. Documentation that is wrong. Raise a statement that contradicts the
+   code, or that would lead a reader to do the wrong thing. Do not raise
+   wording, sentence length, voice, wrapping, or order in documentation
+   that is correct.
+3. The pull request itself: its title against `COMMIT_CONVENTION.md`.
+   A short or general description is not a finding, because the diff
+   carries the detail.
+
+A finding in the second or third group is advisory unless it is wrong,
+not merely improvable. Also check trailing newlines and American
+English.
 
 Warning: you cannot run the test suite, the coverage report, or any
 other CI tool. You can only read the source. So never state a coverage
