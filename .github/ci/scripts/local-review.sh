@@ -26,7 +26,7 @@
 # local architecture checkout, ARCHITECTURE_DIR, which defaults to the
 # `architecture` directory beside the `.github` checkout. The bot reads them
 # from the base branch on GitHub, so the script warns when that checkout is on
-# another branch or has uncommitted changes.
+# another branch, is behind it, or has uncommitted changes.
 #
 # The committed HEAD is what the push sends, so the working tree must match
 # it. The script stops when a tracked file has uncommitted changes.
@@ -122,6 +122,17 @@ fi
 
 if [[ -n "$(git -C "$ARCHITECTURE_DIR" status --porcelain --untracked-files=no 2> /dev/null)" ]]; then
   echo 'Warning: the architecture checkout has uncommitted changes, which the bot does not see.' >&2
+fi
+
+# The bot reads the tip of the base branch. A checkout that is behind it judges against old
+# guides. A base branch the architecture repository does not hold has nothing to compare with.
+if git -C "$ARCHITECTURE_DIR" fetch --quiet origin "$BASE_REF" 2> /dev/null; then
+  BEHIND="$(git -C "$ARCHITECTURE_DIR" rev-list --count "HEAD..origin/$BASE_REF" 2> /dev/null || echo 0)"
+
+  if [[ "$BEHIND" -gt 0 ]]; then
+    printf 'Warning: the architecture checkout is %s commit(s) behind origin/%s. Pull it.\n' \
+      "$BEHIND" "$BASE_REF" >&2
+  fi
 fi
 
 git -C "$REPO_ROOT" fetch --quiet origin "$BASE_REF" || fail "Could not fetch $BASE_REF from origin."
