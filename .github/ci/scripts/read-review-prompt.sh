@@ -41,6 +41,12 @@ else
   REVIEW_PROMPT="$(cat "$PROMPT_FILE")"
 fi
 
+# An empty prompt would start a review with none of its instructions, so it fails here instead.
+[[ -n "$REVIEW_PROMPT" ]] || {
+  printf 'The review prompt at %s is empty.\n' "$PROMPT_FILE" >&2
+  exit 1
+}
+
 # The prompt holds newlines, so it needs a delimiter that its text cannot contain. The whole
 # block is written at once, after the prompt is read, so the delimiter always closes it on a
 # line of its own, whether or not the prompt ends in a newline.
