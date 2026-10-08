@@ -232,8 +232,8 @@ OUTPUT_DIR="$(cd -- "$OUTPUT_DIR" && pwd)"
 # indentation, with the local guides path in place of the runner path.
 GUIDES_PARAGRAPH="$(awk '
   /steps\.prompt\.outputs\.prompt }}/ { found = 1; next }
-  found && /^ {12}/ { sub(/^ {12}/, ""); print; next }
-  found && /^[[:space:]]*$/ { print; next }
+  found && /^ {12}/ { sub(/^ {12}/, ""); print; started = 1; next }
+  found && /^[[:space:]]*$/ { if (started) print; next }
   found { exit }
 ' "$WORKFLOW_FILE")"
 RUNNER_GUIDES_DIR="\${{ runner.temp }}/architecture"
