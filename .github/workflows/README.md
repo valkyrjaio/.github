@@ -1277,7 +1277,8 @@ the script from the repository under review, and name the base branch:
 `DRAWS` sets the number of draws. `ARCHITECTURE_DIR` names a different guides
 checkout. The default is the `architecture` directory beside the `.github`
 checkout. `OUTPUT_DIR` names the directory for the findings of each draw,
-outside the repository under review and the `architecture` checkout. The default is a new temporary directory.
+outside the repository under review and the `architecture` checkout. The
+default is a new temporary directory.
 
 ### The verdict
 
