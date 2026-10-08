@@ -51,7 +51,7 @@
 # under `.claude/` are Claude Code state, and the script does not count them.
 #
 # When a pull request for the branch is open and `gh` can read it, the prompt
-# names its title, as the bot sees it.
+# carries its title and description, as the bot sees them.
 #
 # A draw is one run of `claude`. The same reviewer finds different things in
 # the same code, so one draw shows only part of what the bot can find. The
@@ -240,10 +240,15 @@ if [[ "$GUIDES_STATUS" -eq 0 ]]; then
 elif [[ "$GUIDES_STATUS" -eq 1 ]]; then
   DEFAULT_STATUS=1
 
-  # The bot falls back to the default branch of the repository under review. The script asks the
-  # remote, because the local `origin/HEAD` changes only on a clone.
-  DEFAULT_REF="$(git -C "$REPO_ROOT" ls-remote --symref origin HEAD 2> /dev/null \
-    | sed -n 's|^ref: refs/heads/\([^[:space:]]*\).*|\1|p' | sed -n 1p || true)"
+  # The bot falls back to the default branch that GitHub records, which a fork's `origin` may not
+  # share. Without `gh`, the remote's HEAD is the nearest answer.
+  DEFAULT_REF="$(cd -- "$REPO_ROOT" && gh repo view --json defaultBranchRef \
+    --jq .defaultBranchRef.name 2> /dev/null || true)"
+
+  if [[ -z "$DEFAULT_REF" ]]; then
+    DEFAULT_REF="$(git -C "$REPO_ROOT" ls-remote --symref origin HEAD 2> /dev/null \
+      | sed -n 's|^ref: refs/heads/\([^[:space:]]*\).*|\1|p' | sed -n 1p || true)"
+  fi
 
   # An empty DEFAULT_REF means its own query failed, which is not the same as an absent branch.
   if [[ -z "$DEFAULT_REF" ]]; then
@@ -363,16 +368,18 @@ apply, and there is no inline comment tool. The change is
 \`git log origin/$BASE_REF..HEAD\`. Put every finding in \`summary\`
 instead of an inline comment, each naming its file and line."
 
-# The bot reads the title of the pull request, so a draw reads it too when one already exists.
-command -v gh > /dev/null || echo 'Warning: no gh command, so the review cannot see the pull request title.' >&2
+# The bot reads the title and the description of the pull request, so a draw reads both too.
+command -v gh > /dev/null || echo 'Warning: no gh command, so the review cannot see the pull request.' >&2
 
-PR_TITLE="$(cd -- "$REPO_ROOT" && gh pr view --json title,state \
-  --jq 'select(.state == "OPEN") | .title' 2> /dev/null || true)"
+PR_TEXT="$(cd -- "$REPO_ROOT" && gh pr view --json title,body,state \
+  --jq 'select(.state == "OPEN") | "Title: \(.title)\n\nDescription:\n\(.body)"' 2> /dev/null || true)"
 
-if [[ -n "$PR_TITLE" ]]; then
+if [[ -n "$PR_TEXT" ]]; then
   PROMPT="$PROMPT
 
-A pull request for this branch is already open. Its title is: $PR_TITLE"
+A pull request for this branch is already open. Review its title and description as they stand:
+
+$PR_TEXT"
 fi
 
 printf 'Reviewing %s against origin/%s with %s, %s draw(s). Findings go to %s.\n' \

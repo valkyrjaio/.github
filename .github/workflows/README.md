@@ -1259,8 +1259,10 @@ many draws run in parallel, 1 by default. The script passes only when every
 draw approves with no finding.
 
 The script needs two commands, `claude` with a login and `jq`, and a local
-checkout of the architecture repository. Commit your changes first. Then run
-the script from the repository under review, and name the base branch:
+checkout of the architecture repository. With `gh` signed in, it also gives the
+reviewer the title and description of an open pull request. Commit your changes
+first. Then run the script from the repository under review, and name the base
+branch:
 
 ```bash
 <dot-github>/scripts/local-review.sh 26.x
