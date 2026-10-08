@@ -351,8 +351,8 @@ PROMPT="$(cat "$PROMPT_FILE")
 
 $GUIDES_PARAGRAPH
 
-This review runs before the pull request is opened, so there is no pull
-request, no thread, and no inline comment tool. The change is
+This review runs on the local branch before the push, so no thread from
+this run exists and there is no inline comment tool. The change is
 \`git diff origin/$BASE_REF...HEAD\`, and its commits are
 \`git log origin/$BASE_REF..HEAD\`. Put every finding in \`summary\`
 instead of an inline comment, each naming its file and line."
