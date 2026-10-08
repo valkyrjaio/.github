@@ -244,7 +244,7 @@ A prose summary of what the PR does and why. Aim to answer:
 - Why did you write this code?
 - What problem does this PR solve?
 
-Say what changed and why, and stop there: the diff carries the how.
+Say what changed and why: the diff carries the how.
 [`PR_DESCRIPTION.md`][pr description url] holds the full rules. If an issue
 tracks the work, put `Closes #123` here: the description becomes the squash
 commit's body, so this is both what closes the issue on merge and where the link
@@ -274,7 +274,8 @@ serves as a useful reference for anyone reading the PR months later.
 - Bold the file path or component affected
 - Follow with an em dash (`—`) and a concise description of what changed
 - If one file has multiple distinct changes, break them into sub-bullets
-- Name the place inside the file only when the position is the change
+- Name the place inside the file only when the position is the change,
+  and then say why the position matters
 
 [`PR_DESCRIPTION.md`][pr description url] holds the full rules for the list.
 

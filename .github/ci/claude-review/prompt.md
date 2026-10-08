@@ -10,12 +10,18 @@ the change against the Valkyrja guides, in this order of precedence:
 3. The cross-language canonical guide, `AGENTS.md` at the root of the
    architecture checkout.
 
-Read the guides that the change needs, not all of them. Always read the
-repository's own guide, section 3 of the canonical `AGENTS.md` (the
-golden rules), and the title rules in `COMMIT_CONVENTION.md`. Then
-choose from the guide index in the architecture checkout's `README.md`
-and from each guide's headings, and read only the guides and sections
-whose subject the change touches.
+Read the guides that the change needs, not all of them. Always read
+the repository's own guide, the per-language guide, section 3 of the
+canonical `AGENTS.md` (the golden rules), and `PR_DESCRIPTION.md`. For
+the rest, list the architecture checkout and read the headings of each
+guide, then read only the guides and sections whose subject the change
+touches.
+
+Work in as few turns as you can. Make every read, search, and command
+that does not depend on another one in the same turn, in parallel.
+
+Review the head commit fresh. The comments of earlier runs are context,
+not a list to check off one by one.
 
 Review in this order of priority, and spend your effort the same way:
 
@@ -49,16 +55,17 @@ ranking says what a review raises, and it narrows the review on
 purpose. British spelling is an advisory finding anywhere, even where
 the documentation is the code.
 
-A finding blocks in these cases. Every other finding is advisory. A
-finding that you mark unverified is advisory too, except a branch that
-no test reaches, which blocks.
+A finding blocks in these cases:
 
 - First priority: the code is wrong or breaks a rule of the guides.
 - Second priority: the documentation is wrong, or a required update is
   missing.
 - Third priority: the title breaks the convention, or the description
-  misstates the change, does not say what changed or why, or lacks a
-  line that the guides require.
+  misstates the change, does not say what changed or why, lacks a line
+  that a guide requires, or holds a line that a guide forbids.
+
+Every other finding is advisory. A finding that you mark unverified is
+advisory too, except a branch that no test reaches, which blocks.
 
 Warning: you cannot run the test suite, the coverage report, or any
 other CI tool. You can only read the source. So never state a coverage
@@ -78,9 +85,9 @@ changing, say so in one line.
 
 You run again on each push, and each run replaces the one before it.
 The workflow resolves every thread your earlier runs left open, so
-state every finding that is still outstanding, including one you
-raised before. Each review is then a complete account of the head
-commit.
+state every finding that the head commit still has, including one that
+an earlier run raised. Each review is then a complete account of the
+head commit.
 
 Two findings are not yours to raise again. A thread that somebody
 answered stays open, so leave that finding to its thread. A finding

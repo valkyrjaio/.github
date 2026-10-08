@@ -32,7 +32,8 @@ Writing your description:
 - Why did you write this code?
 - What problem does this PR solve?
 
-Say what changed and why. The diff carries the how.
+Say what changed and why. The diff carries the how. See PR_DESCRIPTION.md in
+the architecture repository for the rules.
 
 If an issue tracks the work, write "Closes #123" in the description — this body
 becomes the squash commit's body, so that is what closes the issue on merge.
