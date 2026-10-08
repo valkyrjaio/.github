@@ -1216,6 +1216,18 @@ asks for an independent, defect-hunting review against the guides, inline and
 concrete, with no praise or restatement of the diff. A review run locally can
 read the same file, and the two then judge a change by the same instructions.
 
+[`.github/ci/scripts/local-review.sh`](../ci/scripts/local-review.sh) runs that
+review on your machine before the push: the same prompt, model, tools and
+verdict schema, with no memory of an earlier run. It reads the guides from the
+local `architecture` checkout, so keep that on the base branch. The same reviewer reaches
+different findings on the same code, so it runs `DRAWS` reviews in parallel (2
+by default) and passes only when every one reports no finding at all. Run it
+from the repository under review, naming the base branch:
+
+```bash
+../.github/.github/ci/scripts/local-review.sh 26.x
+```
+
 ### The verdict
 
 `anthropics/claude-code-action` writes each finding with `pulls.createReviewComment`, which posts a
