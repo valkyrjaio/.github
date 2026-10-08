@@ -587,8 +587,8 @@ The [shell documentation](https://docs.github.com/en/actions/reference/workflows
 states this on the default row: "Note that this runs a different command to when `bash` is specified
 explicitly."
 
-That table is why the two families of script that a workflow runs differ, and
-neither is the odd one out:
+That table is why the two families of script in `.github/ci/scripts/` differ,
+and neither is the odd one out:
 
 - A script a **bare `run:`** invokes sets `set -e`, because that is the shell that ran the block.
 - A script a **composite action step** invokes sets `set -euo pipefail`, whether the step names the
@@ -1254,8 +1254,8 @@ the bot reads. The script warns when one of these is true:
 The last two warnings do not apply to a change to `.github` itself. There the
 instructions are part of the change under review.
 
-The same reviewer finds different things in the same code. So the script runs
-`DRAWS` draws in parallel, 2 by default. The script passes only when every
+The same reviewer finds different things in the same code. `DRAWS` sets how
+many draws run in parallel, 1 by default. The script passes only when every
 draw approves with no finding.
 
 The script needs two commands, `claude` with a login and `jq`, and a local

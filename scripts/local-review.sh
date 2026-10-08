@@ -59,7 +59,7 @@
 # is clean.
 #
 # Run the script from the repository under review. BASE is the branch that
-# the pull request goes into, and the script requires it. DRAWS is 2 by
+# the pull request goes into, and the script requires it. DRAWS is 1 by
 # default. OUTPUT_DIR keeps the findings of each draw. The default is a new
 # temporary directory.
 #
@@ -112,7 +112,7 @@ BASE_REF="${1:-}"
 
 [[ -n "$BASE_REF" ]] || fail 'Name the base branch, such as 26.x.'
 
-DRAWS="${DRAWS:-2}"
+DRAWS="${DRAWS:-1}"
 
 # The default sits beside the main `.github` checkout, also when the script runs from a worktree.
 MAIN_GIT_DIR="$(git -C "$GITHUB_ROOT" rev-parse --path-format=absolute --git-common-dir 2> /dev/null || true)"
@@ -364,6 +364,8 @@ apply, and there is no inline comment tool. The change is
 instead of an inline comment, each naming its file and line."
 
 # The bot reads the title of the pull request, so a draw reads it too when one already exists.
+command -v gh > /dev/null || echo 'Warning: no gh command, so the review cannot see the pull request title.' >&2
+
 PR_TITLE="$(cd -- "$REPO_ROOT" && gh pr view --json title,state \
   --jq 'select(.state == "OPEN") | .title' 2> /dev/null || true)"
 
