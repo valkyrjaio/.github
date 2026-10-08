@@ -70,6 +70,7 @@
 #
 #     <dot-github>/scripts/local-review.sh BASE
 #     DRAWS=3 <dot-github>/scripts/local-review.sh 26.x
+#     <dot-github>/scripts/local-review.sh --help
 #
 # <dot-github> is the path to the local checkout of `valkyrjaio/.github`.
 # ---------------------------------------------------------------------------
@@ -87,6 +88,18 @@ fail() {
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 GITHUB_ROOT="$(dirname -- "$SCRIPT_DIR")"
 
+# The help is the header of this file, from its title to the closing rule.
+case "${1:-}" in
+  -h | --help)
+    sed -n '/^# Local clone of the Claude review/,/^# ---/p' "${BASH_SOURCE[0]}" | sed -e '$d' -e 's/^# \{0,1\}//'
+    exit 0
+    ;;
+  *) ;;
+esac
+
+# The script takes one argument, so a second one is a mistake rather than an option.
+[[ "$#" -le 1 ]] || fail "Too many arguments. Name only the base branch, and set DRAWS in the environment."
+
 DRAWS="${DRAWS:-2}"
 
 # The default sits beside the main `.github` checkout, also when the script runs from a worktree.
@@ -100,15 +113,6 @@ command -v claude > /dev/null || fail 'No claude command. Install Claude Code an
 command -v jq > /dev/null || fail 'No jq command. Install jq.'
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2> /dev/null)" || fail 'Run this from inside a git repository.'
-
-# The help is the header of this file, from its title to the closing rule.
-case "${1:-}" in
-  -h | --help)
-    sed -n '/^# Local clone of the Claude review/,/^# ---/p' "${BASH_SOURCE[0]}" | sed -e '$d' -e 's/^# \{0,1\}//'
-    exit 0
-    ;;
-  *) ;;
-esac
 
 # The default branch of a repository can differ from the branch its pull requests go into, so
 # the caller names the base branch.
@@ -282,10 +286,11 @@ fi
 
 # The explicit refspec updates `origin/$BASE_REF` even in a clone that tracks one branch. Without
 # that ref, the reviewer cannot read the diff and could approve a change it never saw.
-git -C "$REPO_ROOT" fetch --quiet origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF" \
-  || fail "Could not fetch $BASE_REF from origin."
+# Offline, the review goes on against the `origin/$BASE_REF` that is already there.
+git -C "$REPO_ROOT" fetch --quiet origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF" 2> /dev/null \
+  || echo "Warning: could not fetch $BASE_REF from origin, so the review uses the local origin/$BASE_REF." >&2
 git -C "$REPO_ROOT" rev-parse --verify --quiet "origin/$BASE_REF" > /dev/null \
-  || fail "origin/$BASE_REF does not resolve after the fetch."
+  || fail "origin/$BASE_REF does not resolve."
 
 # A HEAD with no commit past the base branch gives an empty diff, and a clean verdict on it says
 # nothing.
