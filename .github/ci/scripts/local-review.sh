@@ -10,15 +10,23 @@
 # Local clone of the Claude review.
 #
 # Runs the review that `_claude-review.yml` runs, on this machine, before the
-# push. It reads the same prompt, uses the same model, the same tools, and the
-# same verdict schema. Each run starts with no memory of an earlier one, as
-# the bot does, and that fresh start is what the clone is for: a reviewer that
-# remembers its own findings tends to accept their fixes.
+# push. The prompt, the model, the verdict schema and the tool lists are read
+# from the workflow and its prompt file, so the clone follows the bot when
+# they change. The tools that only reach a pull request on GitHub are left
+# out, because there is no pull request yet, and the findings come back in
+# the structured output instead of inline comments.
+#
+# Each run starts with no memory of an earlier one, as the bot does, and that
+# fresh start is what the clone is for: a reviewer that remembers its own
+# findings tends to accept their fixes. So the run loads no CLAUDE.md on its
+# own, no auto-memory, no user settings and no MCP server. The prompt still
+# tells the reviewer to read the repository's own guides, as it tells the bot.
 #
 # The review runs in the repository itself and reads the guides from the
 # local architecture checkout, ARCHITECTURE_DIR, which defaults to the
 # `architecture` directory beside the `.github` checkout. The bot reads them
-# from the base branch on GitHub, so keep that checkout on the same branch.
+# from the base branch on GitHub, so the script warns when that checkout is on
+# another branch or has uncommitted changes.
 #
 # The committed HEAD is what the push sends, so the working tree must match
 # it. The script stops when a tracked file has uncommitted changes.
@@ -30,7 +38,8 @@
 # Run it from the repository under review. BASE is the branch the pull
 # request will land on, and defaults to the default branch of `origin`.
 # DRAWS defaults to 2. The findings of each draw are kept in OUTPUT_DIR,
-# which defaults to a new temporary directory.
+# which defaults to a new temporary directory. It needs `claude`, logged in,
+# and `jq`.
 #
 # Exits 0 when every draw reports no blocking and no advisory finding, 1 when
 # any draw reports a finding, and 2 when a draw does not complete or the
@@ -42,53 +51,83 @@
 #     DRAWS=3 path/to/.github/.github/ci/scripts/local-review.sh 26.x
 # ---------------------------------------------------------------------------
 
+# No workflow runs this script. A person runs it from a terminal, so it sets
+# `-euo pipefail` and reports every failure to start as exit 2 by hand.
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CI_DIR="$(dirname "$SCRIPT_DIR")"
+# Stops the review before it starts, with the exit code that says so.
+fail() {
+  printf '%s\n' "$1" >&2
+  exit 2
+}
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+CI_DIR="$(dirname -- "$SCRIPT_DIR")"
 PROMPT_FILE="$CI_DIR/claude-review/prompt.md"
-WORKFLOW_FILE="$(dirname "$CI_DIR")/workflows/_claude-review.yml"
+WORKFLOW_FILE="$(dirname -- "$CI_DIR")/workflows/_claude-review.yml"
 
 DRAWS="${DRAWS:-2}"
-ARCHITECTURE_DIR="${ARCHITECTURE_DIR:-$(cd "$CI_DIR/../../.." && pwd)/architecture}"
+ARCHITECTURE_DIR="${ARCHITECTURE_DIR:-$(cd -- "$CI_DIR/../../.." && pwd)/architecture}"
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-DEFAULT_REF="$(git -C "$REPO_ROOT" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')"
-BASE_REF="${1:-$DEFAULT_REF}"
+[[ "$DRAWS" =~ ^[1-9][0-9]*$ ]] || fail "DRAWS must be a positive whole number, not '$DRAWS'."
 
-: "${BASE_REF:?Name the base branch, because origin has no default branch set}"
+command -v claude > /dev/null || fail 'No claude command. Install Claude Code and log in.'
+command -v jq > /dev/null || fail 'No jq command. Install jq.'
 
-# The model is read from the workflow, so the clone never drifts from the bot.
-MODEL="$(sed -n 's/.*--model \([^ ]*\).*/\1/p' "$WORKFLOW_FILE" | head -n 1)"
+REPO_ROOT="$(git rev-parse --show-toplevel 2> /dev/null)" || fail 'Run this from inside a git repository.'
 
-: "${MODEL:?No --model in $WORKFLOW_FILE}"
+BASE_REF="${1:-}"
 
-[[ -s "$PROMPT_FILE" ]] || {
-  printf 'No review prompt at %s.\n' "$PROMPT_FILE" >&2
-  exit 2
+if [[ -z "$BASE_REF" ]]; then
+  BASE_REF="$(git -C "$REPO_ROOT" symbolic-ref --short refs/remotes/origin/HEAD 2> /dev/null || true)"
+  BASE_REF="${BASE_REF#origin/}"
+fi
+
+[[ -n "$BASE_REF" ]] || fail 'Name the base branch, because origin has no default branch set.'
+
+[[ -s "$PROMPT_FILE" ]] || fail "No review prompt at $PROMPT_FILE."
+[[ -f "$WORKFLOW_FILE" ]] || fail "No review workflow at $WORKFLOW_FILE."
+[[ -f "$ARCHITECTURE_DIR/AGENTS.md" ]] || fail "No architecture checkout at $ARCHITECTURE_DIR. Set ARCHITECTURE_DIR."
+
+# Reads the value of one `claude_args` flag from the workflow, without its quotes.
+read_workflow_flag() {
+  local flag="$1"
+
+  sed -n "s/^ *$flag ['\"]\(.*\)['\"] *$/\1/p" "$WORKFLOW_FILE" | head -n 1
 }
 
-[[ -f "$ARCHITECTURE_DIR/AGENTS.md" ]] || {
-  printf 'No architecture checkout at %s. Set ARCHITECTURE_DIR.\n' "$ARCHITECTURE_DIR" >&2
-  exit 2
-}
+MODEL="$(sed -n 's/^ *--model \([^ ]*\) *$/\1/p' "$WORKFLOW_FILE" | head -n 1)"
+SCHEMA="$(read_workflow_flag '--json-schema')"
+DISALLOWED_TOOLS="$(read_workflow_flag '--disallowedTools')"
+
+# The GitHub tools are the MCP comment tools and every `gh` call. Each one reaches a pull request
+# that does not exist yet, and some name it through a workflow expression.
+ALLOWED_TOOLS="$(read_workflow_flag '--allowedTools' | tr ',' '\n' | grep -v -e '^mcp__' -e '^Bash(gh ' | paste -s -d ',' -)"
+
+[[ -n "$MODEL" ]] || fail "No --model in $WORKFLOW_FILE."
+[[ -n "$SCHEMA" ]] || fail "No --json-schema in $WORKFLOW_FILE."
+[[ -n "$DISALLOWED_TOOLS" ]] || fail "No --disallowedTools in $WORKFLOW_FILE."
+[[ -n "$ALLOWED_TOOLS" ]] || fail "No --allowedTools in $WORKFLOW_FILE."
 
 # The reviewer reads the files on disk, and the push sends HEAD, so the two must agree.
-[[ -z "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=no)" ]] || {
-  echo 'Tracked files have uncommitted changes. Commit them, then review.' >&2
-  exit 2
-}
+[[ -z "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=no)" ]] \
+  || fail 'Tracked files have uncommitted changes. Commit them, then review.'
 
-# The bot's tools, less the ones that only reach a pull request on GitHub. There is no pull
-# request yet, so the findings come back in the structured output instead of inline comments.
-ALLOWED_TOOLS='Read,Grep,Glob,LS,Bash(git diff:*),Bash(git log:*)'
-DISALLOWED_TOOLS='Bash(git add:*),Bash(git commit:*),Bash(git rm:*),Bash(*git-push.sh:*),Edit,Write,NotebookEdit'
-SCHEMA='{"type":"object","properties":{"verdict":{"type":"string","enum":["approved","changes_requested","commented"]},"summary":{"type":"string"},"blocking_findings":{"type":"integer"},"advisory_findings":{"type":"integer"}},"required":["verdict","summary","blocking_findings","advisory_findings"]}'
+ARCHITECTURE_BRANCH="$(git -C "$ARCHITECTURE_DIR" branch --show-current 2> /dev/null || true)"
+
+if [[ "$ARCHITECTURE_BRANCH" != "$BASE_REF" ]]; then
+  printf 'Warning: the guides are read from %s, but the bot reads them from %s.\n' \
+    "${ARCHITECTURE_BRANCH:-a detached HEAD}" "$BASE_REF" >&2
+fi
+
+if [[ -n "$(git -C "$ARCHITECTURE_DIR" status --porcelain --untracked-files=no 2> /dev/null)" ]]; then
+  echo 'Warning: the architecture checkout has uncommitted changes, which the bot does not see.' >&2
+fi
+
+git -C "$REPO_ROOT" fetch --quiet origin "$BASE_REF" || fail "Could not fetch $BASE_REF from origin."
 
 OUTPUT_DIR="${OUTPUT_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/local-review.XXXXXX")}"
 mkdir -p "$OUTPUT_DIR"
-
-git -C "$REPO_ROOT" fetch --quiet origin "$BASE_REF"
 
 PROMPT="$(cat "$PROMPT_FILE")
 
@@ -109,11 +148,13 @@ printf 'Reviewing %s against origin/%s with %s, %s draw(s). Findings go to %s.\n
 
 PIDS=()
 
-for DRAW in $(seq 1 "$DRAWS"); do
+for ((DRAW = 1; DRAW <= DRAWS; DRAW++)); do
   (
-    cd "$REPO_ROOT"
-    claude -p "$PROMPT" \
+    cd -- "$REPO_ROOT"
+    CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 claude -p "$PROMPT" \
       --model "$MODEL" \
+      --setting-sources project \
+      --strict-mcp-config \
       --no-session-persistence \
       --add-dir "$ARCHITECTURE_DIR" \
       --allowedTools "$ALLOWED_TOOLS" \
@@ -148,6 +189,7 @@ case "$STATUS" in
   0) printf '\nEvery draw is clean. Push.\n' ;;
   1) printf '\nFix every finding above, commit, and run this again.\n' ;;
   2) printf '\nA draw did not complete, so the review is not clean.\n' ;;
+  *) printf '\nThe review ended with status %s, which this script does not set.\n' "$STATUS" ;;
 esac
 
 exit "$STATUS"
