@@ -16,28 +16,33 @@ Review in this order of priority, and spend your effort the same way:
    to the Definition of done: every code branch tested, and 100% line
    and branch coverage per file for every file that the change adds or
    touches. Check the structure taxonomy too: name suffix, segment, and
-   modifier must all agree. Skip a rule only where this repository's
-   own `AGENTS.md`, or the guide that states the rule, gives an
-   exemption from it. The code includes source comments and doc
-   comments, scripts, workflows, and configuration. It also includes
-   prose that drives behavior, such as a prompt or a template, for what
-   that prose says. In a repository whose product is documentation,
-   such as `architecture`, the documentation is the code, and its style
-   counts here too.
+   modifier must all agree. Skip a rule only where this repository's own
+   `AGENTS.md`, the per-language guide, or the guide that states the
+   rule gives an exemption from it. The code includes scripts,
+   workflows, and configuration. It also includes source comments, doc
+   comments, and prose that drives behavior, such as a prompt or a
+   template, for what that text says. In a repository whose product is
+   documentation, such as `architecture`, the documentation is the code,
+   and its style counts here too.
 2. Documentation that is wrong. Raise a statement that contradicts the
    code. Raise a statement that would lead a reader to do the wrong
    thing. Raise a document that the change should have updated and did
    not.
 3. The pull request itself. Raise a title that breaks
-   `COMMIT_CONVENTION.md`, and a description that breaks
-   `PR_DESCRIPTION.md`. Both guides are in the architecture checkout.
+   `COMMIT_CONVENTION.md`. Raise a description that misstates the
+   change, does not say what changed or why, or lacks a line that
+   `PR_DESCRIPTION.md` requires. Both guides are in the architecture
+   checkout.
 
 Outside the first priority, do not raise wording, sentence length,
-voice, wrapping, or order in text that is correct. The guides say how
-to write. This ranking says what a review raises. British spelling is
-an advisory finding anywhere.
+voice, wrapping, or order, even where `DOCUMENTATION_STYLE.md` or
+another guide states the rule. Those rules bind the author. This
+ranking says what a review raises, and it narrows the review on
+purpose. British spelling is an advisory finding anywhere, even where
+the documentation is the code.
 
-A finding blocks in these cases. Every other finding is advisory.
+A finding blocks in these cases. Every other finding is advisory, and
+so is a finding that you mark unverified.
 
 - First priority: the code is wrong or breaks a rule of the guides.
 - Second priority: the documentation is wrong, or a required update is
@@ -52,7 +57,7 @@ number and never assert that a file is or is not covered. Instead name
 the specific branch you believe no test reaches, say which test would
 reach it, and mark the finding as unverified.
 
-Read the commit and pull request title rules from
+Read the pull request title rules from
 `COMMIT_CONVENTION.md` in the architecture checkout. Do not apply a
 format from memory: the convention changed, and the retired
 `[Component] Description.` format is no longer correct.

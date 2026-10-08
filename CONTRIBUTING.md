@@ -274,6 +274,9 @@ serves as a useful reference for anyone reading the PR months later.
 - Bold the file path or component affected
 - Follow with an em dash (`—`) and a concise description of what changed
 - If one file has multiple distinct changes, break them into sub-bullets
+- Never name the place inside the file; the diff shows it
+
+[`PR_DESCRIPTION.md`][pr description url] holds the full rules for the list.
 
 **Good examples:**
 
