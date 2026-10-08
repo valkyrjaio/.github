@@ -131,7 +131,7 @@ DEFAULT_REF="$(git -C "$REPO_ROOT" ls-remote --symref origin HEAD 2> /dev/null \
   | sed -n 's|^ref: refs/heads/\([^[:space:]]*\).*|\1|p' | sed -n 1p || true)"
 
 # A `.github` change under review carries its own instructions, also from a worktree or a symlink.
-GITHUB_GIT_DIR="$(git -C "$GITHUB_ROOT" rev-parse --path-format=absolute --git-common-dir 2> /dev/null || true)"
+GITHUB_GIT_DIR="$MAIN_GIT_DIR"
 REPO_GIT_DIR="$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-common-dir 2> /dev/null || true)"
 REVIEWING_GITHUB=false
 
@@ -170,7 +170,7 @@ ALLOWED_TOOLS="$(read_workflow_flag '--allowedTools' | tr ',' '\n' \
 [[ -n "$MODEL" ]] || fail "No --model in $WORKFLOW_FILE."
 [[ -n "$SCHEMA" ]] || fail "No --json-schema in $WORKFLOW_FILE."
 [[ -n "$DISALLOWED_TOOLS" ]] || fail "No --disallowedTools in $WORKFLOW_FILE."
-[[ -n "$ALLOWED_TOOLS" ]] || fail "No --allowedTools in $WORKFLOW_FILE."
+[[ -n "$ALLOWED_TOOLS" ]] || fail "No --allowedTools in $WORKFLOW_FILE, or only GitHub tools."
 
 # Lists what is not committed: tracked changes everywhere, and untracked files outside `.claude/`,
 # which holds Claude Code state that no clone ignores.

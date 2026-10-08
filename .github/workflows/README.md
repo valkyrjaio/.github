@@ -1239,7 +1239,10 @@ The bot keeps all of them, so in a repository that ships any of them, a draw is
 not an exact copy of the bot.
 
 The reviewer reads the guides from the local `architecture` checkout. The script
-warns when one of these is true:
+fetches the base branch into each checkout it compares: it updates
+`origin/<base>` in the repository under review, and `FETCH_HEAD` in the
+`.github` and `architecture` checkouts. The script warns when one of these is
+true:
 
 - The `architecture` checkout is not on the branch the bot reads.
 - The `architecture` checkout is behind or ahead of that branch.
