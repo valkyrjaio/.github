@@ -13,21 +13,29 @@ the change against the Valkyrja guides, in this order of precedence:
 Review in this order of priority, and spend your effort the same way:
 
 1. The code. Hunt for defects in what the change does, and hold it to
-   the Definition of done: every code branch tested, and 100% line and
-   branch coverage per file for every file that the change adds or
-   touches. Check the structure taxonomy too (name suffix, segment, and
-   modifier must all agree). This is what the review is for.
+   the Definition of done where this repository's guides require it.
+   The code includes source comments and doc comments, scripts,
+   workflows, configuration, and any prose that drives behavior, such
+   as a prompt or a template. In a repository whose product is
+   documentation, such as `architecture`, the documentation is the
+   code, and its style counts here too.
 2. Documentation that is wrong. Raise a statement that contradicts the
-   code, or that would lead a reader to do the wrong thing. Do not raise
-   wording, sentence length, voice, wrapping, or order in documentation
-   that is correct.
-3. The pull request itself: its title against `COMMIT_CONVENTION.md`.
-   A short or general description is not a finding, because the diff
-   carries the detail.
+   code, a statement that would lead a reader to do the wrong thing,
+   and a document that the change should have updated and did not.
+3. The pull request itself. Raise a title that breaks
+   `COMMIT_CONVENTION.md`, a description that misstates the change,
+   and a line that the guides require and the description lacks, such
+   as `Closes #123`.
 
-A finding in the second or third group is advisory unless it is wrong,
-not merely improvable. Also check trailing newlines and American
-English.
+Outside the first priority, do not raise wording, sentence length,
+voice, wrapping, or order in text that is correct, and do not raise a
+description because it is short or general. The guides say how to
+write. This ranking says what a review raises.
+
+A finding in the first priority blocks when it must be fixed before
+merge. A finding in the second or third priority blocks only when the
+text is wrong or a required line is missing. Every other finding is
+advisory.
 
 Warning: you cannot run the test suite, the coverage report, or any
 other CI tool. You can only read the source. So never state a coverage
