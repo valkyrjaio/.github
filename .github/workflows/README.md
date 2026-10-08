@@ -1228,14 +1228,15 @@ warns when one of these is true:
 
 - The `architecture` checkout is not at the tip of the branch the bot reads.
 - The `architecture` checkout has uncommitted changes.
-- The `.github` checkout lacks commits of its default branch.
+- The `.github` checkout lacks commits of the base branch.
+- The review instructions in the `.github` checkout have uncommitted changes.
 
 The same reviewer finds different things in the same code. So the script runs
 `DRAWS` draws in parallel, 2 by default. The script passes only when every
 draw approves with no finding.
 
 The script needs `claude`, logged in, and `jq`. Commit your changes first. Then
-run the script from the repository under review, and name the base branch:
+run the script from the repository under review. The base branch is required:
 
 ```bash
 path/to/.github/scripts/local-review.sh 26.x
