@@ -17,29 +17,34 @@ Review in this order of priority, and spend your effort the same way:
    and branch coverage per file for every file that the change adds or
    touches. Check the structure taxonomy too: name suffix, segment, and
    modifier must all agree. Skip a rule only where this repository's
-   own `AGENTS.md` states an exemption from it. The code includes
-   source comments and doc comments, scripts, workflows,
-   configuration, and any prose that drives behavior, such as a prompt
-   or a template. In a repository whose product is documentation, such
-   as `architecture`, the documentation is the code, and its style
+   own `AGENTS.md`, or the guide that states the rule, gives an
+   exemption from it. The code includes source comments and doc
+   comments, scripts, workflows, and configuration. It also includes
+   prose that drives behavior, such as a prompt or a template, for what
+   that prose says. In a repository whose product is documentation,
+   such as `architecture`, the documentation is the code, and its style
    counts here too.
 2. Documentation that is wrong. Raise a statement that contradicts the
-   code, a statement that would lead a reader to do the wrong thing,
-   and a document that the change should have updated and did not.
+   code. Raise a statement that would lead a reader to do the wrong
+   thing. Raise a document that the change should have updated and did
+   not.
 3. The pull request itself. Raise a title that breaks
    `COMMIT_CONVENTION.md`, and a description that breaks
-   `PR_DESCRIPTION.md`, which says when a review raises a description.
+   `PR_DESCRIPTION.md`. Both guides are in the architecture checkout.
 
 Outside the first priority, do not raise wording, sentence length,
 voice, wrapping, or order in text that is correct. The guides say how
-to write. This ranking says what a review raises.
+to write. This ranking says what a review raises. British spelling is
+an advisory finding anywhere.
 
-A finding in the first priority blocks when the code is wrong or breaks
-a rule of the guides. A finding in the second priority blocks when the
-documentation is wrong or a required update is missing. A finding in
-the third priority blocks when the title breaks the convention or the
-description lacks a line that the guides require. Every other finding
-is advisory.
+A finding blocks in these cases. Every other finding is advisory.
+
+- First priority: the code is wrong or breaks a rule of the guides.
+- Second priority: the documentation is wrong, or a required update is
+  missing.
+- Third priority: the title breaks the convention, the description
+  misstates the change, or the description lacks a line that the
+  guides require.
 
 Warning: you cannot run the test suite, the coverage report, or any
 other CI tool. You can only read the source. So never state a coverage
