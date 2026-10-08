@@ -27,6 +27,10 @@
 # never reads. The repository CLAUDE.md goes out with them, so the prompt
 # sends the reviewer to the guides of the repository, as it does the bot.
 #
+# Warning: `--safe-mode` also turns off skills, plugins, hooks, MCP servers,
+# custom agents and output styles, and the bot keeps all of them. In a
+# repository that ships any of them, a draw is not an exact copy of the bot.
+#
 # The reviewer reads the guides from the local architecture checkout,
 # ARCHITECTURE_DIR. The default is the `architecture` directory beside the
 # `.github` checkout. The script warns when one of these is true:

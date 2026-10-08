@@ -1226,13 +1226,14 @@ read the same file, and the two then judge a change by the same instructions.
 on your machine before the push. The script reads the prompt from
 `.github/ci/claude-review/prompt.md`. The script reads the model, the verdict
 schema, the tool lists and the guides paragraph from this workflow. The script
-leaves out the tools that reach a pull request. In the workflow,
-`--allowedTools` adds to the defaults of the action. For a bare `claude`, it is
-the whole grant, so a draw has fewer tools than the bot.
+leaves out the tools that reach a pull request.
 
 Each draw is one run of `claude`, with no memory of an earlier draw. The script
-runs `claude` in `--safe-mode`, with no auto-memory and no user settings. The
-reviewer reads the guides from the local `architecture` checkout. The script
+runs `claude` in `--safe-mode`, with no auto-memory and no user settings.
+`--safe-mode` keeps out every CLAUDE.md, and it also turns off skills, plugins,
+hooks, MCP servers, custom agents and output styles. The bot keeps all of them,
+so in a repository that ships any of them, a draw is not an exact copy of the
+bot. The reviewer reads the guides from the local `architecture` checkout. The script
 warns when one of these is true:
 
 - The `architecture` checkout is not on the branch the bot reads.
