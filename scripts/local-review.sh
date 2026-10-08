@@ -126,10 +126,7 @@ command -v jq > /dev/null || fail 'No jq command. Install jq.'
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2> /dev/null)" || fail 'Run this from inside a git repository.'
 
-# The bot falls back to the default branch of the repository under review for the guides. The
-# script asks the remote, because the local `origin/HEAD` changes only on a clone.
-DEFAULT_REF="$(git -C "$REPO_ROOT" ls-remote --symref origin HEAD 2> /dev/null \
-  | sed -n 's|^ref: refs/heads/\([^[:space:]]*\).*|\1|p' | sed -n 1p || true)"
+DEFAULT_REF=''
 
 # A `.github` change under review carries its own instructions, also from a worktree or a symlink.
 GITHUB_GIT_DIR="$MAIN_GIT_DIR"
@@ -149,7 +146,7 @@ WORKFLOW_FILE="$GITHUB_ROOT/.github/workflows/_claude-review.yml"
 [[ -f "$ARCHITECTURE_DIR/AGENTS.md" ]] || fail "No architecture checkout at $ARCHITECTURE_DIR. Set ARCHITECTURE_DIR."
 
 # Each draw runs from the repository root, so a relative path has to become absolute first.
-ARCHITECTURE_DIR="$(cd -- "$ARCHITECTURE_DIR" && pwd)"
+ARCHITECTURE_DIR="$(cd -- "$ARCHITECTURE_DIR" && pwd -P)"
 
 # Reads the value of one `claude_args` flag from the workflow, without its quotes. The second
 # `sed` keeps the first match and reads to the end, so a second match never breaks the pipe.
@@ -196,12 +193,13 @@ if [[ "$REVIEWING_GITHUB" == 'false' ]]; then
       || printf 'Warning: the review instructions in the .github checkout differ from %s.\n' \
         "$BASE_REF" >&2
   else
-    # A base branch that `.github` does not hold, such as a stacked branch, has nothing to compare.
     LS_STATUS=0
     git -C "$GITHUB_ROOT" ls-remote --exit-code --heads "$GITHUB_REMOTE" "refs/heads/$BASE_REF" > /dev/null 2>&1 \
       || LS_STATUS=$?
 
-    if [[ "$LS_STATUS" -ne 2 ]]; then
+    if [[ "$LS_STATUS" -eq 2 ]]; then
+      echo "Warning: .github holds no $BASE_REF branch, so its instructions are not checked." >&2
+    else
       echo "Warning: could not fetch $BASE_REF into the .github checkout to check its instructions." >&2
     fi
   fi
@@ -241,6 +239,11 @@ if [[ "$GUIDES_STATUS" -eq 0 ]]; then
   GUIDES_REF="$BASE_REF"
 elif [[ "$GUIDES_STATUS" -eq 1 ]]; then
   DEFAULT_STATUS=1
+
+  # The bot falls back to the default branch of the repository under review. The script asks the
+  # remote, because the local `origin/HEAD` changes only on a clone.
+  DEFAULT_REF="$(git -C "$REPO_ROOT" ls-remote --symref origin HEAD 2> /dev/null \
+    | sed -n 's|^ref: refs/heads/\([^[:space:]]*\).*|\1|p' | sed -n 1p || true)"
 
   # An empty DEFAULT_REF means its own query failed, which is not the same as an absent branch.
   if [[ -z "$DEFAULT_REF" ]]; then
@@ -326,11 +329,12 @@ physical_path() {
   printf '%s%s\n' "$(cd -- "$path" && pwd -P)" "$rest"
 }
 
-# Findings inside the repository would fail the clean-tree check on the next run.
+# Findings inside the repository or the guides would make the next run fail or warn.
 [[ "$OUTPUT_DIR" == /* ]] || OUTPUT_DIR="$PWD/$OUTPUT_DIR"
 OUTPUT_DIR="$(physical_path "$OUTPUT_DIR")"
 REPO_PHYSICAL="$(cd -- "$REPO_ROOT" && pwd -P)"
 [[ "$OUTPUT_DIR/" != "$REPO_PHYSICAL/"* ]] || fail "OUTPUT_DIR must sit outside the repository under review."
+[[ "$OUTPUT_DIR/" != "$ARCHITECTURE_DIR/"* ]] || fail "OUTPUT_DIR must sit outside the architecture checkout."
 
 mkdir -p -- "$OUTPUT_DIR" 2> /dev/null && [[ -w "$OUTPUT_DIR" ]] || fail "Could not write to $OUTPUT_DIR."
 OUTPUT_DIR="$(cd -- "$OUTPUT_DIR" && pwd -P)"
@@ -352,8 +356,9 @@ PROMPT="$(cat "$PROMPT_FILE")
 
 $GUIDES_PARAGRAPH
 
-This review runs on the local branch before the push, so no thread from
-this run exists and there is no inline comment tool. The change is
+This review runs on the local branch before the push. You cannot read
+the threads of a pull request, so the rules about earlier threads do not
+apply, and there is no inline comment tool. The change is
 \`git diff origin/$BASE_REF...HEAD\`, and its commits are
 \`git log origin/$BASE_REF..HEAD\`. Put every finding in \`summary\`
 instead of an inline comment, each naming its file and line."
