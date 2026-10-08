@@ -20,9 +20,12 @@
 #
 # Each draw starts with no memory of an earlier draw, as the bot does. A
 # reviewer that remembers its own findings tends to accept their fixes. So
-# the script runs `claude` in `--safe-mode`, with no auto-memory and no user
-# settings. The prompt tells the reviewer to read the guides of the
-# repository, as the prompt tells the bot.
+# each draw is a new session with no auto-memory and no user settings.
+#
+# Each draw also runs in `--safe-mode`, which keeps out every CLAUDE.md. A
+# CLAUDE.md of the user or of a parent directory holds rules that the bot
+# never reads. The repository CLAUDE.md goes out with them, so the prompt
+# sends the reviewer to the guides of the repository, as it does the bot.
 #
 # The reviewer reads the guides from the local architecture checkout,
 # ARCHITECTURE_DIR. The default is the `architecture` directory beside the
@@ -78,8 +81,6 @@ fail() {
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 GITHUB_ROOT="$(dirname -- "$SCRIPT_DIR")"
-PROMPT_FILE="$GITHUB_ROOT/.github/ci/claude-review/prompt.md"
-WORKFLOW_FILE="$GITHUB_ROOT/.github/workflows/_claude-review.yml"
 
 DRAWS="${DRAWS:-2}"
 ARCHITECTURE_DIR="${ARCHITECTURE_DIR:-$(dirname -- "$GITHUB_ROOT")/architecture}"
@@ -101,6 +102,19 @@ BASE_REF="${1:-}"
 # script asks the remote, because the local `origin/HEAD` changes only on a clone.
 DEFAULT_REF="$(git -C "$REPO_ROOT" ls-remote --symref origin HEAD 2> /dev/null \
   | sed -n 's|^ref: refs/heads/\([^[:space:]]*\).*|\1|p' | sed -n 1p || true)"
+
+# A `.github` change under review carries its own instructions, also from a worktree or a symlink.
+GITHUB_GIT_DIR="$(git -C "$GITHUB_ROOT" rev-parse --path-format=absolute --git-common-dir 2> /dev/null || true)"
+REPO_GIT_DIR="$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-common-dir 2> /dev/null || true)"
+REVIEWING_GITHUB=false
+
+if [[ -n "$REPO_GIT_DIR" && "$GITHUB_GIT_DIR" == "$REPO_GIT_DIR" ]]; then
+  REVIEWING_GITHUB=true
+  GITHUB_ROOT="$REPO_ROOT"
+fi
+
+PROMPT_FILE="$GITHUB_ROOT/.github/ci/claude-review/prompt.md"
+WORKFLOW_FILE="$GITHUB_ROOT/.github/workflows/_claude-review.yml"
 
 [[ -s "$PROMPT_FILE" ]] || fail "No review prompt at $PROMPT_FILE."
 [[ -f "$WORKFLOW_FILE" ]] || fail "No review workflow at $WORKFLOW_FILE."
@@ -139,17 +153,20 @@ ALLOWED_TOOLS="$(read_workflow_flag '--allowedTools' | tr ',' '\n' \
 # The instructions in this `.github` checkout must match the base branch tip and be committed.
 INSTRUCTION_FILES=('.github/ci/claude-review/prompt.md' '.github/workflows/_claude-review.yml')
 
-# A `.github` change under review carries its own instructions, also from a worktree or a symlink.
-GITHUB_GIT_DIR="$(git -C "$GITHUB_ROOT" rev-parse --path-format=absolute --git-common-dir 2> /dev/null || true)"
-REPO_GIT_DIR="$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-common-dir 2> /dev/null || true)"
-
-if [[ "$GITHUB_GIT_DIR" != "$REPO_GIT_DIR" ]]; then
+if [[ "$REVIEWING_GITHUB" == false ]]; then
   if git -C "$GITHUB_ROOT" fetch --quiet origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF" 2> /dev/null; then
     git -C "$GITHUB_ROOT" diff --quiet "origin/$BASE_REF" HEAD -- "${INSTRUCTION_FILES[@]}" 2> /dev/null \
-      || printf 'Warning: the review instructions in the .github checkout differ from the tip of origin/%s.\n' \
+      || printf 'Warning: the review instructions in the .github checkout differ from origin/%s.\n' \
         "$BASE_REF" >&2
   else
-    echo "Warning: could not fetch $BASE_REF into the .github checkout, so its instructions are not checked." >&2
+    # A base branch that `.github` does not hold, such as a stacked branch, has nothing to compare.
+    LS_STATUS=0
+    git -C "$GITHUB_ROOT" ls-remote --exit-code --heads origin "refs/heads/$BASE_REF" > /dev/null 2>&1 \
+      || LS_STATUS=$?
+
+    if [[ "$LS_STATUS" -ne 2 ]]; then
+      echo "Warning: could not fetch $BASE_REF into the .github checkout to check its instructions." >&2
+    fi
   fi
 
   if [[ -n "$(git -C "$GITHUB_ROOT" status --porcelain -- "${INSTRUCTION_FILES[@]}" 2> /dev/null)" ]]; then
@@ -175,8 +192,8 @@ architecture_has_branch() {
   esac
 }
 
-# The guides branch by the fallbacks of `checkout-architecture-guides.sh`: base, repository default,
-# architecture default. The value is empty when any query failed.
+# The script finds the guides branch by the fallbacks of `checkout-architecture-guides.sh`. The
+# value is empty when any query failed.
 GUIDES_REF=''
 GUIDES_STATUS=0
 architecture_has_branch "$BASE_REF" || GUIDES_STATUS=$?
@@ -214,7 +231,8 @@ else
       "${ARCHITECTURE_BRANCH:-a detached HEAD}" "$GUIDES_REF" >&2
   elif git -C "$ARCHITECTURE_DIR" fetch --quiet origin \
     "+refs/heads/$GUIDES_REF:refs/remotes/origin/$GUIDES_REF" 2> /dev/null; then
-    COUNTS="$(git -C "$ARCHITECTURE_DIR" rev-list --left-right --count "HEAD...origin/$GUIDES_REF" 2> /dev/null || true)"
+    COUNTS="$(git -C "$ARCHITECTURE_DIR" rev-list --left-right --count "HEAD...origin/$GUIDES_REF" \
+      2> /dev/null || true)"
     AHEAD="${COUNTS%%[[:space:]]*}"
     BEHIND="${COUNTS##*[[:space:]]}"
 
@@ -252,6 +270,10 @@ git -C "$REPO_ROOT" rev-parse --verify --quiet "origin/$BASE_REF" > /dev/null \
 if [[ -z "${OUTPUT_DIR:-}" ]]; then
   OUTPUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/local-review.XXXXXX")" || fail 'Could not make a temporary directory.'
 fi
+
+# Findings inside the repository would fail the clean-tree check on the next run.
+[[ "$OUTPUT_DIR" == /* ]] || OUTPUT_DIR="$PWD/$OUTPUT_DIR"
+[[ "$OUTPUT_DIR/" != "$REPO_ROOT/"* ]] || fail "OUTPUT_DIR must sit outside the repository under review."
 
 mkdir -p -- "$OUTPUT_DIR" 2> /dev/null && [[ -w "$OUTPUT_DIR" ]] || fail "Could not write to $OUTPUT_DIR."
 OUTPUT_DIR="$(cd -- "$OUTPUT_DIR" && pwd)"
@@ -313,8 +335,7 @@ for INDEX in "${!PIDS[@]}"; do
   if ! wait "${PIDS[$INDEX]}" || ! jq -e '.structured_output.verdict' "$RESULT" > /dev/null 2>&1; then
     printf '\n== Draw %s did not complete. Its output is in %s.\n' "$DRAW" "$RESULT"
 
-    # The CLI says why a run stopped in `result`, as for an expired login, in `errors`, or only in
-    # `subtype`, as for a run out of turns. The first of them that says anything is the reason.
+    # The reason is the first field that says anything: `result`, then `errors`, then `subtype`.
     REASON="$(jq -r '[.result, ((.errors // []) | map(tostring) | join("; ")), .subtype]
       | map(select(type == "string" and . != "")) | first // empty' "$RESULT" 2> /dev/null || true)"
 
@@ -326,8 +347,9 @@ for INDEX in "${!PIDS[@]}"; do
     continue
   fi
 
-  jq -r --arg draw "$DRAW" '.structured_output |
-    "\n== Draw \($draw): \(.verdict), \(.blocking_findings) blocking, \(.advisory_findings) advisory\n\n\(.summary)"' "$RESULT"
+  jq -r --arg draw "$DRAW" '.structured_output
+    | "\n== Draw \($draw): \(.verdict), \(.blocking_findings) blocking, "
+      + "\(.advisory_findings) advisory\n\n\(.summary)"' "$RESULT"
 
   # Clean means the reviewer approved and counted nothing, so a verdict the counts contradict fails.
   if ! jq -e '.structured_output | .verdict == "approved" and .blocking_findings == 0 and .advisory_findings == 0' \

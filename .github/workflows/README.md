@@ -1256,8 +1256,9 @@ branch is required:
 
 `<dot-github>` is the path to the local checkout of `valkyrjaio/.github`.
 `DRAWS` sets the number of draws. `ARCHITECTURE_DIR` names a different guides
-checkout. `OUTPUT_DIR` names the directory for the findings of each draw. The
-default is a new temporary directory.
+checkout. The default is the `architecture` directory beside the `.github`
+checkout. `OUTPUT_DIR` names the directory for the findings of each draw,
+outside the repository under review. The default is a new temporary directory.
 
 ### The verdict
 
