@@ -1230,18 +1230,19 @@ warns when one of these is true:
 - The `architecture` checkout is not on the branch the bot reads.
 - The `architecture` checkout is behind or ahead of that branch.
 - The `architecture` checkout has uncommitted changes or untracked files.
-- The `.github` checkout lacks commits of the base branch.
+- The `.github` checkout is behind or ahead of the tip of the base branch.
 - The review instructions in the `.github` checkout have uncommitted changes.
 
 The same reviewer finds different things in the same code. So the script runs
 `DRAWS` draws in parallel, 2 by default. The script passes only when every
 draw approves with no finding.
 
-The script needs `claude`, logged in, and `jq`. Commit your changes first. Then
-run the script from the repository under review. The base branch is required:
+The script needs two commands: `claude`, with a login, and `jq`. Commit your
+changes first. Then run the script from the repository under review. The base
+branch is required:
 
 ```bash
-path/to/.github/scripts/local-review.sh 26.x
+../.github/scripts/local-review.sh 26.x
 ```
 
 | Exit | Meaning                                                |

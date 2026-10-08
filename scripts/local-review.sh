@@ -30,8 +30,10 @@
 #
 #   - The architecture checkout is on a branch that the bot does not read.
 #   - The architecture checkout is behind or ahead of that branch.
-#   - The architecture checkout has uncommitted changes.
-#   - The `.github` checkout lacks commits of the base branch.
+#   - The architecture checkout has uncommitted changes or untracked files.
+#   - The `.github` checkout is behind or ahead of the tip of the base branch.
+#     The bot reads the `.github` ref that its caller pins, which can be older
+#     than that tip, so this warning is a hint and not a proof.
 #   - The review instructions in the `.github` checkout have uncommitted
 #     changes.
 #
@@ -58,8 +60,8 @@
 #
 # Usage:
 #
-#     path/to/.github/scripts/local-review.sh BASE
-#     DRAWS=3 path/to/.github/scripts/local-review.sh 26.x
+#     ~/Dropbox/Sites/Valkyrja/.github/scripts/local-review.sh BASE
+#     DRAWS=3 ../.github/scripts/local-review.sh 26.x
 # ---------------------------------------------------------------------------
 
 # No workflow runs this script, so it sets `-euo pipefail`. Every failure to
@@ -135,14 +137,25 @@ ALLOWED_TOOLS="$(read_workflow_flag '--allowedTools' | tr ',' '\n' \
 
 # The instructions come from this `.github` checkout. The instructions land on the version
 # branch, the same branch as the base branch of the change, and `master` follows only by hand.
-# So a checkout that lacks commits of that branch reviews with old instructions.
+# A checkout behind that branch reviews with old instructions, and a checkout ahead of it reviews
+# with instructions the bot cannot read. The bot reads the ref that its caller pins, which can be
+# older than the tip, so the warnings name the tip.
 if git -C "$GITHUB_ROOT" fetch --quiet origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF" 2> /dev/null; then
-  BEHIND="$(git -C "$GITHUB_ROOT" rev-list --count "HEAD..origin/$BASE_REF" 2> /dev/null || echo 0)"
+  COUNTS="$(git -C "$GITHUB_ROOT" rev-list --left-right --count "HEAD...origin/$BASE_REF" 2> /dev/null || true)"
+  AHEAD="${COUNTS%%[[:space:]]*}"
+  BEHIND="${COUNTS##*[[:space:]]}"
 
-  if [[ "$BEHIND" -gt 0 ]]; then
-    printf 'Warning: the .github checkout lacks %s commit(s) of origin/%s. Merge or pull them.\n' \
+  if [[ "${BEHIND:-0}" -gt 0 ]]; then
+    printf 'Warning: the .github checkout is %s commit(s) behind the tip of origin/%s.\n' \
       "$BEHIND" "$BASE_REF" >&2
   fi
+
+  if [[ "${AHEAD:-0}" -gt 0 ]]; then
+    printf 'Warning: the .github checkout is %s commit(s) ahead of the tip of origin/%s.\n' \
+      "$AHEAD" "$BASE_REF" >&2
+  fi
+else
+  echo "Warning: could not fetch $BASE_REF into the .github checkout, so its age is not known." >&2
 fi
 
 # The bot reads the committed instructions. An edit that is not committed changes what the clone
@@ -183,7 +196,10 @@ if [[ "$GUIDES_STATUS" -eq 0 ]]; then
 elif [[ "$GUIDES_STATUS" -eq 1 ]]; then
   DEFAULT_STATUS=1
 
-  if [[ "$BASE_REF" != "$DEFAULT_REF" ]]; then
+  # An empty DEFAULT_REF means its own query failed, which is not the same as an absent branch.
+  if [[ -z "$DEFAULT_REF" ]]; then
+    DEFAULT_STATUS=2
+  elif [[ "$BASE_REF" != "$DEFAULT_REF" ]]; then
     DEFAULT_STATUS=0
     architecture_has_branch "$DEFAULT_REF" || DEFAULT_STATUS=$?
   fi
@@ -228,7 +244,7 @@ fi
 
 # A new guide file that is not committed is on disk too, so the check counts untracked files.
 if [[ -n "$(git -C "$ARCHITECTURE_DIR" status --porcelain 2> /dev/null)" ]]; then
-  echo 'Warning: the architecture checkout has uncommitted changes, which the bot does not see.' >&2
+  echo 'Warning: the architecture checkout has uncommitted changes or untracked files, which the bot does not see.' >&2
 fi
 
 # The explicit refspec updates `origin/$BASE_REF` even in a clone that tracks one branch. Without
@@ -273,23 +289,23 @@ instead of an inline comment, each naming its file and line."
 printf 'Reviewing %s against origin/%s with %s, %s draw(s). Findings go to %s.\n' \
   "$(git -C "$REPO_ROOT" rev-parse --short HEAD)" "$BASE_REF" "$MODEL" "$DRAWS" "$OUTPUT_DIR"
 
-# `--safe-mode` turns off CLAUDE.md, skills, plugins, hooks, MCP servers, commands, agents and
-# output styles from every source, the repository included. The bot loads the CLAUDE.md of the
-# repository on its own, so here the prompt is what sends the reviewer to it. The help text
-# does not say that `--safe-mode` turns off auto-memory, so `CLAUDE_CODE_DISABLE_AUTO_MEMORY`
-# stays. `--setting-sources project` leaves out the settings of the user, such as permissions
-# that grant more tools than the workflow does. The `settings.json` of the repository stays, as
-# it does for the bot.
 PIDS=()
 
 for ((DRAW = 1; DRAW <= DRAWS; DRAW++)); do
   (
     cd -- "$REPO_ROOT"
+
+    # `--safe-mode` turns off CLAUDE.md, skills, plugins, hooks, MCP servers, commands, agents and
+    # output styles from every source, the repository included. The bot loads the CLAUDE.md of the
+    # repository on its own, so here the prompt is what sends the reviewer to it. The help text
+    # does not say that `--safe-mode` turns off auto-memory, so `CLAUDE_CODE_DISABLE_AUTO_MEMORY`
+    # stays. `--setting-sources project` leaves out the settings of the user, such as permissions
+    # that grant more tools than the workflow does. The `settings.json` of the repository stays, as
+    # it does for the bot.
     CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 claude -p "$PROMPT" \
       --safe-mode \
       --model "$MODEL" \
       --setting-sources project \
-      --strict-mcp-config \
       --no-session-persistence \
       --add-dir "$ARCHITECTURE_DIR" \
       --allowedTools "$ALLOWED_TOOLS" \
