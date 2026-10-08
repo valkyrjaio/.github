@@ -67,6 +67,11 @@ A finding blocks in these cases:
 Every other finding is advisory. A finding that you mark unverified is
 advisory too, except a branch that no test reaches, which blocks.
 
+Raise an advisory finding only when it names a concrete consequence: a
+defect, a reader led to do the wrong thing, or a broken rule of the
+guides. Drop a finding whose only reason is taste, consistency, or a
+better wording.
+
 Warning: you cannot run the test suite, the coverage report, or any
 other CI tool. You can only read the source. So never state a coverage
 number and never assert that a file is or is not covered. Instead name
