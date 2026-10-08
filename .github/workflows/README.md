@@ -1218,20 +1218,20 @@ read the same file, and the two then judge a change by the same instructions.
 
 [`scripts/local-review.sh`](../../scripts/local-review.sh) runs the same review
 on your machine before the push. The script reads the prompt, the model, the
-verdict schema and the tool lists from this workflow. It leaves out the tools
-that reach a pull request.
+verdict schema and the tool lists from this workflow. The script leaves out the
+tools that reach a pull request.
 
-Each run starts with no memory of an earlier run. The script runs `claude` in
-`--safe-mode`, with no auto-memory and no user settings. The reviewer reads the
-guides from the local `architecture` checkout. The script warns when one of
-these is true:
+Each draw is one run of `claude`, with no memory of an earlier draw. The script
+runs `claude` in `--safe-mode`, with no auto-memory and no user settings. The
+reviewer reads the guides from the local `architecture` checkout. The script
+warns when one of these is true:
 
 - The `architecture` checkout is not at the tip of the branch the bot reads.
 - The `architecture` checkout has uncommitted changes.
 - The `.github` checkout lacks commits of its default branch.
 
 The same reviewer finds different things in the same code. So the script runs
-`DRAWS` reviews in parallel, 2 by default. The script passes only when every
+`DRAWS` draws in parallel, 2 by default. The script passes only when every
 draw approves with no finding.
 
 The script needs `claude`, logged in, and `jq`. Commit your changes first. Then

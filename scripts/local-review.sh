@@ -18,7 +18,7 @@
 # because no pull request exists yet. The reviewer writes its findings in the
 # structured output, not in inline comments.
 #
-# Each run starts with no memory of an earlier run, as the bot does. A
+# Each draw starts with no memory of an earlier draw, as the bot does. A
 # reviewer that remembers its own findings tends to accept their fixes. So
 # the script runs `claude` in `--safe-mode`, with no auto-memory and no user
 # settings. The prompt tells the reviewer to read the guides of the
@@ -36,9 +36,10 @@
 # The push sends HEAD, so the working tree must match HEAD. The script stops
 # when the working tree has a change that is not committed.
 #
-# The same reviewer finds different things in the same code. So one run is
-# one sample of what the bot can find. The script runs DRAWS reviews in
-# parallel. The script passes only when every draw is clean.
+# A draw is one run of `claude`. The same reviewer finds different things in
+# the same code, so one draw shows only part of what the bot can find. The
+# script runs DRAWS draws in parallel. The script passes only when every draw
+# is clean.
 #
 # Run the script from the repository under review. BASE is the branch that
 # the pull request goes into. The default is the default branch of `origin`.
@@ -59,8 +60,8 @@
 #     DRAWS=3 path/to/.github/scripts/local-review.sh 26.x
 # ---------------------------------------------------------------------------
 
-# A person runs this script from a terminal, as `scripts/` holds, so it sets
-# `-euo pipefail`. Every failure to start goes through `fail`, which exits 2.
+# No workflow runs this script, so it sets `-euo pipefail`. Every failure to
+# start goes through `fail`, which exits 2.
 set -euo pipefail
 
 # Stops the review before it starts, with the exit code that says so.
@@ -138,7 +139,7 @@ if [[ -n "$GITHUB_DEFAULT_REF" ]] && git -C "$GITHUB_ROOT" fetch --quiet origin 
 fi
 
 # Reports whether the architecture repository holds the branch: 0 when it does, 1 when it does
-# not, and 2 when the query failed. The same test `checkout-architecture-guides.sh` makes.
+# not, and 2 when the query failed. `checkout-architecture-guides.sh` makes the same test.
 architecture_has_branch() {
   local candidate="$1"
   local status=0
@@ -157,7 +158,7 @@ architecture_has_branch() {
 
 # The branch the bot reads the guides from, by the fallbacks `checkout-architecture-guides.sh`
 # takes: the base branch, then the default branch of the repository under review, then the
-# default branch of the architecture repository. Empty when the query failed.
+# default branch of the architecture repository. The value is empty when the query failed.
 GUIDES_REF=''
 GUIDES_STATUS=0
 architecture_has_branch "$BASE_REF" || GUIDES_STATUS=$?
