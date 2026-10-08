@@ -1216,21 +1216,29 @@ asks for an independent, defect-hunting review against the guides, inline and
 concrete, with no praise or restatement of the diff. A review run locally can
 read the same file, and the two then judge a change by the same instructions.
 
-[`.github/ci/scripts/local-review.sh`](../ci/scripts/local-review.sh) runs that
-review on your machine before the push. It reads the prompt, model, verdict
-schema and tool lists from this workflow, less the tools that only reach a pull
-request, and it starts with no memory of an earlier run: `--safe-mode`, no
-auto-memory, no user settings. It reads the guides from the local
-`architecture` checkout, and warns when that is not at the tip of the branch
-the bot reads them from, or when the `.github` checkout is behind its upstream.
+[`scripts/local-review.sh`](../../scripts/local-review.sh) runs the same review
+on your machine before the push. The script reads the prompt, the model, the
+verdict schema and the tool lists from this workflow. It leaves out the tools
+that reach a pull request.
 
-The same reviewer reaches different findings on the same code, so it runs
-`DRAWS` reviews in parallel (2 by default) and passes only when every one
-reports no finding at all. It needs `claude`, logged in, and `jq`. Commit
-first, then run it from the repository under review, naming the base branch:
+Each run starts with no memory of an earlier run. The script runs `claude` in
+`--safe-mode`, with no auto-memory and no user settings. The reviewer reads the
+guides from the local `architecture` checkout. The script warns when one of
+these is true:
+
+- The `architecture` checkout is not at the tip of the branch the bot reads.
+- The `architecture` checkout has uncommitted changes.
+- The `.github` checkout lacks commits of its default branch.
+
+The same reviewer finds different things in the same code. So the script runs
+`DRAWS` reviews in parallel, 2 by default. The script passes only when every
+draw approves with no finding.
+
+The script needs `claude`, logged in, and `jq`. Commit your changes first. Then
+run the script from the repository under review, and name the base branch:
 
 ```bash
-path/to/.github/.github/ci/scripts/local-review.sh 26.x
+path/to/.github/scripts/local-review.sh 26.x
 ```
 
 | Exit | Meaning                                                |
@@ -1239,8 +1247,9 @@ path/to/.github/.github/ci/scripts/local-review.sh 26.x
 | `1`  | A draw reports a finding                               |
 | `2`  | A draw did not complete, or the review could not start |
 
-`ARCHITECTURE_DIR` names another guides checkout, and `OUTPUT_DIR` keeps each
-draw's findings somewhere other than a new temporary directory.
+`ARCHITECTURE_DIR` names a different guides checkout. `OUTPUT_DIR` names the
+directory for the findings of each draw. The default is a new temporary
+directory.
 
 ### The verdict
 

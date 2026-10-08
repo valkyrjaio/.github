@@ -9,53 +9,58 @@
 # ---------------------------------------------------------------------------
 # Local clone of the Claude review.
 #
-# Runs the review that `_claude-review.yml` runs, on this machine, before the
-# push. The prompt, the model, the verdict schema and the tool lists are read
-# from the workflow and its prompt file, so the clone follows the bot when
-# they change. The tools that only reach a pull request on GitHub are left
-# out, because there is no pull request yet, and the findings come back in
-# the structured output instead of inline comments.
+# This script runs the review of `_claude-review.yml` on your machine before
+# the push. It reads the prompt, the model, the verdict schema and the tool
+# lists from the workflow and its prompt file. So the clone follows the bot
+# when the bot changes.
 #
-# Each run starts with no memory of an earlier one, as the bot does, and that
-# fresh start is what the clone is for: a reviewer that remembers its own
-# findings tends to accept their fixes. So the run is in `--safe-mode`, which
-# loads no CLAUDE.md, skill, hook or plugin, with auto-memory, user settings
-# and MCP servers off as well. The prompt still tells the reviewer to read the
-# repository's own guides, as it tells the bot.
+# The script leaves out the tools that reach a pull request on GitHub,
+# because no pull request exists yet. The reviewer writes its findings in the
+# structured output, not in inline comments.
 #
-# The review runs in the repository itself and reads the guides from the
-# local architecture checkout, ARCHITECTURE_DIR, which defaults to the
-# `architecture` directory beside the `.github` checkout. The bot reads them
-# from GitHub, by the fallbacks `checkout-architecture-guides.sh` takes, so the
-# script warns when that checkout is on another branch than the bot reads, is
-# behind it, or has uncommitted changes. It warns as well when the `.github`
-# checkout, which holds the instructions, is behind its upstream.
+# Each run starts with no memory of an earlier run, as the bot does. A
+# reviewer that remembers its own findings tends to accept their fixes. So
+# the script runs `claude` in `--safe-mode`, with no auto-memory and no user
+# settings. The prompt tells the reviewer to read the guides of the
+# repository, as the prompt tells the bot.
 #
-# The committed HEAD is what the push sends, so the working tree must match
-# it. The script stops when a tracked file has uncommitted changes.
+# The reviewer reads the guides from the local architecture checkout,
+# ARCHITECTURE_DIR. The default is the `architecture` directory beside the
+# `.github` checkout. The script warns when one of these is true:
 #
-# The same reviewer reaches different findings on the same code, so one run
-# is one sample of what the bot may raise. DRAWS runs that many reviews in
-# parallel, and the script passes only when every one of them is clean.
+#   - The architecture checkout is on a branch that the bot does not read.
+#   - The architecture checkout is behind that branch.
+#   - The architecture checkout has uncommitted changes.
+#   - The `.github` checkout lacks commits of its default branch.
 #
-# Run it from the repository under review. BASE is the branch the pull
-# request will land on, and defaults to the default branch of `origin`.
-# DRAWS defaults to 2. The findings of each draw are kept in OUTPUT_DIR,
-# which defaults to a new temporary directory. It needs `claude`, logged in,
-# and `jq`.
+# The push sends HEAD, so the working tree must match HEAD. The script stops
+# when the working tree has a change that is not committed.
 #
-# Exits 0 when every draw approves with no blocking and no advisory finding,
-# 1 when any draw reports a finding, and 2 when a draw does not complete or
-# the review cannot start.
+# The same reviewer finds different things in the same code. So one run is
+# one sample of what the bot can find. The script runs DRAWS reviews in
+# parallel. The script passes only when every draw is clean.
+#
+# Run the script from the repository under review. BASE is the branch that
+# the pull request goes into. The default is the default branch of `origin`.
+# DRAWS is 2 by default. OUTPUT_DIR keeps the findings of each draw. The
+# default is a new temporary directory.
+#
+# Requires: `claude` (logged in) and `jq`.
+#
+# Exit codes:
+#
+#   0  Every draw approves, with no blocking and no advisory finding.
+#   1  A draw reports a finding.
+#   2  A draw does not complete, or the review cannot start.
 #
 # Usage:
 #
-#     path/to/.github/.github/ci/scripts/local-review.sh [BASE]
-#     DRAWS=3 path/to/.github/.github/ci/scripts/local-review.sh 26.x
+#     path/to/.github/scripts/local-review.sh [BASE]
+#     DRAWS=3 path/to/.github/scripts/local-review.sh 26.x
 # ---------------------------------------------------------------------------
 
-# No workflow runs this script. A person runs it from a terminal, so it sets
-# `-euo pipefail` and reports every failure to start as exit 2 by hand.
+# A person runs this script from a terminal, as `scripts/` holds, so it sets
+# `-euo pipefail`. Every failure to start goes through `fail`, which exits 2.
 set -euo pipefail
 
 # Stops the review before it starts, with the exit code that says so.
@@ -65,12 +70,12 @@ fail() {
 }
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-CI_DIR="$(dirname -- "$SCRIPT_DIR")"
-PROMPT_FILE="$CI_DIR/claude-review/prompt.md"
-WORKFLOW_FILE="$(dirname -- "$CI_DIR")/workflows/_claude-review.yml"
+GITHUB_ROOT="$(dirname -- "$SCRIPT_DIR")"
+PROMPT_FILE="$GITHUB_ROOT/.github/ci/claude-review/prompt.md"
+WORKFLOW_FILE="$GITHUB_ROOT/.github/workflows/_claude-review.yml"
 
 DRAWS="${DRAWS:-2}"
-ARCHITECTURE_DIR="${ARCHITECTURE_DIR:-$(cd -- "$CI_DIR/../../.." && pwd)/architecture}"
+ARCHITECTURE_DIR="${ARCHITECTURE_DIR:-$(dirname -- "$GITHUB_ROOT")/architecture}"
 
 [[ "$DRAWS" =~ ^[1-9][0-9]*$ ]] || fail "DRAWS must be a positive whole number, not '$DRAWS'."
 
@@ -112,19 +117,23 @@ ALLOWED_TOOLS="$(read_workflow_flag '--allowedTools' | tr ',' '\n' \
 [[ -n "$DISALLOWED_TOOLS" ]] || fail "No --disallowedTools in $WORKFLOW_FILE."
 [[ -n "$ALLOWED_TOOLS" ]] || fail "No --allowedTools in $WORKFLOW_FILE."
 
-# The reviewer reads the files on disk, and the push sends HEAD, so the two must agree.
-[[ -z "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=no)" ]] \
-  || fail 'Tracked files have uncommitted changes. Commit them, then review.'
+# The reviewer reads the files on disk, and the push sends HEAD. A new file that is not committed
+# is on disk too, so the check counts untracked files as well.
+[[ -z "$(git -C "$REPO_ROOT" status --porcelain)" ]] \
+  || fail 'The working tree has changes that are not committed. Commit them, then review.'
 
-# The instructions come from the `.github` checkout this script lives in, and the bot reads them
-# from the ref its caller pins. A checkout behind its upstream reviews by old instructions.
-GITHUB_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2> /dev/null || true)"
+# The instructions come from this `.github` checkout. A checkout that lacks commits of its default
+# branch reviews with old instructions. The check compares with the default branch, not with the
+# upstream, because a feature branch in `.github` is never behind its own upstream.
+GITHUB_DEFAULT_REF="$(git -C "$GITHUB_ROOT" symbolic-ref --short refs/remotes/origin/HEAD 2> /dev/null || true)"
+GITHUB_DEFAULT_REF="${GITHUB_DEFAULT_REF#origin/}"
 
-if [[ -n "$GITHUB_ROOT" ]] && git -C "$GITHUB_ROOT" fetch --quiet 2> /dev/null; then
-  BEHIND="$(git -C "$GITHUB_ROOT" rev-list --count 'HEAD..@{upstream}' 2> /dev/null || echo 0)"
+if [[ -n "$GITHUB_DEFAULT_REF" ]] && git -C "$GITHUB_ROOT" fetch --quiet origin "$GITHUB_DEFAULT_REF" 2> /dev/null; then
+  BEHIND="$(git -C "$GITHUB_ROOT" rev-list --count "HEAD..origin/$GITHUB_DEFAULT_REF" 2> /dev/null || echo 0)"
 
   if [[ "$BEHIND" -gt 0 ]]; then
-    printf 'Warning: the .github checkout is %s commit(s) behind its upstream. Pull it.\n' "$BEHIND" >&2
+    printf 'Warning: the .github checkout lacks %s commit(s) of origin/%s. Merge or pull them.\n' \
+      "$BEHIND" "$GITHUB_DEFAULT_REF" >&2
   fi
 fi
 
@@ -191,8 +200,11 @@ fi
 
 git -C "$REPO_ROOT" fetch --quiet origin "$BASE_REF" || fail "Could not fetch $BASE_REF from origin."
 
-OUTPUT_DIR="${OUTPUT_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/local-review.XXXXXX")}"
-mkdir -p "$OUTPUT_DIR"
+if [[ -z "${OUTPUT_DIR:-}" ]]; then
+  OUTPUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/local-review.XXXXXX")" || fail 'Could not make a temporary directory.'
+fi
+
+mkdir -p -- "$OUTPUT_DIR" 2> /dev/null && [[ -w "$OUTPUT_DIR" ]] || fail "Could not write to $OUTPUT_DIR."
 
 PROMPT="$(cat "$PROMPT_FILE")
 
@@ -211,6 +223,9 @@ instead of an inline comment, each naming its file and line."
 printf 'Reviewing %s against origin/%s with %s, %s draw(s). Findings go to %s.\n' \
   "$(git -C "$REPO_ROOT" rev-parse --short HEAD)" "$BASE_REF" "$MODEL" "$DRAWS" "$OUTPUT_DIR"
 
+# The bot runs `claude` in a checkout of the repository, so it reads the `.claude/settings.json`
+# of that repository too. `--setting-sources project` keeps those settings and leaves out the
+# settings of the user.
 PIDS=()
 
 for ((DRAW = 1; DRAW <= DRAWS; DRAW++)); do
