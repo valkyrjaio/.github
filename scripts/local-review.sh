@@ -207,7 +207,7 @@ if [[ -z "$GUIDES_REF" ]]; then
 else
   ARCHITECTURE_BRANCH="$(git -C "$ARCHITECTURE_DIR" branch --show-current 2> /dev/null || true)"
 
-  # The bot reads the tip of that branch, so a checkout behind or ahead of it judges by other guides.
+  # The bot reads the tip of that branch, so a checkout behind or ahead judges by other guides.
   # On another branch, the counts measure divergence instead, so the script skips them.
   if [[ "$ARCHITECTURE_BRANCH" != "$GUIDES_REF" ]]; then
     printf 'Warning: the guides are read from %s, but the bot reads them from %s.\n' \
