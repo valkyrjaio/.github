@@ -28,8 +28,9 @@
 # sends the reviewer to the guides of the repository, as it does the bot.
 #
 # Warning: `--safe-mode` also turns off skills, plugins, hooks, MCP servers,
-# custom agents and output styles, and the bot keeps all of them. In a
-# repository that ships any of them, a draw is not an exact copy of the bot.
+# custom commands and agents, output styles and workflows, and the bot keeps
+# all of them. In a repository that ships any of them, a draw is not an exact
+# copy of the bot.
 #
 # The reviewer reads the guides from the local architecture checkout,
 # ARCHITECTURE_DIR. The default is the `architecture` directory beside the
@@ -100,6 +101,15 @@ command -v jq > /dev/null || fail 'No jq command. Install jq.'
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2> /dev/null)" || fail 'Run this from inside a git repository.'
 
+# The help is the header of this file, from its title to the closing rule.
+case "${1:-}" in
+  -h | --help)
+    sed -n '/^# Local clone of the Claude review/,/^# ---/p' "${BASH_SOURCE[0]}" | sed -e '$d' -e 's/^# \{0,1\}//'
+    exit 0
+    ;;
+  *) ;;
+esac
+
 # The default branch of a repository can differ from the branch its pull requests go into, so
 # the caller names the base branch.
 BASE_REF="${1:-}"
@@ -159,17 +169,19 @@ ALLOWED_TOOLS="$(read_workflow_flag '--allowedTools' | tr ',' '\n' \
   || fail 'The working tree has changes that are not committed. Commit them, then review.'
 
 # The instructions in this `.github` checkout must match the base branch tip and be committed.
+# The bot reads the canonical repository, not the `origin` of the local checkout, which can be a fork.
+GITHUB_REMOTE='https://github.com/valkyrjaio/.github.git'
 INSTRUCTION_FILES=('.github/ci/claude-review/prompt.md' '.github/workflows/_claude-review.yml')
 
 if [[ "$REVIEWING_GITHUB" == 'false' ]]; then
-  if git -C "$GITHUB_ROOT" fetch --quiet origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF" 2> /dev/null; then
-    git -C "$GITHUB_ROOT" diff --quiet "origin/$BASE_REF" HEAD -- "${INSTRUCTION_FILES[@]}" 2> /dev/null \
-      || printf 'Warning: the review instructions in the .github checkout differ from origin/%s.\n' \
+  if git -C "$GITHUB_ROOT" fetch --quiet "$GITHUB_REMOTE" "refs/heads/$BASE_REF" 2> /dev/null; then
+    git -C "$GITHUB_ROOT" diff --quiet FETCH_HEAD HEAD -- "${INSTRUCTION_FILES[@]}" 2> /dev/null \
+      || printf 'Warning: the review instructions in the .github checkout differ from %s.\n' \
         "$BASE_REF" >&2
   else
     # A base branch that `.github` does not hold, such as a stacked branch, has nothing to compare.
     LS_STATUS=0
-    git -C "$GITHUB_ROOT" ls-remote --exit-code --heads origin "refs/heads/$BASE_REF" > /dev/null 2>&1 \
+    git -C "$GITHUB_ROOT" ls-remote --exit-code --heads "$GITHUB_REMOTE" "refs/heads/$BASE_REF" > /dev/null 2>&1 \
       || LS_STATUS=$?
 
     if [[ "$LS_STATUS" -ne 2 ]]; then

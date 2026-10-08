@@ -597,9 +597,10 @@ neither is the odd one out:
   than mirrors.
 
 A tool that a person runs from a terminal lives in `scripts/` at the root of the
-repository. When only a person runs it, no step shell decides its options, so it
-sets `set -euo pipefail`. When a workflow runs it too, the step that runs it
-decides its `set` line, as for any script above.
+repository, and it sets `set -euo pipefail`. A workflow can run such a tool too,
+as `_rebase-all-to-master.yml` runs `rebase-all-to-master.sh`. The tool keeps
+`set -euo pipefail` then as well, because no single step shell is the one that
+it mirrors.
 
 Warning: no option is inherited in any family. A script is a fresh `bash` started from its own
 shebang, so the `set` line is what turns every option on, and the shell of the step is what the
@@ -1233,9 +1234,9 @@ leaves out the tools that reach a pull request.
 Each draw is one run of `claude`, with no memory of an earlier draw. The script
 runs `claude` in `--safe-mode`, with no auto-memory and no user settings.
 `--safe-mode` keeps out every CLAUDE.md, and it also turns off skills, plugins,
-hooks, MCP servers, custom agents and output styles. The bot keeps all of them,
-so in a repository that ships any of them, a draw is not an exact copy of the
-bot.
+hooks, MCP servers, custom commands and agents, output styles and workflows.
+The bot keeps all of them, so in a repository that ships any of them, a draw is
+not an exact copy of the bot.
 
 The reviewer reads the guides from the local `architecture` checkout. The script
 warns when one of these is true:
@@ -1246,6 +1247,9 @@ warns when one of these is true:
 - The review instructions in the `.github` checkout differ from the tip of the
   base branch.
 - The review instructions in the `.github` checkout have uncommitted changes.
+
+The last two warnings do not apply to a change to `.github` itself. There the
+instructions are part of the change under review.
 
 The same reviewer finds different things in the same code. So the script runs
 `DRAWS` draws in parallel, 2 by default. The script passes only when every
