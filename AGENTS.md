@@ -38,7 +38,7 @@ holds glue. Glue is a line or two that moves one value. The step that reads the
 bot user id into a step output is glue.
 
 A tool that a person runs from a terminal lives in `scripts/` at the root of
-the repository instead. The Scripts section of the workflows README gives its
+the repository instead. [Scripts](.github/workflows/README.md#scripts) gives its
 `set` line.
 
 Warning: one check stays inline whatever it holds. The check that proves a

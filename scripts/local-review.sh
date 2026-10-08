@@ -46,7 +46,11 @@
 #     changes.
 #
 # The push sends HEAD, so the working tree must match HEAD. The script stops
-# when the working tree has a change that is not committed.
+# when the working tree has a change that is not committed. Untracked files
+# under `.claude/` are Claude Code state, and the script does not count them.
+#
+# When a pull request for the branch already exists and `gh` can read it, the
+# prompt names its title, as the bot sees it.
 #
 # A draw is one run of `claude`. The same reviewer finds different things in
 # the same code, so one draw shows only part of what the bot can find. The
@@ -168,9 +172,16 @@ ALLOWED_TOOLS="$(read_workflow_flag '--allowedTools' | tr ',' '\n' \
 [[ -n "$DISALLOWED_TOOLS" ]] || fail "No --disallowedTools in $WORKFLOW_FILE."
 [[ -n "$ALLOWED_TOOLS" ]] || fail "No --allowedTools in $WORKFLOW_FILE."
 
-# The reviewer reads untracked files on disk too, so they count. `.claude/` holds Claude Code state,
-# which no clone ignores, so it does not.
-[[ -z "$(git -C "$REPO_ROOT" status --porcelain -- . ':(exclude).claude')" ]] \
+# Lists what is not committed: tracked changes everywhere, and untracked files outside `.claude/`,
+# which holds Claude Code state that no clone ignores.
+uncommitted() {
+  local root="$1"
+
+  git -C "$root" status --porcelain --untracked-files=no 2> /dev/null || true
+  git -C "$root" ls-files --others --exclude-standard -- . ':(exclude).claude' 2> /dev/null || true
+}
+
+[[ -z "$(uncommitted "$REPO_ROOT")" ]] \
   || fail 'The working tree has changes that are not committed. Commit them, then review.'
 
 # The instructions in this `.github` checkout must match the base branch tip and be committed.
@@ -207,8 +218,6 @@ ARCHITECTURE_REMOTE='https://github.com/valkyrjaio/architecture.git'
 architecture_has_branch() {
   local candidate="$1"
   local status=0
-
-  [[ -n "$candidate" ]] || return 1
 
   git -C "$ARCHITECTURE_DIR" ls-remote --exit-code --heads "$ARCHITECTURE_REMOTE" "refs/heads/$candidate" \
     > /dev/null 2>&1 \
@@ -248,7 +257,7 @@ elif [[ "$GUIDES_STATUS" -eq 1 ]]; then
   fi
 fi
 
-if [[ -z "$GUIDES_REF" && -z "$DEFAULT_REF" ]]; then
+if [[ -z "$GUIDES_REF" && "$GUIDES_STATUS" -eq 1 && -z "$DEFAULT_REF" ]]; then
   echo 'Warning: could not ask origin of the repository under review for its default branch.' >&2
 elif [[ -z "$GUIDES_REF" ]]; then
   echo 'Warning: could not ask the architecture repository which branch the bot reads.' >&2
@@ -283,7 +292,7 @@ else
 fi
 
 # A new guide file that is not committed is on disk too, so the check counts untracked files.
-if [[ -n "$(git -C "$ARCHITECTURE_DIR" status --porcelain 2> /dev/null)" ]]; then
+if [[ -n "$(uncommitted "$ARCHITECTURE_DIR")" ]]; then
   echo 'Warning: the architecture checkout has uncommitted changes or untracked files, which the bot does not see.' >&2
 fi
 
@@ -347,6 +356,15 @@ request, no thread, and no inline comment tool. The change is
 \`git diff origin/$BASE_REF...HEAD\`, and its commits are
 \`git log origin/$BASE_REF..HEAD\`. Put every finding in \`summary\`
 instead of an inline comment, each naming its file and line."
+
+# The bot reads the title of the pull request, so a draw reads it too when one already exists.
+PR_TITLE="$(cd -- "$REPO_ROOT" && gh pr view --json title --jq .title 2> /dev/null || true)"
+
+if [[ -n "$PR_TITLE" ]]; then
+  PROMPT="$PROMPT
+
+A pull request for this branch is already open. Its title is: $PR_TITLE"
+fi
 
 printf 'Reviewing %s against origin/%s with %s, %s draw(s). Findings go to %s.\n' \
   "$(git -C "$REPO_ROOT" rev-parse --short HEAD)" "$BASE_REF" "$MODEL" "$DRAWS" "$OUTPUT_DIR"
