@@ -32,9 +32,8 @@
 #   - The architecture checkout is behind or ahead of that branch.
 #   - The architecture checkout has uncommitted changes or untracked files.
 #   - The review instructions in the `.github` checkout differ from the tip of
-#     the base branch. The bot reads the `.github` ref that its caller pins,
-#     which can be older than that tip, so this warning is a hint and not a
-#     proof.
+#     the base branch. The bot reads the `.github` ref that its caller pins.
+#     That ref can be older than the tip, so this warning is only a hint.
 #   - The review instructions in the `.github` checkout have uncommitted
 #     changes.
 #
@@ -122,9 +121,8 @@ MODEL="$(sed -n 's/^ *--model \([^ ]*\) *$/\1/p' "$WORKFLOW_FILE" | sed -n 1p)"
 SCHEMA="$(read_workflow_flag '--json-schema')"
 DISALLOWED_TOOLS="$(read_workflow_flag '--disallowedTools')"
 
-# The GitHub tools are the MCP comment tools and every `gh` call. Each one reaches a pull request
-# that does not exist yet, and some name it through a workflow expression. `grep -v` exits 1 when
-# it keeps nothing, which is the empty list the guard below reports.
+# The MCP comment tools and the `gh` calls reach a pull request that does not exist yet. `grep -v`
+# exits 1 when it keeps nothing, and the guard below reports that empty list.
 ALLOWED_TOOLS="$(read_workflow_flag '--allowedTools' | tr ',' '\n' \
   | { grep -v -e '^mcp__' -e '^Bash(gh ' || true; } | paste -s -d ',' -)"
 
@@ -138,15 +136,14 @@ ALLOWED_TOOLS="$(read_workflow_flag '--allowedTools' | tr ',' '\n' \
 [[ -z "$(git -C "$REPO_ROOT" status --porcelain)" ]] \
   || fail 'The working tree has changes that are not committed. Commit them, then review.'
 
-# The instructions come from this `.github` checkout. The instructions land on the version
-# branch, the same branch as the base branch of the change, and `master` follows only by hand.
-# Instructions that differ from the tip of that branch are not the instructions the bot reads. The
-# bot reads the ref that its caller pins, which can be older than the tip, so the warning names
-# the tip. When the repository under review is `.github` itself, the instructions are part of the
-# change, so the script skips the check.
+# The instructions in this `.github` checkout must match the base branch tip and be committed.
 INSTRUCTION_FILES=('.github/ci/claude-review/prompt.md' '.github/workflows/_claude-review.yml')
 
-if [[ "$GITHUB_ROOT" != "$REPO_ROOT" ]]; then
+# A `.github` change under review carries its own instructions, also from a worktree or a symlink.
+GITHUB_GIT_DIR="$(git -C "$GITHUB_ROOT" rev-parse --path-format=absolute --git-common-dir 2> /dev/null || true)"
+REPO_GIT_DIR="$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-common-dir 2> /dev/null || true)"
+
+if [[ "$GITHUB_GIT_DIR" != "$REPO_GIT_DIR" ]]; then
   if git -C "$GITHUB_ROOT" fetch --quiet origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF" 2> /dev/null; then
     git -C "$GITHUB_ROOT" diff --quiet "origin/$BASE_REF" HEAD -- "${INSTRUCTION_FILES[@]}" 2> /dev/null \
       || printf 'Warning: the review instructions in the .github checkout differ from the tip of origin/%s.\n' \
@@ -154,13 +151,10 @@ if [[ "$GITHUB_ROOT" != "$REPO_ROOT" ]]; then
   else
     echo "Warning: could not fetch $BASE_REF into the .github checkout, so its instructions are not checked." >&2
   fi
-fi
 
-# The bot reads the committed instructions. An edit that is not committed changes what the clone
-# reads and not what the bot reads.
-
-if [[ -n "$(git -C "$GITHUB_ROOT" status --porcelain -- "${INSTRUCTION_FILES[@]}" 2> /dev/null)" ]]; then
-  echo 'Warning: the review instructions in the .github checkout have uncommitted changes.' >&2
+  if [[ -n "$(git -C "$GITHUB_ROOT" status --porcelain -- "${INSTRUCTION_FILES[@]}" 2> /dev/null)" ]]; then
+    echo 'Warning: the review instructions in the .github checkout have uncommitted changes.' >&2
+  fi
 fi
 
 # Reports whether the architecture repository holds the branch: 0 when it does, 1 when it does
@@ -181,9 +175,8 @@ architecture_has_branch() {
   esac
 }
 
-# The branch the bot reads the guides from, by the fallbacks `checkout-architecture-guides.sh`
-# takes: the base branch, then the default branch of the repository under review, then the
-# default branch of the architecture repository. The value is empty when any query failed.
+# The guides branch by the fallbacks of `checkout-architecture-guides.sh`: base, repository default,
+# architecture default. The value is empty when any query failed.
 GUIDES_REF=''
 GUIDES_STATUS=0
 architecture_has_branch "$BASE_REF" || GUIDES_STATUS=$?
@@ -214,10 +207,8 @@ if [[ -z "$GUIDES_REF" ]]; then
 else
   ARCHITECTURE_BRANCH="$(git -C "$ARCHITECTURE_DIR" branch --show-current 2> /dev/null || true)"
 
-  # The bot reads the tip of that branch. A checkout behind it judges against old guides, and a
-  # checkout ahead of it enforces guides the bot cannot read. On another branch, the counts would
-  # measure how far the two branches diverge, so the script skips them. The explicit refspec
-  # updates `origin/$GUIDES_REF` even in a clone that tracks one branch.
+  # The bot reads the tip of that branch, so a checkout behind or ahead of it judges by other guides.
+  # On another branch, the counts measure divergence instead, so the script skips them.
   if [[ "$ARCHITECTURE_BRANCH" != "$GUIDES_REF" ]]; then
     printf 'Warning: the guides are read from %s, but the bot reads them from %s.\n' \
       "${ARCHITECTURE_BRANCH:-a detached HEAD}" "$GUIDES_REF" >&2
@@ -265,10 +256,8 @@ fi
 mkdir -p -- "$OUTPUT_DIR" 2> /dev/null && [[ -w "$OUTPUT_DIR" ]] || fail "Could not write to $OUTPUT_DIR."
 OUTPUT_DIR="$(cd -- "$OUTPUT_DIR" && pwd)"
 
-# The workflow adds a paragraph about the guides after the prompt. The script reads that paragraph
-# from the workflow too: the lines of the `prompt:` block after the prompt output, without their
-# twelve spaces of indentation, with the local guides path in place of the runner path. The
-# literal spaces work in every awk, where a `{12}` interval does not.
+# The guides paragraph follows the prompt output in the workflow's `prompt:` block, indented by
+# twelve literal spaces, since some awk versions lack the `{12}` interval.
 GUIDES_PARAGRAPH="$(awk '
   /steps\.prompt\.outputs\.prompt }}/ { found = 1; next }
   found && /^            / { print substr($0, 13); started = 1; next }
@@ -299,13 +288,8 @@ for ((DRAW = 1; DRAW <= DRAWS; DRAW++)); do
   (
     cd -- "$REPO_ROOT"
 
-    # `--safe-mode` turns off CLAUDE.md, skills, plugins, hooks, MCP servers, commands, agents and
-    # output styles from every source, the repository included. The bot loads the CLAUDE.md of the
-    # repository on its own, so here the prompt is what sends the reviewer to it. The help text
-    # does not say that `--safe-mode` turns off auto-memory, so `CLAUDE_CODE_DISABLE_AUTO_MEMORY`
-    # stays. `--setting-sources project` leaves out the settings of the user, such as permissions
-    # that grant more tools than the workflow does. The `settings.json` of the repository stays, as
-    # it does for the bot.
+    # The environment variable turns auto-memory off, and `--setting-sources project` leaves out the
+    # settings of the user, whose permissions can grant more tools than the workflow does.
     CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 claude -p "$PROMPT" \
       --safe-mode \
       --model "$MODEL" \
