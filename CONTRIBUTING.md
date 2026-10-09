@@ -51,13 +51,13 @@ Each language drives its CI tools through a per-language task runner — PHP
 `composer`, Java Gradle (`./gradlew`), TypeScript `npm`, Go `make`, and Python
 `poe` (Poe the Poet). Check that runner's config for the exact target names
 (`composer.json`, `build.gradle.kts`, `package.json`, `Makefile`,
-`pyproject.toml`). Whichever language(s) your PR touches, the full gate must pass
-before you push.
+`pyproject.toml`). Whichever language(s) your PR touches, the full gate must
+pass before you push.
 
 Coverage is 100% for line and for branch. The rule is per file, not an
 aggregate. Every file you add is at 100% on its own, and every file you touch
-stays at 100%. To measure coverage, and to see when a line may be excluded, read
-[TESTING_METHODOLOGY.md][testing methodology url].
+stays at 100%. To measure coverage, and to see when a line may be excluded,
+read [TESTING_METHODOLOGY.md][testing methodology url].
 
 #### PHP
 
@@ -77,8 +77,9 @@ Each check has a composer script:
 Use `composer phpunit-coverage` instead of `composer phpunit` to read the
 coverage report per file. The terminal output omits a file in which nothing
 ran, so open the report that `.github/ci/phpunit/coverage-html/` holds to
-confirm each file you added appears there. In `valkyrja-php` that script measures lines only, so read the branch
-numbers with `GAPS=1 composer phpunit-path-coverage-parallel`.
+confirm each file you added appears there. In `valkyrja-php` that script
+measures lines only, so read the branch numbers with
+`GAPS=1 composer phpunit-path-coverage-parallel`.
 
 If your PR changes a composer file, also validate it:
 
@@ -299,23 +300,38 @@ The Changes section is optional for small single-file PRs where the description
 already covers everything. For any PR touching multiple files or making several
 discrete changes, fill it in.
 
+### Branches for Code Changes
+
+Temporary: the table below is not followed today. `26.x` is the development
+branch while the framework has no real users, so every change targets the
+current-year `??.x` branch, a new feature, a deprecation and a breaking change
+included. The canonical rule is in [VERSIONING.md][versioning url], and this
+paragraph is removed when adoption begins.
+
+| Branch   | Purpose                                                                                            |
+| -------- | -------------------------------------------------------------------------------------------------- |
+| `master` | Active development branch, open for backwards incompatible changes and major internal API changes. |
+| `??.x`   | Version maintenance branches. Open for bug fixes only.                                             |
+
 ### Which Branch to Target
 
-Warning: a pull request opened against `master` today lands on the wrong branch.
-Valkyrja has no users yet, so the current-year `??.x` branch takes every change,
-including a new feature, a deprecation and a breaking change. For the rule that
-suspends the table below, see [VERSIONING.md][versioning url].
+Temporary: the table below, and the sentence after it, are not followed today.
+Every change targets the current-year `??.x` branch. This paragraph is removed
+when adoption begins.
 
-The table returns when adoption grows. It does not apply today:
+Choosing the right base branch depends on the type of change:
 
-| Change type     | Target branch                                          |
-| --------------- | ------------------------------------------------------ |
-| Improvement     | Lowest major affected `??.x` branch                    |
-| Bug fix         | Lowest major affected `??.x` branch                    |
-| New feature     | `master`                                               |
-| Deprecation     | `master`                                               |
-| Breaking change | `master`, unless it is a bug fix, which needs an issue |
-| Documentation   | Lowest major affected branch the docs apply to         |
+| Change type     | Target branch                                                                         |
+| --------------- | ------------------------------------------------------------------------------------- |
+| Improvement     | Lowest major affected `??.x` branch                                                   |
+| Bug fix         | Lowest major affected `??.x` branch                                                   |
+| New feature     | `master`                                                                              |
+| Deprecation     | `master`                                                                              |
+| Breaking change | `master` — unless it's a bug fix, in which case please open an issue to discuss first |
+| Documentation   | Lowest major affected branch the docs apply to                                        |
+
+If you're unsure which branch to target, open an issue first or target `master`
+and a maintainer will redirect the PR if needed.
 
 ## Getting Help
 
