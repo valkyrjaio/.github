@@ -20,8 +20,8 @@ Branch targeting (see CONTRIBUTING.md for the full table):
 
 Temporary: the targeting above is not followed today. 26.x is the development
 branch while the framework has no real users, so every change targets the
-current-year ??.x branch, a new feature and a breaking change included. This
-paragraph is removed when adoption begins.
+current-year ??.x branch, a new feature, a deprecation and a breaking change
+included. This paragraph is removed when adoption begins.
 
 Before submitting, please confirm:
 - You've read CONTRIBUTING.md
