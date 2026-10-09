@@ -315,9 +315,9 @@ paragraph is removed when adoption begins.
 
 ### Which Branch to Target
 
-Temporary: the table below, and the sentence after it, are not followed today.
-Every change targets the current-year `??.x` branch. This paragraph is removed
-when adoption begins.
+Temporary: the table below, and the sentence after the table, are not followed
+today. Every change targets the current-year `??.x` branch. This paragraph is
+removed when adoption begins.
 
 Choosing the right base branch depends on the type of change:
 
