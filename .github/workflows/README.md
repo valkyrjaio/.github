@@ -1213,15 +1213,17 @@ Behavior:
 - Cannot run the test suite, the coverage report, or any other CI tool. The
   prompt tells the reviewer to name a branch it believes no test reaches and to
   mark the finding unverified, rather than state a coverage number it cannot
-  measure.
+  measure. Such a finding still blocks.
 - Authenticates to Claude with `CLAUDE_CODE_OAUTH_TOKEN` (org secret), billing
   the Claude subscription rather than API credits.
 
 The `prompt` input overrides the review instructions wholesale. The default is
 [`.github/ci/claude-review/prompt.md`](../ci/claude-review/prompt.md), which
 asks for an independent, defect-hunting review against the guides, inline and
-concrete, with no praise or restatement of the diff. A review run locally can
-read the same file, and the two then judge a change by the same instructions.
+concrete, with no praise or restatement of the diff. The prompt ranks the code
+first, wrong documentation second, and the pull request third, and it says when
+a finding blocks. A review run locally can read the same file, and the two then
+judge a change by the same instructions.
 
 ### Running the review locally
 

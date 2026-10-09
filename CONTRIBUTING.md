@@ -244,10 +244,11 @@ A prose summary of what the PR does and why. Aim to answer:
 - Why did you write this code?
 - What problem does this PR solve?
 
-Include relevant context — design choices you made and why, tradeoffs you
-considered, alternatives you rejected. If an issue tracks the work, put
-`Closes #123` here: the description becomes the squash commit's body, so this is
-both what closes the issue on merge and where the link durably lives.
+Say what changed and why: the diff carries the how.
+[`PR_DESCRIPTION.md`][pr description url] holds the full rules. If an issue
+tracks the work, put `Closes #123` here: the description becomes the squash
+commit's body, so this is both what closes the issue on merge and where the link
+durably lives.
 
 Because the description becomes that body, it is also where any explanation that
 would otherwise go in a code comment about a temporary condition belongs — a
@@ -265,26 +266,26 @@ the implementation.
 #### Changes
 
 A bulleted list of the concrete changes in the PR — one bullet per file or per
-logical change. This gives reviewers a scannable map of what was touched and
-why, and serves as a useful reference for anyone reading the PR months later.
+logical change. This gives reviewers a scannable map of what was touched, and
+serves as a useful reference for anyone reading the PR months later.
 
 **Format:**
 
 - Bold the file path or component affected
 - Follow with an em dash (`—`) and a concise description of what changed
 - If one file has multiple distinct changes, break them into sub-bullets
+- Name the place inside the file only when the position is the change,
+  and then say why the position matters
+
+[`PR_DESCRIPTION.md`][pr description url] holds the full rules for the list.
 
 **Good examples:**
 
-- **`_release.yml`** — added release-type detection step; sets
-  `prerelease: true` and `make_latest: false` when version contains `-RC`
-- **`_update-github-workflow-refs.yml`**
-  - Split `jq | gh api PUT` into discrete steps to eliminate pipefail
-    ambiguity
-  - Changed `2>&1` to `2>/dev/null` on `gh pr create` so the `if !` handler
-    fires correctly
-- **`README.md`** — updated workflow behavior description to document the
-  intentional `master` skip and the rationale
+- **`_release.yml`** — marks a release candidate as a prerelease
+- **`_update-workflow-refs.yml`**
+  - Splits the ref update into separate steps
+  - Reports a failed pull request creation
+- **`README.md`** — documents the `master` skip
 
 The Changes section is optional for small single-file PRs where the description
 already covers everything. For any PR touching multiple files or making several
@@ -321,3 +322,4 @@ like `[Help] Title for what you need help with`.
 [issues url]: https://github.com/valkyrjaio/valkyrja-php/issues
 [commit convention url]: https://github.com/valkyrjaio/architecture/blob/26.x/COMMIT_CONVENTION.md
 [versioning url]: https://github.com/valkyrjaio/architecture/blob/26.x/VERSIONING.md
+[pr description url]: https://github.com/valkyrjaio/architecture/blob/26.x/PR_DESCRIPTION.md
