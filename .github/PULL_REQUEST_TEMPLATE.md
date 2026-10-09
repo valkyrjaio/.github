@@ -18,6 +18,11 @@ Branch targeting (see CONTRIBUTING.md for the full table):
 - Documentation → lowest major affected branch the docs apply to
 - Unsure? Target master and a maintainer will redirect if needed.
 
+Temporary: the targeting above is not followed today. 26.x is the development
+branch while the framework has no real users, so every change targets the
+current-year ??.x branch, a new feature, a deprecation and a breaking change
+included. This paragraph is removed when adoption begins.
+
 Before submitting, please confirm:
 - You've read CONTRIBUTING.md
   https://github.com/valkyrjaio/.github/blob/26.x/CONTRIBUTING.md
