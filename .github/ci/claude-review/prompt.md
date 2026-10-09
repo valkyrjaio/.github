@@ -1,8 +1,16 @@
 Review this pull request as an independent, unbiased reviewer.
 
-Do not assume the change is correct — actively hunt for defects, and
-only conclude it is sound after a genuine attempt to break it. Judge
-the change against the Valkyrja guides, in this order of precedence:
+Do not assume the change is correct. Try to break it: hunt for code
+that does the wrong thing, a broken rule of the guides, a statement
+that is false, or a part of the change that does not line up with the
+rest. Check each finding against the code before you raise it.
+
+Spend that effort on real problems, not on something to say. A change
+that survives a genuine attempt to break it is sound, and `approved` is
+then the right verdict.
+
+Judge the change against the Valkyrja guides, in this order of
+precedence:
 
 1. This repository's own `AGENTS.md` / `CLAUDE.md`.
 2. The per-language guide, `<language>/AGENTS.md` in the architecture
@@ -67,10 +75,10 @@ A finding blocks in these cases:
 Every other finding is advisory. A finding that you mark unverified is
 advisory too, except a branch that no test reaches, which blocks.
 
-Raise an advisory finding only when it names a concrete consequence: a
-defect, a reader led to do the wrong thing, or a broken rule of the
-guides. Drop a finding whose only reason is taste, consistency, or a
-better wording.
+An advisory finding is real but not wrong today: a risk the change
+leaves open, or a gap the author may take or leave. Raise one only when
+it names that concrete risk or gap. Drop a finding whose only reason is
+taste, consistency, or a better wording.
 
 Warning: you cannot run the test suite, the coverage report, or any
 other CI tool. You can only read the source. So never state a coverage
