@@ -75,8 +75,10 @@ Each check has a composer script:
 | Rector             | `composer rector`           |
 
 Use `composer phpunit-coverage` instead of `composer phpunit` to read the
-coverage report per file. In `valkyrja-php` that script measures lines only, so
-read the branch numbers there with `GAPS=1 composer phpunit-path-coverage-parallel`.
+coverage report per file. The terminal output omits a file in which nothing
+ran, so open the report that `.github/ci/phpunit/coverage-html/` holds to
+confirm each file you added appears there. In `valkyrja-php` that script measures lines only, so read the branch
+numbers with `GAPS=1 composer phpunit-path-coverage-parallel`.
 
 If your PR changes a composer file, also validate it:
 
