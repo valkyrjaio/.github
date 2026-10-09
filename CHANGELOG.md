@@ -1,6 +1,10 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.26.1...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.26.2...26.x)
+
+## [v26.26.2](https://github.com/valkyrjaio/.github/compare/v26.26.1...v26.26.2) - 2026-10-09
+
+* [Process] docs: Correct the branch a change targets, and the coverage rule by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/352
 
 ## [v26.26.1](https://github.com/valkyrjaio/.github/compare/v26.26.0...v26.26.1) - 2026-10-08
 
