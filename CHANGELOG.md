@@ -1,6 +1,10 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.26.0...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.26.1...26.x)
+
+## [v26.26.1](https://github.com/valkyrjaio/.github/compare/v26.26.0...v26.26.1) - 2026-10-08
+
+* [Workflow] ci: Run the Claude review on Sonnet by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/351
 
 ## [v26.26.0](https://github.com/valkyrjaio/.github/compare/v26.25.7...v26.26.0) - 2026-10-08
 
