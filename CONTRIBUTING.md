@@ -52,7 +52,12 @@ Each language drives its CI tools through a per-language task runner — PHP
 `poe` (Poe the Poet). Check that runner's config for the exact target names
 (`composer.json`, `build.gradle.kts`, `package.json`, `Makefile`,
 `pyproject.toml`). Whichever language(s) your PR touches, the full gate must pass
-with 100% line and branch coverage before you push.
+before you push.
+
+Coverage is 100% for line and for branch. The rule is per file, not an
+aggregate. Every file you add is at 100% on its own, and every file you touch
+stays at 100%. To measure coverage, and to see when a line may be excluded, read
+[TESTING_METHODOLOGY.md][testing methodology url].
 
 #### PHP
 
@@ -69,8 +74,9 @@ Each check has a composer script:
 | Psalm              | `composer psalm`            |
 | Rector             | `composer rector`           |
 
-Use `composer phpunit-coverage` instead of `composer phpunit` to verify you
-aren't reducing overall code coverage.
+Use `composer phpunit-coverage` instead of `composer phpunit` to read the
+coverage report per file. In `valkyrja-php` that script measures lines only, so
+read the branch numbers there with `GAPS=1 composer phpunit-path-coverage-parallel`.
 
 If your PR changes a composer file, also validate it:
 
@@ -138,8 +144,8 @@ Each check has an npm script; the `-check` variants fail without modifying files
 | Vitest            | `npm run vitest`          |
 | Vitest (coverage) | `npm run vitest-coverage` |
 
-`npm run eslint` and `npm run prettier` auto-fix. Use `npm run vitest-coverage` to
-verify you aren't reducing coverage (100% line and branch).
+`npm run eslint` and `npm run prettier` auto-fix. Use `npm run vitest-coverage`
+to read the coverage report per file.
 
 ### Commit and PR Titles
 
@@ -317,4 +323,5 @@ like `[Help] Title for what you need help with`.
 [issues url]: https://github.com/valkyrjaio/valkyrja-php/issues
 [commit convention url]: https://github.com/valkyrjaio/architecture/blob/26.x/COMMIT_CONVENTION.md
 [versioning url]: https://github.com/valkyrjaio/architecture/blob/26.x/VERSIONING.md
+[testing methodology url]: https://github.com/valkyrjaio/architecture/blob/26.x/TESTING_METHODOLOGY.md
 [pr description url]: https://github.com/valkyrjaio/architecture/blob/26.x/PR_DESCRIPTION.md
