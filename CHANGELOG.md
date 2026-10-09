@@ -1,6 +1,11 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.25.7...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.26.0...26.x)
+
+## [v26.26.0](https://github.com/valkyrjaio/.github/compare/v26.25.7...v26.26.0) - 2026-10-08
+
+* [Review] feat: Add a local clone of the Claude review by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/349
+* [Process] feat: Rank the review on real problems, and keep descriptions short by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/350
 
 ## [v26.25.7](https://github.com/valkyrjaio/.github/compare/v26.25.6...v26.25.7) - 2026-10-08
 
