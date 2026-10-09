@@ -12,11 +12,16 @@ Title format: [Root] type: Description of change
 - Put (#123) in the PR title when an issue tracks the work.
 - See CONTRIBUTING.md for the root rules and worked examples.
 
-Branch targeting:
-- Target the current-year ??.x branch. Valkyrja has no users yet, so that
-  branch takes every change, including a new feature, a deprecation and a
-  breaking change.
-- See CONTRIBUTING.md for the table that returns when adoption grows.
+Branch targeting (see CONTRIBUTING.md for the full table):
+- Improvements / Bug fixes → lowest major affected ??.x branch
+- New features / Deprecations / Breaking changes → master
+- Documentation → lowest major affected branch the docs apply to
+- Unsure? Target master and a maintainer will redirect if needed.
+
+Temporary: the targeting above is not followed today. 26.x is the development
+branch while the framework has no real users, so every change targets the
+current-year ??.x branch, a new feature and a breaking change included. This
+paragraph is removed when adoption begins.
 
 Before submitting, please confirm:
 - You've read CONTRIBUTING.md
