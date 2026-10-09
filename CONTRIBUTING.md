@@ -291,28 +291,23 @@ The Changes section is optional for small single-file PRs where the description
 already covers everything. For any PR touching multiple files or making several
 discrete changes, fill it in.
 
-### Branches for Code Changes
-
-| Branch   | Purpose                                                                                            |
-| -------- | -------------------------------------------------------------------------------------------------- |
-| `master` | Active development branch, open for backwards incompatible changes and major internal API changes. |
-| `??.x`   | Version maintenance branches. Open for bug fixes only.                                             |
-
 ### Which Branch to Target
 
-Choosing the right base branch depends on the type of change:
+Warning: a pull request opened against `master` today lands on the wrong branch.
+Valkyrja has no users yet, so the current-year `??.x` branch takes every change,
+including a new feature, a deprecation and a breaking change. For the rule that
+suspends the table below, see [VERSIONING.md][versioning url].
 
-| Change type     | Target branch                                                                         |
-| --------------- | ------------------------------------------------------------------------------------- |
-| Improvement     | Lowest major affected `??.x` branch                                                   |
-| Bug fix         | Lowest major affected `??.x` branch                                                   |
-| New feature     | `master`                                                                              |
-| Deprecation     | `master`                                                                              |
-| Breaking change | `master` — unless it's a bug fix, in which case please open an issue to discuss first |
-| Documentation   | Lowest major affected branch the docs apply to                                        |
+The table returns when adoption grows. It does not apply today:
 
-If you're unsure which branch to target, open an issue first or target `master`
-and a maintainer will redirect the PR if needed.
+| Change type     | Target branch                                          |
+| --------------- | ------------------------------------------------------ |
+| Improvement     | Lowest major affected `??.x` branch                    |
+| Bug fix         | Lowest major affected `??.x` branch                    |
+| New feature     | `master`                                               |
+| Deprecation     | `master`                                               |
+| Breaking change | `master`, unless it is a bug fix, which needs an issue |
+| Documentation   | Lowest major affected branch the docs apply to         |
 
 ## Getting Help
 
