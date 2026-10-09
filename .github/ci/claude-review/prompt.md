@@ -78,7 +78,7 @@ advisory too, except a branch that no test reaches, which blocks.
 An advisory finding is real but not wrong today: a risk the change
 leaves open, or a gap the author may take or leave. Raise one only when
 it names that concrete risk or gap. Drop a finding whose only reason is
-taste, consistency, or a better wording.
+taste, consistency of style, or a better wording.
 
 Warning: you cannot run the test suite, the coverage report, or any
 other CI tool. You can only read the source. So never state a coverage
