@@ -48,6 +48,7 @@ fi
 
 POLL_SECONDS=15
 DEADLINE=$(( ${RUN_TIMEOUT_MINUTES:-12} * 60 ))
+SETTLE_SECONDS=120
 
 # Two independent conditions decide whether the dispatch below succeeds, and both have to be
 # asked. `gh workflow run` resolves the workflow against the repository's registered workflows,
@@ -94,6 +95,41 @@ find_run() {
     --limit 20 --json databaseId,createdAt \
     --jq "[.[] | select(.createdAt >= \"$SINCE\")] | sort_by(.createdAt) | last | .databaseId // empty" \
     2>/dev/null
+}
+
+# The run's state as `<status>|<conclusion>`, or the empty string when the read fails.
+#
+# Warning: GitHub can leave a run `in_progress` for an hour or more after its last job finished.
+# A run whose every job completed at least SETTLE_SECONDS ago therefore takes its result from the
+# jobs. The settle time covers a matrix that GitHub expands only when an earlier job finishes.
+run_status() {
+  local run_id="$1"
+  local status derived
+
+  status=$(gh run view "$run_id" --repo "$ORG/$REPO" --json status,conclusion \
+    --jq '"\(.status)|\(.conclusion // "")"' 2>/dev/null || true)
+
+  if [[ -z "$status" ]] || [[ "$status" == completed\|* ]]; then
+    printf '%s' "$status"
+    return 0
+  fi
+
+  # Warning: read the exit status. `gh api --jq` leaves an error body unfiltered, so a failed
+  # read would hand the caller an error body instead of a status.
+  if derived=$(gh api "repos/$ORG/$REPO/actions/runs/$run_id/jobs?per_page=100" --jq "
+    .jobs as \$jobs
+    | if (\$jobs | length) == 0 or .total_count > (\$jobs | length)
+        or any(\$jobs[]; .status != \"completed\")
+        or (now - ([\$jobs[].completed_at] | max | fromdateiso8601)) < $SETTLE_SECONDS
+      then \"$status\"
+      elif all(\$jobs[]; .conclusion == \"skipped\") then \"completed|skipped\"
+      else \"completed|\" + (first(\$jobs[] | .conclusion // \"unknown\"
+        | select(. != \"success\" and . != \"skipped\" and . != \"neutral\")) // \"success\")
+      end" 2>/dev/null); then
+    printf '%s' "$derived"
+  else
+    printf '%s' "$status"
+  fi
 }
 
 # A workflow_dispatch triggered with GITHUB_TOKEN creates no run, so this
@@ -170,8 +206,7 @@ while [[ "$(( $(date +%s) - STARTED_AT ))" -lt "$DEADLINE" ]]; do
   fi
 
   if [[ -n "$RUN_ID" ]]; then
-    STATUS=$(gh run view "$RUN_ID" --repo "$ORG/$REPO" --json status,conclusion \
-      --jq '"\(.status)|\(.conclusion // "")"' 2>/dev/null || true)
+    STATUS=$(run_status "$RUN_ID")
 
     case "$STATUS" in
       completed\|success)

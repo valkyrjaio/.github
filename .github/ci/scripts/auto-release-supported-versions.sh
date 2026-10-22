@@ -74,6 +74,7 @@ if [[ -z "$APP_ID" ]] || [[ -z "$APP_PRIVATE_KEY" ]]; then
 fi
 
 POLL_SECONDS=20
+SETTLE_SECONDS=120
 STAGE_TIMEOUT=$((STAGE_TIMEOUT_MINUTES * 60))
 
 # The sweep authenticates as the GitHub App, and it mints the installation
@@ -212,6 +213,41 @@ cohort_of() {
 
 now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
+# The run's state as `<status>|<conclusion>`, or the empty string when the read fails.
+#
+# Warning: GitHub can leave a run `in_progress` for an hour or more after its last job finished.
+# A run whose every job completed at least SETTLE_SECONDS ago therefore takes its result from the
+# jobs. The settle time covers a matrix that GitHub expands only when an earlier job finishes.
+run_status() {
+  local repo="$1" run_id="$2"
+  local status derived
+
+  status=$(gh run view "$run_id" --repo "$ORG/$repo" --json status,conclusion \
+    --jq '"\(.status)|\(.conclusion // "")"' 2>/dev/null || true)
+
+  if [[ -z "$status" ]] || [[ "$status" == completed\|* ]]; then
+    printf '%s' "$status"
+    return 0
+  fi
+
+  # Warning: read the exit status. `gh api --jq` leaves an error body unfiltered, so a failed
+  # read would hand the caller an error body instead of a status.
+  if derived=$(gh api "repos/$ORG/$repo/actions/runs/$run_id/jobs?per_page=100" --jq "
+    .jobs as \$jobs
+    | if (\$jobs | length) == 0 or .total_count > (\$jobs | length)
+        or any(\$jobs[]; .status != \"completed\")
+        or (now - ([\$jobs[].completed_at] | max | fromdateiso8601)) < $SETTLE_SECONDS
+      then \"$status\"
+      elif all(\$jobs[]; .conclusion == \"skipped\") then \"completed|skipped\"
+      else \"completed|\" + (first(\$jobs[] | .conclusion // \"unknown\"
+        | select(. != \"success\" and . != \"skipped\" and . != \"neutral\")) // \"success\")
+      end" 2>/dev/null); then
+    printf '%s' "$derived"
+  else
+    printf '%s' "$status"
+  fi
+}
+
 # Wait for the run this sweep just started. `gh workflow run` does not
 # report a run id, so the run is the newest one on that workflow and
 # branch created at or after the dispatch. Both timestamps are UTC in
@@ -237,8 +273,7 @@ wait_for_dispatch() {
     fi
 
     if [[ -n "$run_id" ]]; then
-      status=$(gh run view "$run_id" --repo "$ORG/$repo" --json status,conclusion \
-        --jq '"\(.status)|\(.conclusion // "")"' 2>/dev/null || true)
+      status=$(run_status "$repo" "$run_id")
       case "$status" in
         completed\|*) echo "${status#completed|}"; return 0 ;;
         *) ;;
