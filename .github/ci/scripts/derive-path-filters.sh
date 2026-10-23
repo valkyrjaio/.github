@@ -18,6 +18,10 @@
 # base-branch CI directory is restored, and `files` whether the expensive steps
 # run at all.
 #
+# A spec with no source glob matches only a change to the CI config. A pull
+# request that changes sources alone would then skip every expensive step and
+# report success. The script fails when no line holds a glob.
+#
 # Reads CI_DIR, SOURCE_PATHS, and GITHUB_OUTPUT from the environment.
 # ADDITIONAL_DIR is optional, and a workflow that takes no
 # `additional-directory` input leaves it unset.
@@ -43,19 +47,28 @@ CONFIG=$(
   printf "  - '.github/workflows/ci.yml'\n"
 )
 
-{
-  echo 'spec<<PATH_FILTERS_EOF'
-  echo 'ci:'
-  printf '%s\n' "$CONFIG"
-  echo 'files:'
-  printf '%s\n' "$CONFIG"
+GLOBS=$(
   printf '%s\n' "$SOURCE_PATHS" | while IFS= read -r glob; do
-    glob=$(printf '%s' "$glob" | tr -d "\"' " )
+    glob=$(printf '%s' "$glob" | tr -d "\"'[:space:]")
     # `&& printf` would make an empty line the last command and, under `bash -e`,
     # fail the step. `source-paths` is a block scalar so it always ends in one.
     if [[ -n "$glob" ]]; then
       printf "  - '%s'\n" "$glob"
     fi
   done
+)
+
+if [[ -z "$GLOBS" ]]; then
+  echo 'SOURCE_PATHS holds no glob. Give source-paths at least one line that holds a glob.' >&2
+  exit 1
+fi
+
+{
+  echo 'spec<<PATH_FILTERS_EOF'
+  echo 'ci:'
+  printf '%s\n' "$CONFIG"
+  echo 'files:'
+  printf '%s\n' "$CONFIG"
+  printf '%s\n' "$GLOBS"
   echo 'PATH_FILTERS_EOF'
 } >> "$GITHUB_OUTPUT"
