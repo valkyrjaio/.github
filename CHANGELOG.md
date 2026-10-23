@@ -1,6 +1,11 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.26.2...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.26.3...26.x)
+
+## [v26.26.3](https://github.com/valkyrjaio/.github/compare/v26.26.2...v26.26.3) - 2026-10-23
+
+* [Workflow] fix: Read the jobs when a run's status lags by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/354
+* [Workflow] refactor: Share the path filter derivation by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/355
 
 ## [v26.26.2](https://github.com/valkyrjaio/.github/compare/v26.26.1...v26.26.2) - 2026-10-09
 
