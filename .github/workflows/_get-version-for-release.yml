@@ -61,7 +61,6 @@ jobs:
           GH_TOKEN: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
           BUMP: ${{ inputs.bump }}
           BRANCH: ${{ github.ref_name }}
-          LATEST_MAJOR_VERSION: ${{ vars.LATEST_MAJOR_VERSION }}
           SUPPORTED_VERSIONS: ${{ vars.SUPPORTED_VERSIONS }}
         run: dot-github/.github/ci/scripts/compute-release-version.sh
 
