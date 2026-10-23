@@ -225,6 +225,11 @@ A run the wait phase never reached is a failure rather than a skip. Once
 `stage-timeout-minutes` is spent the script reports the remaining runs as
 `unwatched`, an outcome nobody read rather than one that is probably fine.
 
+Warning: GitHub can report a run as `in_progress` for an hour or more after its
+last job finished. The script therefore reads the jobs of a run that is still
+open. When every job finished at least two minutes ago, the jobs give the
+outcome.
+
 The job summary counts what the slot dispatched, skipped and failed, and names
 the repositories and branches worth acting on.
 
@@ -262,6 +267,9 @@ language release, before the outdated-dependency gate. It dispatches the
 repository's own `update-dependencies.yml`, waits for that run, then merges the
 pull request it opens once every required check passes. The gate then reads a
 branch that already carries the bump.
+
+A run that GitHub still reports as `in_progress` takes its outcome from its
+jobs, once every job has finished at least two minutes ago.
 
 A registry publishes at any hour. A refresh on its own schedule leaves a window
 between itself and the release, and a package published inside that window
