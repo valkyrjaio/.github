@@ -1,6 +1,10 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.26.3...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.26.4...26.x)
+
+## [v26.26.4](https://github.com/valkyrjaio/.github/compare/v26.26.3...v26.26.4) - 2026-10-24
+
+* [Workflow] fix: Reject a source-paths that holds no glob by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/356
 
 ## [v26.26.3](https://github.com/valkyrjaio/.github/compare/v26.26.2...v26.26.3) - 2026-10-23
 
