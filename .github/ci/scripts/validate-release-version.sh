@@ -31,13 +31,14 @@ set -euo pipefail
 SUPPORTED_VERSIONS="${SUPPORTED_VERSIONS:-}"
 
 # RC versions have their own format; skip standard semver checks
-if [[ "$VERSION" =~ ^[0-9]+\.0\.0-RC[0-9]+$ ]]; then
+if [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.0\.0-RC[1-9][0-9]*$ ]]; then
   echo "RC version v$VERSION passed format check."
   exit 0
 fi
 
-# Verify semver format
-if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+# Verify semver format. Semver forbids a leading zero, so `[0-9]+` would accept
+# `26.08.1`, which names a different tag from `26.8.1`.
+if ! [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
   echo "Computed version '$VERSION' is not valid semver. Aborting."
   exit 1
 fi
