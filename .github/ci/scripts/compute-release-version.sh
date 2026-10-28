@@ -87,6 +87,14 @@ if [[ "$BUMP" = "rc" ]]; then
     | sort -n \
     | tail -1 || echo "0")
 
+  # `sort -n` reads a padded RC number at its numeric value, so a padded release
+  # wins only by being the highest. `$(( ))` then reads the padding as octal.
+  if [[ "$LATEST_RC" =~ ^0[0-9]+$ ]]; then
+    echo "Latest prerelease v${NEXT_MAJOR}.0.0-RC${LATEST_RC} carries a leading zero."
+    echo "Delete that release before creating another RC. Aborting."
+    exit 1
+  fi
+
   NEXT_RC=$((LATEST_RC + 1))
   NEW_VERSION="${NEXT_MAJOR}.0.0-RC${NEXT_RC}"
 
