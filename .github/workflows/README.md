@@ -393,6 +393,9 @@ package is not resolvable yet, so nothing may release against it.
 `_get-version-for-release` enforces:
 
 - Branch must be `master` for `rc`; must be `??.x` for all other bump types.
+- Latest release and prerelease must carry no leading zero in a version
+  component or RC number. The computation reads those values to derive the
+  version it publishes.
 - Computed version must match expected semver structure for the bump type
   (`yearly` → `X.0.0`, `feature` → `X.Y.0`). `auto` is exempt because it has
   already resolved to `feature` or `patch` by then.

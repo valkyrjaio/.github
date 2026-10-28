@@ -87,6 +87,14 @@ if [[ "$BUMP" = "rc" ]]; then
     | sort -n \
     | tail -1 || echo "0")
 
+  # `sort -n` reads a padded RC number at its numeric value, so a padded release
+  # wins only by being the highest. `$(( ))` then reads the padding as octal.
+  if [[ "$LATEST_RC" =~ ^0[0-9]+$ ]]; then
+    echo "Latest prerelease v${NEXT_MAJOR}.0.0-RC${LATEST_RC} carries a leading zero."
+    echo "Delete that release before creating another RC. Aborting."
+    exit 1
+  fi
+
   NEXT_RC=$((LATEST_RC + 1))
   NEW_VERSION="${NEXT_MAJOR}.0.0-RC${NEXT_RC}"
 
@@ -125,6 +133,14 @@ LATEST_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagN
   | sort -V \
   | tail -1 \
   || echo "")
+
+# `sort -V` reads a padded component at its numeric value, so a padded tag wins
+# only by being the highest. The components below then carry the padding.
+if [[ "$LATEST_TAG" =~ ^v[0-9]+\.(0[0-9]+\.[0-9]+|[0-9]+\.0[0-9]+)$ ]]; then
+  echo "Latest release $LATEST_TAG carries a leading zero in a version component."
+  echo "Delete that release before releasing from v${BRANCH_MAJOR}.x. Aborting."
+  exit 1
+fi
 
 if [[ -z "$LATEST_TAG" ]]; then
   echo "No existing releases found for v${BRANCH_MAJOR}.x. Releasing v${BRANCH_MAJOR}.0.0"
