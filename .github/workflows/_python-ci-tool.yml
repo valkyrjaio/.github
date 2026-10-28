@@ -103,6 +103,10 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          # The CI code checkout below reads the commit where the branch left the
+          # target, which a shallow clone does not hold.
+          fetch-depth: 0
 
       - name: Checkout the CI actions
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -129,11 +133,8 @@ jobs:
         if: steps.changes.outputs.ci != 'true' && github.base_ref
         env:
           REF: ${{ github.base_ref }}
-          CI_DIR: ${{ steps.tool.outputs.ci-directory }}
-        run: |
-          echo "Using CI code from $REF"
-          git fetch origin "$REF"
-          git checkout origin/"$REF" -- "$CI_DIR"
+          CI_PATHS: ${{ steps.tool.outputs.ci-directory }}
+        run: dot-github/.github/ci/scripts/checkout-ci-code.sh
 
       - name: Setup uv
         if: steps.changes.outputs.files == 'true'
