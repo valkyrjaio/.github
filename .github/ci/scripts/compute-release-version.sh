@@ -126,6 +126,14 @@ LATEST_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagN
   | tail -1 \
   || echo "")
 
+# `sort -V` reads a padded component at its numeric value, so a padded tag wins
+# only by being the highest. The components below then carry the padding.
+if [[ "$LATEST_TAG" =~ ^v[0-9]+\.(0[0-9]+\.[0-9]+|[0-9]+\.0[0-9]+)$ ]]; then
+  echo "Latest release $LATEST_TAG carries a leading zero in a version component."
+  echo "Delete that release before releasing from v${BRANCH_MAJOR}.x. Aborting."
+  exit 1
+fi
+
 if [[ -z "$LATEST_TAG" ]]; then
   echo "No existing releases found for v${BRANCH_MAJOR}.x. Releasing v${BRANCH_MAJOR}.0.0"
   echo "version=${BRANCH_MAJOR}.0.0" >> "$GITHUB_OUTPUT"
