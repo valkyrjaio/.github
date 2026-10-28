@@ -555,8 +555,9 @@ python3 "$SCRIPT_DIR/merge_ci_jobs.py" "$existing_file" "$template_file"
 ```
 
 Warning: a script cannot assume the working directory is its own. A `run:` step starts in the
-workspace root, and a workflow may check this repository out under a path such as `dot-github`.
-Derive the directory from `BASH_SOURCE`, so the sibling is reachable from either one.
+workspace root unless it sets `working-directory`, and a workflow may check this repository out
+under a path such as `dot-github`. Derive the directory from `BASH_SOURCE`, so the sibling is
+reachable from either one.
 
 The caller decides which case a workflow is in, and each case carries two forms:
 
@@ -752,13 +753,19 @@ polls for several minutes then looks identical to a job that is stuck. `run-scri
 `outcome` and `report-markdown` for a caller that posts a comment and decides the result itself.
 
 The exit status decides nothing. `run-script` ends with the status of the script. A gate fails its
-own job through the action as surely as it does from a `run:` block. One constraint and three
+own job through the action as surely as it does from a `run:` block. Two constraints and three
 preferences decide the form instead.
 
-The constraint takes the direct form:
+Each constraint takes the direct form:
 
 - **The step gives the job another value.** The script writes the value to `$GITHUB_OUTPUT`, and the
   action forwards no output of its own. No workflow works around this one.
+- **The step sets `working-directory`.** `run-script` is reached with `uses:`, it declares no
+  `working-directory` input, and the step key governs a `run:` step, so there is no way to give the
+  action one. A relative path would resolve against the working directory, so the step names the
+  script absolutely: `'"$GITHUB_WORKSPACE/.github/ci/scripts/<name>.sh"'`, and
+  `'"$GITHUB_WORKSPACE/dot-github/.github/ci/scripts/<name>.sh"'` when a consumer repository calls
+  the workflow.
 
 Three preferences remain. The first takes the direct form, and the other two take the action:
 
@@ -777,10 +784,11 @@ property no context holds evaluates to an empty string. `actions/checkout` reads
 the default branch. The job then runs the script from an unpinned commit, and it reports success.
 `expected-ref` fails the step on that.
 
-A step that matches the constraint and a preference at once takes the direct form. No workflow works
-around the constraint. That step accepts the weaker guarantee, and the job's own pinned checkout is
-what it has. The steps that run `checkout-existing-pr-branch.sh`, `read-review-prompt.sh`,
-`read-review-verdict.sh`, `derive-path-filters.sh`, and `compute-release-version.sh` are that shape.
+A step that matches a constraint and a preference at once takes the direct form. No workflow works
+around either constraint. That step accepts the weaker guarantee, and the job's own pinned checkout
+is what it has. The steps that run `checkout-existing-pr-branch.sh`, `read-review-prompt.sh`,
+`read-review-verdict.sh`, `derive-path-filters.sh`, `compute-release-version.sh`, and
+`check-outdated-go-dependencies.sh` are that shape.
 `derive-path-filters.sh` writes the spec that gates the expensive steps of a job. Every workflow
 with a path filter carries that step. `compute-release-version.sh` writes the version that a release
 publishes.
