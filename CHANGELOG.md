@@ -1,6 +1,12 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.26.4...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.26.5...26.x)
+
+## [v26.26.5](https://github.com/valkyrjaio/.github/compare/v26.26.4...v26.26.5) - 2026-10-28
+
+* [Workflow] refactor: Extract the release version scripts by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/357
+* [Workflow] fix: Reject a leading zero in the computed release version by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/358
+* [Workflow] fix: Refuse a release computed from a padded tag or prerelease by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/360
 
 ## [v26.26.4](https://github.com/valkyrjaio/.github/compare/v26.26.3...v26.26.4) - 2026-10-24
 
