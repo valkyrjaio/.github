@@ -1,6 +1,12 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.26.5...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.26.6...26.x)
+
+## [v26.26.6](https://github.com/valkyrjaio/.github/compare/v26.26.5...v26.26.6) - 2026-11-17
+
+* [Workflow] refactor: Extract the outdated Go dependency check by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/361
+* [Workflow] fix: Keep the CI code a branch carries, which a stack inherits by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/359
+* [Workflow] refactor: Extract the outdated PHP dependency check by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/362
 
 ## [v26.26.5](https://github.com/valkyrjaio/.github/compare/v26.26.4...v26.26.5) - 2026-10-28
 
