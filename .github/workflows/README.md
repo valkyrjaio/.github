@@ -787,8 +787,8 @@ the default branch. The job then runs the script from an unpinned commit, and it
 A step that matches a constraint and a preference at once takes the direct form. No workflow works
 around either constraint. That step accepts the weaker guarantee, and the job's own pinned checkout
 is what it has. The steps that run `checkout-existing-pr-branch.sh`, `read-review-prompt.sh`,
-`read-review-verdict.sh`, `derive-path-filters.sh`, `compute-release-version.sh`, and
-`check-outdated-go-dependencies.sh` are that shape.
+`read-review-verdict.sh`, `derive-path-filters.sh`, `compute-release-version.sh`,
+`check-outdated-go-dependencies.sh`, and `check-outdated-java-dependencies.sh` are that shape.
 `derive-path-filters.sh` writes the spec that gates the expensive steps of a job. Every workflow
 with a path filter carries that step. `compute-release-version.sh` writes the version that a release
 publishes.
