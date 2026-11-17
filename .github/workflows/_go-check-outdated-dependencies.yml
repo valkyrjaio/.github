@@ -32,6 +32,13 @@ jobs:
           # the commit from before that merge and report the bump as still outstanding.
           ref: ${{ github.ref_name }}
 
+      - name: Checkout the CI actions
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          repository: valkyrjaio/.github
+          ref: ${{ job.workflow_sha }}
+          path: dot-github
+
       - name: Setup Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
@@ -47,36 +54,4 @@ jobs:
           # The two must resolve versions the same way, or this check disagrees
           # with the updater.
           GONOPROXY: github.com/valkyrjaio/*
-        run: |
-          # Rather than interpreting `go list -u -m` output, this performs the very
-          # same upgrade `_go-update-dependencies.yml` would perform and then asks
-          # git whether anything moved. The check therefore can never disagree with
-          # the workflow that does the updating. Nothing is committed — this runs on
-          # a throwaway CI checkout.
-          if grep -qE '^tool[ (]' go.mod; then
-            # Tool module: it declares no packages of its own, so ./... matches
-            # nothing. The `tool` meta-pattern upgrades every declared tool instead.
-            # No `-u` here, matching `_go-update-dependencies.yml` — the tool moves
-            # to its latest release and MVS resolves its dependencies from that
-            # release's go.mod, so this check can never report a tool module as
-            # outdated in a way the updater would not actually produce.
-            go get tool
-          elif find . -name '*.go' -not -path '*/vendor/*' | head -1 | grep -q .; then
-            go get -u ./...
-          else
-            echo "$NAME has no Go packages and no tool directive; checking tidiness only."
-          fi
-
-          go mod tidy
-
-          # Scoped to this dependency's own directory so a matrix leg only ever
-          # reports on the module it was asked to check.
-          if ! git diff --quiet -- .; then
-            echo ""
-            echo "Outdated dependencies found in $NAME! Update all dependencies before releasing."
-            echo ""
-            git --no-pager diff -- go.mod
-            exit 1
-          fi
-
-          echo "All $NAME dependencies are up to date."
+        run: '"$GITHUB_WORKSPACE/dot-github/.github/ci/scripts/check-outdated-go-dependencies.sh"'
