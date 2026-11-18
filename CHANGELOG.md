@@ -1,6 +1,10 @@
 # Release Notes for 26.x
 
-## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.26.6...26.x)
+## [Unreleased](https://github.com/valkyrjaio/.github/compare/v26.26.7...26.x)
+
+## [v26.26.7](https://github.com/valkyrjaio/.github/compare/v26.26.6...v26.26.7) - 2026-11-18
+
+* [Workflow] refactor: Extract the outdated Java dependency check by [@MelechMizrachi](https://github.com/MelechMizrachi) in https://github.com/valkyrjaio/.github/pull/363
 
 ## [v26.26.6](https://github.com/valkyrjaio/.github/compare/v26.26.5...v26.26.6) - 2026-11-17
 
